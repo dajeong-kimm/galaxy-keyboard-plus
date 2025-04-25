@@ -114,6 +114,15 @@ const SERVER_DEFS = [
         : "mcp-server-filesystem",
     allowedDir: process.cwd(), // 루트 디렉터리 기본값
   },
+    {
+       id: "notion",
+        name: "Notion",
+        bin:
+          process.platform === "win32"
+            ? "mcp-server-notion.cmd"
+            : "mcp-server-notion",    // package.json bin으로 연결
+        allowedDir: process.cwd()   // 특별한 디렉터리 제한 불필요
+      },
 ];
 
 /* ───────────── 1. 런타임 상태 ───────────── */
