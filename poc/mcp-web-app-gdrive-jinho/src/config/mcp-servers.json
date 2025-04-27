@@ -1,6 +1,17 @@
-
 [
-    { "id":"fs", "bin":"mcp-server-filesystem", "needsAuth":false, "args":["."] },
-    { "id":"gdrive", "bin":"mcp-server-gdrive", "needsAuth":true,  "args":[]  }
-  ]
-  
+  { 
+    "id": "fs", 
+    "bin": "mcp-server-filesystem", 
+    "needsAuth": false, 
+    "args": ["."] 
+  },
+  { 
+    "id": "gdrive", 
+    "bin": "mcp-server-gdrive", 
+    "needsAuth": true,  
+    "args": [],
+    "env": {
+      "GDRIVE_OAUTH_PATH": "./oauth/gcp-oauth.keys.json"
+    }
+  }
+]

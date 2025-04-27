@@ -90,43 +90,43 @@
         font-weight: 700;
         color: #3b2f29;
       }
-#chat {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%; /* 💡 추가 */
-}
+      #chat {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%; /* 💡 추가 */
+      }
 
-/* 공통 메시지 스타일 */
-.message {
-  max-width: 70%;
-  padding: 10px 16px;
-  border-radius: 14px;
-  line-height: 1.5;
-  word-break: break-word;
-  white-space: pre-wrap;
-  font-size: 15px;
-}
+      /* 공통 메시지 스타일 */
+      .message {
+        max-width: 70%;
+        padding: 10px 16px;
+        border-radius: 14px;
+        line-height: 1.5;
+        word-break: break-word;
+        white-space: pre-wrap;
+        font-size: 15px;
+      }
 
-/* 사용자 말풍선 (오른쪽 정렬) */
-.message.user {
-  align-self: flex-end;
-  background-color: #b89585;
-  color: #3f3f3f;
-  border-top-right-radius: 4px; /* 오른쪽 위 모서리만 살짝 각지게 */
-}
+      /* 사용자 말풍선 (오른쪽 정렬) */
+      .message.user {
+        align-self: flex-end;
+        background-color: #b89585;
+        color: #3f3f3f;
+        border-top-right-radius: 4px; /* 오른쪽 위 모서리만 살짝 각지게 */
+      }
 
-/* 어시스턴트 말풍선 (왼쪽 정렬) */
-.message.assistant {
-  align-self: flex-start;
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  color: #333;
-  border-bottom-left-radius: 4px; /* 왼쪽 아래만 살짝 각지게 */
-}
+      /* 어시스턴트 말풍선 (왼쪽 정렬) */
+      .message.assistant {
+        align-self: flex-start;
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        color: #333;
+        border-bottom-left-radius: 4px; /* 왼쪽 아래만 살짝 각지게 */
+      }
 
 
       .input-area {
@@ -137,6 +137,7 @@
         padding: 16px 20px;
         width: 640px;
         box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
       }
 
       #input {
@@ -168,27 +169,64 @@
         cursor: default;
       }
       .input-area #selectBtn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  margin-left: 8px;
-  color: #7c5d4c;
-  padding: 4px;
-  transition: transform 0.1s ease-in-out;
-}
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        margin-left: 8px;
+        color: #7c5d4c;
+        padding: 4px;
+        transition: transform 0.1s ease-in-out;
+      }
 
-.input-area #selectBtn:hover {
-  transform: scale(1.1);
-}
+      .input-area #selectBtn:hover {
+        transform: scale(1.1);
+      }
 
-/* 선택된 경로를 작게 표시 */
-#pathDisplay {
-  font-size: 12px;
-  color: #888;
-  margin-top: 8px;
-  text-align: center;
-}
+      /* 선택된 경로를 작게 표시 */
+      #pathDisplay {
+        font-size: 12px;
+        color: #888;
+        margin-top: 8px;
+        text-align: center;
+      }
+      
+      /* 상태 메시지 스타일 */
+      .status-message {
+        padding: 8px 12px;
+        margin: 10px 0;
+        border-radius: 4px;
+        background-color: #f0f0f0;
+        color: #666;
+        text-align: center;
+        font-size: 14px;
+      }
+      
+      .status-message.error {
+        background-color: #fff0f0;
+        color: #d32f2f;
+      }
+      
+      .status-message.success {
+        background-color: #f0fff0;
+        color: #388e3c;
+      }
+      
+      /* 재시작 버튼 */
+      #restartBtn {
+        margin-top: 10px;
+        background-color: #4a6da7;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      
+      #restartBtn:hover {
+        background-color: #3a5d97;
+      }
     </style>
   </head>
   <body>
@@ -204,6 +242,13 @@
     </div>
     <div class="main">
       <h2>Moca가 도와드릴게요</h2>
+      
+      <!-- 상태 메시지 추가 -->
+      <div id="statusArea"></div>
+      
+      <!-- MCP 서버 재시작 버튼 -->
+      <button id="restartBtn" style="display: none;">MCP 서버 재시작</button>
+      
       <!-- Main -->
       <div id="chat"></div>
       <div class="input-area">
@@ -214,62 +259,164 @@
       <div id="pathDisplay">작업 디렉토리를 선택해주세요.</div>
     </div>
 
-    <script nonce="__NONCE__">
-      const chat = document.getElementById("chat");
-      const input = document.getElementById("input");
-      const sendBtn = document.getElementById("sendBtn");
-      const selectBtn = document.getElementById("selectBtn");
-      const pathDisplay = document.getElementById("pathDisplay");
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const chat = document.getElementById("chat");
+        const input = document.getElementById("input");
+        const sendBtn = document.getElementById("sendBtn");
+        const selectBtn = document.getElementById("selectBtn");
+        const pathDisplay = document.getElementById("pathDisplay");
+        const statusArea = document.getElementById("statusArea");
+        const restartBtn = document.getElementById("restartBtn");
+        
+        let projectPath = null;
 
-      /* 폴더 선택 */
-      selectBtn.addEventListener("click", async () => {
-        const path = await window.api.selectProjectFolder();
-        if (path) {
-          window.projectPath = path;
-          pathDisplay.textContent = path;
-          sendBtn.disabled = !input.value.trim();
+        // 상태 메시지 표시 함수
+        function showStatus(message, type = 'info') {
+          const statusMsg = document.createElement('div');
+          statusMsg.className = `status-message ${type}`;
+          statusMsg.textContent = message;
+          statusArea.appendChild(statusMsg);
+          
+          // 3초 후 자동 제거
+          setTimeout(() => {
+            statusMsg.remove();
+          }, 5000);
         }
-      });
+        
+        // 서버 재시작 버튼 클릭 이벤트
+        restartBtn.addEventListener("click", async () => {
+          restartBtn.disabled = true;
+          restartBtn.textContent = "재시작 중...";
+          
+          try {
+            const result = await window.mcpApi.restartServers();
+            if (result.success) {
+              showStatus(result.message, 'success');
+            } else {
+              showStatus(`재시작 실패: ${result.error}`, 'error');
+            }
+          } catch (error) {
+            showStatus(`재시작 오류: ${error.message}`, 'error');
+          } finally {
+            restartBtn.disabled = false;
+            restartBtn.textContent = "MCP 서버 재시작";
+          }
+        });
 
-      /* 입력 체크 + height auto-grow */
-      input.addEventListener("input", () => {
-        sendBtn.disabled = !input.value.trim() || !window.projectPath;
-        input.style.height = "auto";
-        input.style.height = input.scrollHeight + "px";
-      });
-
-      const appendMsg = (text, role) => {
-        const el = document.createElement("div");
-        el.className = `message ${role}`;
-        el.textContent = text;
-        chat.appendChild(el);
-        chat.scrollTop = chat.scrollHeight;
-      };
-
-      sendBtn.addEventListener("click", async () => {
-        const text = input.value.trim();
-        if (!text) return;
-        appendMsg(text, "user");
-        input.value = "";
-        input.dispatchEvent(new Event("input"));
-
-        appendMsg("…thinking…", "assistant"); // 로딩 표시
-        const loadingEl = chat.lastChild;
-
-        const res = await window.api.sendCommand(text);
-
-        loadingEl.remove();
-        if (res.error) {
-          appendMsg(`⚠️ ${res.error}`, "assistant");
+        // 이벤트 리스너 등록
+        if (window.mcpApi) {
+          window.mcpApi.onAuthStatus(message => {
+            showStatus(message, 'info');
+          });
+          
+          window.mcpApi.onAuthError(error => {
+            showStatus(error, 'error');
+            restartBtn.style.display = 'block';
+          });
+          
+          window.mcpApi.onServersReady(message => {
+            showStatus(message, 'success');
+          });
+          
+          window.mcpApi.onServerError(error => {
+            showStatus(error, 'error');
+            restartBtn.style.display = 'block';
+          });
         } else {
-          const content =
-            typeof res.result === "string"
-              ? res.result
-              : JSON.stringify(res.result, null, 2);
-          appendMsg(content, "assistant");
+          showStatus('mcpApi를 찾을 수 없습니다. preload.js 파일을 확인하세요.', 'error');
         }
+
+        // 폴더 선택 이벤트
+        selectBtn.addEventListener("click", async () => {
+          try {
+            if (!window.mcpApi || !window.mcpApi.selectFolder) {
+              showStatus('selectFolder 함수를 찾을 수 없습니다.', 'error');
+              return;
+            }
+            
+            const path = await window.mcpApi.selectFolder();
+            if (path) {
+              projectPath = path;
+              pathDisplay.textContent = path;
+              sendBtn.disabled = !input.value.trim();
+              showStatus(`폴더 선택됨: ${path}`, 'success');
+            }
+          } catch (error) {
+            showStatus(`폴더 선택 오류: ${error.message}`, 'error');
+          }
+        });
+
+        // 입력 체크 및 텍스트 영역 자동 크기 조절
+        input.addEventListener("input", () => {
+          // 입력이 있을 때만 버튼 활성화 (폴더 선택 필요 없음)
+          sendBtn.disabled = !input.value.trim();
+          input.style.height = "auto";
+          input.style.height = input.scrollHeight + "px";
+        });
+
+        // 메시지 추가 함수
+        const appendMsg = (text, role) => {
+          const el = document.createElement("div");
+          el.className = `message ${role}`;
+          el.textContent = text;
+          chat.appendChild(el);
+          chat.scrollTop = chat.scrollHeight;
+          return el;
+        };
+
+        // 보내기 버튼 클릭 이벤트
+        sendBtn.addEventListener("click", async () => {
+          const text = input.value.trim();
+          if (!text) return;
+          
+          appendMsg(text, "user");
+          input.value = "";
+          input.dispatchEvent(new Event("input"));
+          input.style.height = "auto";
+
+          // 로딩 표시
+          const loadingMsg = appendMsg("…thinking…", "assistant");
+
+          try {
+            if (!window.mcpApi || !window.mcpApi.runCommand) {
+              loadingMsg.remove();
+              showStatus('runCommand 함수를 찾을 수 없습니다.', 'error');
+              return;
+            }
+            
+            // 경로가 있는 경우에만 포함
+            const response = await window.mcpApi.runCommand(text);
+
+            // 로딩 메시지 제거
+            loadingMsg.remove();
+
+            if (response.error) {
+              appendMsg(`⚠️ ${response.error}`, "assistant");
+            } else {
+              const content = typeof response.result === "string"
+                ? response.result
+                : JSON.stringify(response.result, null, 2);
+              appendMsg(content, "assistant");
+            }
+          } catch (error) {
+            // 로딩 메시지 제거 및 오류 표시
+            loadingMsg.remove();
+            appendMsg(`⚠️ 오류가 발생했습니다: ${error.message}`, "assistant");
+            showStatus(`명령 실행 오류: ${error.message}`, 'error');
+          }
+        });
+
+        // 엔터키로 메시지 전송 기능
+        input.addEventListener("keypress", (event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            if (!sendBtn.disabled) {
+              sendBtn.click();
+            }
+          }
+        });
       });
     </script>
-
   </body>
 </html>

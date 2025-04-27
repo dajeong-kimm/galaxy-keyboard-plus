@@ -2,10 +2,9 @@
 require("dotenv").config();
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
-const { spawnAllServers } = require("./src/mcp/server-manager");
+const { spawnAllServers, selectProjectFolder } = require("./src/mcp/server-manager");
 const { runCommand } = require("./src/mcp/mcp-client");
-const { selectProjectFolder } = require("./src/mcp/server-manager");
-const { isAuthenticated, doGoogleOAuth, clearAuthentication, cleanup } = require("./src/auth/auth-manager");
+const { isAuthenticated, doGoogleOAuth, clearAuthentication, cleanup, convertOAuthForMCPServer } = require("./src/auth/auth-manager");
 
 // 메인 윈도우 참조 유지
 let mainWindow;
@@ -46,6 +45,9 @@ function createWindow() {
         mainWindow.webContents.send("auth-error", "Google 인증에 실패했습니다. 다시 시도해주세요.");
         return;
       }
+      
+      // MCP 서버용 OAuth 변환 확인
+      convertOAuthForMCPServer();
       
       // 2) 인증 성공 시 MCP 서버 시작
       try {
@@ -94,7 +96,7 @@ async function handleAuthentication() {
   }
 }
 
-// 프로젝트 폴더 선택 IPC 핸들러
+// 프로젝트 폴더 선택 IPC 핸들러 - select-folder로 변경
 ipcMain.handle("select-folder", async () => {
   try {
     return await selectProjectFolder();
@@ -104,7 +106,7 @@ ipcMain.handle("select-folder", async () => {
   }
 });
 
-// 명령 실행 IPC 핸들러
+// 명령 실행 IPC 핸들러 - run-command로 변경
 ipcMain.handle("run-command", async (_e, text) => {
   if (!text) {
     return { error: "명령을 입력하세요." };
@@ -128,6 +130,22 @@ ipcMain.handle("retry-auth", async () => {
   } catch (err) {
     console.error("인증 재시도 오류:", err);
     return false;
+  }
+});
+
+// 모든 MCP 서버 재시작 핸들러 (추가)
+ipcMain.handle("restart-servers", async () => {
+  try {
+    // 서버 종료
+    require("./src/mcp/server-manager").killAllServers();
+    // MCP 서버용 OAuth 변환 재시도
+    convertOAuthForMCPServer();
+    // 서버 다시 시작
+    await spawnAllServers();
+    return { success: true, message: "서버가 재시작되었습니다." };
+  } catch (err) {
+    console.error("서버 재시작 오류:", err);
+    return { success: false, error: err.message };
   }
 });
 
