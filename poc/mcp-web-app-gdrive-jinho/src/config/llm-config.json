@@ -1,0 +1,11 @@
+{
+    "openai": {
+      "apiKey": "your-openai-api-key",
+      "model": "gpt-4o"
+    },
+    "claude": {
+      "apiKey": "your-claude-api-key",
+      "model": "claude-3-sonnet"
+    }
+  }
+  

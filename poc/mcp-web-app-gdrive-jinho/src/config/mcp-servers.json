@@ -1,0 +1,6 @@
+
+[
+    { "id":"fs", "bin":"mcp-server-filesystem", "needsAuth":false, "args":["."] },
+    { "id":"gdrive", "bin":"mcp-server-gdrive", "needsAuth":true,  "args":[]  }
+  ]
+  
