@@ -1,0 +1,9 @@
+# OpenAI API 키 (ChatGPT 호출용)
+OPENAI_API_KEY=dd
+# Google OAuth 클라이언트 설정
+GOOGLE_CLIENT_ID=dd
+GOOGLE_CLIENT_SECRET=dd
+
+# Google OAuth Redirect URI
+# → 반드시 Cloud Console에 Authorized redirect URI로 등록한 값과 일치해야 합니다.
+GOOGLE_OAUTH_REDIRECT_URI=dd

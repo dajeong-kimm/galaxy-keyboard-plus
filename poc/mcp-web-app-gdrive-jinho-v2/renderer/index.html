@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
   <head>
-    <meta charset="UTF-8">
-    <!-- CSP: inline 허용 -->
+    <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Moca Chat</title>
     <style>
       * { box-sizing: border-box; }
@@ -117,7 +116,6 @@
       <h1>Moca</h1>
       <div class="menu">
         <button class="active">새 채팅방</button>
-        <!-- 구글 인증 버튼 -->
         <button id="authBtn">구글 인증</button>
       </div>
     </div>
@@ -129,16 +127,13 @@
         <button id="sendBtn" disabled>전송</button>
       </div>
     </div>
-  
     <script>
-      // window.api 에서 직접 뽑아 옵니다.
       const sendCommand = window.api.sendCommand;
       const googleAuth  = window.api.googleAuth;
-  
-      const chat   = document.getElementById("chat");
-      const input  = document.getElementById("input");
-      const sendBtn= document.getElementById("sendBtn");
-      const authBtn= document.getElementById("authBtn");
+      const chat    = document.getElementById("chat");
+      const input   = document.getElementById("input");
+      const sendBtn = document.getElementById("sendBtn");
+      const authBtn = document.getElementById("authBtn");
   
       function appendMsg(text, role) {
         const d = document.createElement("div");
@@ -156,21 +151,12 @@
         const txt = input.value.trim();
         if (!txt) return;
         appendMsg(txt, "user");
-        input.value = "";
-        sendBtn.disabled = true;
-  
+        input.value = ""; sendBtn.disabled = true;
         appendMsg("…thinking…", "assistant");
         const loader = chat.lastChild;
-  
         let res;
-        try {
-          res = await sendCommand(txt);
-        } catch {
-          loader.remove();
-          appendMsg("⚠️ 통신 오류", "assistant");
-          return;
-        }
-  
+        try { res = await sendCommand(txt); }
+        catch { loader.remove(); appendMsg("⚠️ 통신 오류", "assistant"); return; }
         loader.remove();
         if (res.error) appendMsg(`⚠️ ${res.error}`, "assistant");
         else appendMsg(res.result, "assistant");
@@ -178,8 +164,8 @@
   
       authBtn.addEventListener("click", async () => {
         authBtn.textContent = "인증중…";
-        const result = await googleAuth();
-        alert(result.message);
+        const r = await googleAuth();
+        alert(r.message);
         authBtn.textContent = "구글 인증";
       });
     </script>
