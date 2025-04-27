@@ -1,0 +1,39 @@
+{
+  "name": "mcp-web-app",
+  "version": "1.1.0",
+  "description": "Electron desktop wrapper around MCP servers (Filesystem & Google Drive)",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+  "@modelcontextprotocol/server-filesystem": "^2025.3.28",
+  "@modelcontextprotocol/server-gdrive": "^2025.1.14",
+  "axios": "^1.8.4",
+  "cross-spawn": "^7.0.6",
+  "dotenv": "^16.5.0",
+  "electron": "^35.2.0",
+  "portfinder": "^1.0.32",
+  "uuid": "^11.1.0",
+  "googleapis": "^120.0.0",
+  "keytar": "^7.9.0"
+},
+  "build": {
+    "appId": "com.mcp.webapp",
+    "productName": "MCP Desktop",
+    "asarUnpack": [
+      "node_modules/@modelcontextprotocol/server-filesystem/**",
+      "node_modules/.bin/**"
+    ],
+    "files": [
+      "!dist/",
+      "!node_modules/.cache/"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

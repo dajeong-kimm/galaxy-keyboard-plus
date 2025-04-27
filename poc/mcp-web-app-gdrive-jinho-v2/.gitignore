@@ -1,0 +1,7 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+/oauth/gcp-oauth.keys.json
