@@ -70,7 +70,7 @@ async function spawnServer(def) {
   if (def.id === 'gdrive') {
     // 인증 파일 경로 확인
     const oauthPath = path.resolve(process.cwd(), './oauth/gcp-oauth.keys.json');
-    console.log(`Google Drive 서버 인증 경로: ${oauthPath}`);
+  console.log(`Google Drive 서버 인증 경로: ${oauthPath}`);
     
     // 파일 존재하는지 확인
     if (fs.existsSync(oauthPath)) {

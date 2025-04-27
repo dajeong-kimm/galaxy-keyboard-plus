@@ -47,13 +47,16 @@ function convertOAuthForMCPServer() {
       if (tokens && (tokens.access_token || tokens.refresh_token)) {
         // MCP 서버에서 필요로 하는 형식으로 변환
         const mcpOAuthData = {
-          "type": "authorized_user",
-          "client_id": process.env.GCP_CLIENT_ID,
-          "client_secret": process.env.GCP_CLIENT_SECRET,
+          "installed": {
+            "client_id": process.env.GCP_CLIENT_ID,
+            "client_secret": process.env.GCP_CLIENT_SECRET,
+            "redirect_uris": ["http://localhost:3000/oauth2callback"],
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token"
+          },
           "refresh_token": tokens.refresh_token,
-          // access_token과 expiry_date가 있다면 포함
-          ...(tokens.access_token && { "access_token": tokens.access_token }),
-          ...(tokens.expiry_date && { "expiry_date": tokens.expiry_date })
+          "access_token": tokens.access_token,
+          "expiry_date": tokens.expiry_date || Date.now() + 3600000
         };
         
         // 디렉토리 생성
