@@ -6,4 +6,4 @@ node_modules/
 
 /oauth/gcp-oauth.keys.json
 
-.gdrive-credentials.json
+*/.gdrive-credentials.json
