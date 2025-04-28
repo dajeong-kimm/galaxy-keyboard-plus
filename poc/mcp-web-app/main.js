@@ -19,10 +19,37 @@
  *            자식 프로세스로 띄우고, stdin/stdout을 통해 JSON-RPC 사용
  ****************************************************************/
 
-require("dotenv").config(); // .env 로부터 환경변수 로드
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
+
+// 환경변수 주입
+let envPath;
+if (app.isPackaged) {
+  // 1) EXE 옆 .env
+  const exeEnv = path.join(path.dirname(process.execPath), ".env");
+  // 2) resources 폴더 내 .env
+  const resEnv = path.join(process.resourcesPath, ".env");
+
+  if (fs.existsSync(exeEnv)) {
+    envPath = exeEnv;
+  } else if (fs.existsSync(resEnv)) {
+    envPath = resEnv;
+  } else {
+    envPath = null;
+  }
+} else {
+  // 개발 중엔 소스 폴더의 .env
+  envPath = path.join(__dirname, ".env");
+}
+
+if (envPath) {
+  console.log("Loading .env from", envPath);
+  require("dotenv").config({ path: envPath });
+} else {
+  console.warn(".env not found; OPENAI_API_KEY must be set as system env var");
+}
+
 const spawn = require("cross-spawn"); // cross-platform child_process
 const axios = require("axios"); // OpenAI REST 호출
 const portfinder = require("portfinder"); // (지금은 미사용) 여유 포트 찾기
@@ -121,7 +148,19 @@ const servers = []; // [{ id, name, proc, rpc, tools[], allowedDir }]
 
 /* ───────────── 2. 서버 스폰 & 툴 로딩 ───────────── */
 async function spawnServer(def) {
-  const binPath = path.join(__dirname, "node_modules", ".bin", def.bin);
+  // 패키징된 환경: asar 언팩된 폴더에서 .bin을 찾아야 함
+  const baseDir = app.isPackaged
+    ? // resources/app.asar.unpacked/node_modules/.bin
+      path.join(
+        process.resourcesPath,
+        "app.asar.unpacked",
+        "node_modules",
+        ".bin"
+      )
+    : // 개발 모드: 프로젝트 루트의 node_modules/.bin
+      path.join(__dirname, "node_modules", ".bin");
+  const binPath = path.join(baseDir, def.bin);
+
   if (!fs.existsSync(binPath)) {
     err("not found", binPath);
     return null;
@@ -141,7 +180,7 @@ async function spawnServer(def) {
   await refreshTools(srv); // list_tools → API 스키마 획득
   servers.push(srv);
 
-  /* aliasMap 은 툴 호출 이름 → {srvId, method} 매핑 */
+  /* aliasMap은 툴 호출 이름 → {srvId, method} 매핑 */
   aliasMap.clear(); // 서버 재시작 시 새로 갱신
   return srv;
 }
@@ -312,6 +351,7 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, "preload.js"), // contextBridge 코드
       contextIsolation: true, // Renderer → Main 완전 격리
+      devTools: true,
     },
   });
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
