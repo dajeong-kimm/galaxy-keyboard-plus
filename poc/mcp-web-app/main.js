@@ -114,15 +114,15 @@ const SERVER_DEFS = [
         : "mcp-server-filesystem",
     allowedDir: process.cwd(), // 루트 디렉터리 기본값
   },
-    {
-       id: "notion",
-        name: "Notion",
-        bin:
-          process.platform === "win32"
-            ? "mcp-server-notion.cmd"
-            : "mcp-server-notion",    // package.json bin으로 연결
-        allowedDir: process.cwd()   // 특별한 디렉터리 제한 불필요
-      },
+  {
+    id: "notion",
+    name: "Notion",
+    // node.exe(혹은 node) 실행 파일 경로
+    bin: "node",
+    // 첫 번째 인자로 MCP 서버 스크립트 경로를, 두 번째에 allowedDir
+    args: [path.join(__dirname, "mcp-server-notion.js"), process.cwd()],
+    allowedDir: process.cwd(),
+  },
 ];
 
 /* ───────────── 1. 런타임 상태 ───────────── */
@@ -130,16 +130,24 @@ const servers = []; // [{ id, name, proc, rpc, tools[], allowedDir }]
 
 /* ───────────── 2. 서버 스폰 & 툴 로딩 ───────────── */
 async function spawnServer(def) {
-  const binPath = path.join(__dirname, "node_modules", ".bin", def.bin);
-  if (!fs.existsSync(binPath)) {
-    err("not found", binPath);
-    return null;
+  let cmd = def.bin;
+  let cmdArgs;
+  if (def.args) {
+    // Node 직접 실행 방식
+    cmdArgs = def.args;
+  } else {
+    // 기존 node_modules/.bin 방식
+    const binPath = path.join(__dirname, "node_modules", ".bin", def.bin);
+    if (!fs.existsSync(binPath)) {
+      err("not found", binPath);
+      return null;
+    }
+    cmd = binPath;
+    cmdArgs = [def.allowedDir];
   }
 
-  log(`Spawning ${def.id}`, binPath, def.allowedDir);
-  /* child_process.spawn
-     stdio = [stdin, stdout, stderr] 모두 파이프로 연결 */
-  const proc = spawn(binPath, [def.allowedDir], {
+  log(`Spawning ${def.id}`, cmd, ...cmdArgs);
+  const proc = spawn(cmd, cmdArgs, {
     cwd: def.allowedDir,
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -235,7 +243,8 @@ async function decideCall(prompt) {
         {
           role: "system",
           content: `
-You are a specialized agent that transforms user requests into calls to the registered filesystem tools, or else returns plain-text answers.
+You are a specialized agent that transforms user requests into calls to the registered MCP tools (filesystem, notion 등), or else returns plain-text answers.
+
 
 Guidelines:
 1. TOOL CALL

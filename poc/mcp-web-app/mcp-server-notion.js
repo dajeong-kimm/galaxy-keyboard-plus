@@ -1,34 +1,38 @@
 #!/usr/bin/env node
-require('dotenv').config();               // NOTION_API_KEY 로드
+// MCP-Notion 서버: Notion API를 JSON-RPC로 노출
+require('dotenv').config();
 const { Client } = require('@notionhq/client');
-const rpc = require('json-rpc-stdio');    // JSON-RPC stdin/stdout 라이브러리
-
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
-// 1) 툴 메타데이터 정의
+// 환경변수
+const DEFAULT_PARENT_ID = process.env.NOTION_PARENT_ID;
+const useDatabase = process.env.NOTION_PARENT_IS_DATABASE === 'true';
+// DB 생성 시 제목 속성명 (데이터베이스 스키마에 맞춰 설정)
+const DB_TITLE_PROPERTY = process.env.NOTION_DB_TITLE_PROPERTY || 'Name';
+
+// MCP 툴 메타데이터 정의
 const tools = [
   {
     name: 'createPage',
-    description: '새로운 노션 페이지를 생성합니다.',
+    description: '노션에 새 페이지를 생성합니다.',
     input: {
       type: 'object',
       properties: {
         parentId: { type: 'string' },
         title:    { type: 'string' },
-        content:  { type: 'array', items: { type: 'string' } }
-      },
-      required: ['parentId','title']
+        content:  { type: ['array', 'string'], items: { type: 'string' } }
+      }
     }
   },
   {
     name: 'updatePage',
-    description: '기존 노션 페이지의 속성이나 내용을 수정합니다.',
+    description: '노션 페이지의 제목 또는 내용을 수정합니다.',
     input: {
       type: 'object',
       properties: {
-        pageId: { type: 'string' },
-        title:  { type: 'string' },
-        content:{ type: 'array', items: { type: 'string' } }
+        pageId:  { type: 'string' },
+        title:   { type: 'string' },
+        content: { type: ['array', 'string'], items: { type: 'string' } }
       },
       required: ['pageId']
     }
@@ -36,57 +40,112 @@ const tools = [
   {
     name: 'deletePage',
     description: '노션 페이지를 아카이브(삭제) 처리합니다.',
-    input: {
-      type: 'object',
-      properties: {
-        pageId: { type: 'string' }
-      },
-      required: ['pageId']
-    }
+    input: { type: 'object', properties: { pageId: { type: 'string' } }, required: ['pageId'] }
   },
-  {
-    name: 'listTools',        // MCP 규격용 리스트
-    description: '툴 목록을 반환합니다.',
-    input: { type: 'object', properties: {} }
-  }
+  { name: 'list_tools', description: '툴 목록 반환', input: { type: 'object', properties: {} } }
 ];
 
-// 2) JSON-RPC 서버 등록
-rpc(
-  {
-    list_tools: async () => tools,
-    // 노션 API 호출
-    call_tool: async ({ name, arguments: params }) => {
-      switch (name) {
-        case 'createPage':
-          return notion.pages.create({
-            parent: { page_id: params.parentId },
-            properties: {
-              title: { title: [{ text: { content: params.title } }] }
-            },
-            children: params.content?.map(text => ({
-              object: 'block',
-              type: 'paragraph',
-              paragraph: { text: [{ type: 'text', text: { content: text } }] }
-            }))
-          });
-        case 'updatePage':
-          // 필요에 따라 속성 업데이트 + 블록 편집 로직 추가
-          await notion.pages.update({ page_id: params.pageId, properties: {
-            title: { title:[{ text:{ content: params.title }}] }
-          }});
-          // …블록 교체 로직 등…
-          return { success: true };
-        case 'deletePage':
-          // 노션은 실제 삭제가 아니라 archive 처리
-          return notion.pages.update({ page_id: params.pageId, archived: true });
-        default:
-          throw new Error(`Unknown tool: ${name}`);
+let buffer = '';
+process.stdin.on('data', chunk => {
+  buffer += chunk.toString();
+  let idx;
+  while ((idx = buffer.indexOf('\n')) !== -1) {
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+
+    let req;
+    try { req = JSON.parse(line); } catch { continue; }
+    const { id, method, params } = req;
+
+    (async () => {
+      let result, error;
+      try {
+        if (method === 'list_tools') {
+          result = tools;
+
+        } else if (method === 'call_tool') {
+          const { name: toolName, arguments: args } = params;
+          switch (toolName) {
+            case 'createPage': {
+              // 인자 확인
+              const rawParent = args.parentId || DEFAULT_PARENT_ID;
+              if (!rawParent) throw new Error('parentId가 필요합니다.');
+              const parentId = rawParent.replace(/^.*-/, '');
+
+              // 제목, 내용 준비
+              const titleText = args.title != null ? String(args.title) : '';
+              const rawContent = args.content;
+              const contents = Array.isArray(rawContent)
+                ? rawContent.map(String)
+                : rawContent != null
+                  ? [String(rawContent)]
+                  : [];
+
+              if (useDatabase) {
+                // 데이터베이스 아래에 생성: properties만, children 별도 추가
+                const page = await notion.pages.create({
+                  parent: { database_id: parentId },
+                  properties: {
+                    [DB_TITLE_PROPERTY]: {
+                      title: [ { text: { content: titleText || '제목 없음' } } ]
+                    }
+                  }
+                });
+                if (contents.length) {
+                  await notion.blocks.children.append({
+                    block_id: page.id,
+                    children: contents.map(text => ({
+                      object: 'block', type: 'paragraph',
+                      paragraph: { text: [ { type: 'text', text: { content: text } } ] }
+                    }))
+                  });
+                }
+                result = { page, content: contents };
+
+              } else {
+                // 페이지 아래에 생성: properties + children 직접 포함
+                const page = await notion.pages.create({
+                  parent: { page_id: parentId },
+                  properties: {
+                    title: { title: [ { text: { content: titleText || '제목 없음' } } ] }
+                  },
+                  children: contents.map(text => ({
+                    object: 'block', type: 'paragraph',
+                    paragraph: { text: [ { type: 'text', text: { content: text } } ] }
+                  }))
+                });
+                result = { page, content: contents };
+              }
+              break;
+            }
+
+            case 'updatePage': {
+              const pageId = args.pageId;
+              if (!pageId) throw new Error('pageId가 필요합니다.');
+              const properties = {};
+              if (args.title != null) properties.title = { title: [ { text: { content: String(args.title) } } ] };
+              result = await notion.pages.update({ page_id: pageId, properties });
+              break;
+            }
+
+            case 'deletePage': {
+              const pageId = args.pageId;
+              if (!pageId) throw new Error('pageId가 필요합니다.');
+              result = await notion.pages.update({ page_id: pageId, archived: true });
+              break;
+            }
+
+            default:
+              throw new Error(`Unknown tool: ${toolName}`);
+          }
+        } else {
+          throw new Error(`Unknown method: ${method}`);
+        }
+      } catch (e) {
+        error = { code: -32000, message: e.message };
       }
-    }
-  },
-  {
-    // 옵션: 자동으로 list_tools 메서드 매핑
-    methods: { list_tools: 'list_tools', call_tool: 'call_tool' }
+      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result, error }) + '\n');
+    })();
   }
-);
+});
