@@ -1,0 +1,31 @@
+server:
+  port: 8090
+
+spring:
+  profiles:
+    active: local # 기본은 local로 설정
+
+  cloud:
+    gateway:
+      routes:
+        - id: auth-route
+          uri: ${AUTH_SERVER_URI}
+          predicates:
+            - Path=/auth/**
+
+        - id: llm-route
+          uri: ${LLM_SERVER_URI}
+          predicates:
+            - Path=/llm/**
+
+        - id: logging-route
+          uri: ${LOGGING_SERVER_URI}
+          predicates:
+            - Path=/logging/**
+
+        - id: test-route
+          uri: https://httpbin.org
+          predicates:
+            - Path=/test/**
+          filters:
+            - StripPrefix=1

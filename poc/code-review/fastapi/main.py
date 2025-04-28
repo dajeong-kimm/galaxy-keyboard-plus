@@ -21,5 +21,8 @@ async def gitlab_webhook(payload: GitLabWebhookPayload):
     event = payload.model_dump()
     print(f"🚀 [Webhook] Webhook 수신: object_kind={event.get('object_kind')}")
     if event.get("object_kind") == "merge_request":
-        await handle_merge_request(event)
+        action = event.get("object_attributes", {}).get("action")
+        print(f"🔍 [Webhook] MR Action: {action}")
+        if action == "open":  # MR이 처음 열렸을 때만 리뷰 실행
+            await handle_merge_request(event)
     return {"status": "ok"}

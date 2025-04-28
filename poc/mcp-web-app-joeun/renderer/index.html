@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moca Chat</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Noto Sans KR", sans-serif;
+        height: 100%;
+        background: #fff;
+        display: flex;
+      }
+
+      /* === Sidebar === */
+      .sidebar {
+        width: 240px;
+        background-color: #fdf8f5;
+        border-right: 1px solid #f0e9e4;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px 0;
+      }
+
+      .sidebar h1 {
+        font-size: 20px;
+        font-weight: bold;
+        padding-left: 24px;
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sidebar h1::before {
+        content: "☕";
+      }
+
+      .menu {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-left: 24px;
+      }
+
+      .menu button {
+        background: none;
+        border: none;
+        font-size: 15px;
+        padding: 8px 12px;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 6px;
+        color: #3b3b3b;
+      }
+
+      .menu button.active {
+        background-color: #b37a64;
+        color: #fff;
+      }
+
+      .sidebar .bottom {
+        padding-left: 24px;
+        font-size: 14px;
+        color: #555;
+      }
+
+      /* === Main === */
+      .main {
+        flex: 1;
+        padding: 10px 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+      }
+
+      .main h2 {
+        font-size: 32px;
+        margin-bottom: 30px;
+        font-weight: 700;
+        color: #3b2f29;
+      }
+#chat {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%; /* 💡 추가 */
+}
+
+/* 공통 메시지 스타일 */
+.message {
+  max-width: 70%;
+  padding: 10px 16px;
+  border-radius: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  font-size: 15px;
+}
+
+/* 사용자 말풍선 (오른쪽 정렬) */
+.message.user {
+  align-self: flex-end;
+  background-color: #b89585;
+  color: #3f3f3f;
+  border-top-right-radius: 4px; /* 오른쪽 위 모서리만 살짝 각지게 */
+}
+
+/* 어시스턴트 말풍선 (왼쪽 정렬) */
+.message.assistant {
+  align-self: flex-start;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  color: #333;
+  border-bottom-left-radius: 4px; /* 왼쪽 아래만 살짝 각지게 */
+}
+
+
+      .input-area {
+        display: flex;
+        align-items: center;
+        background: #f1f1f1;
+        border-radius: 14px;
+        padding: 16px 20px;
+        width: 640px;
+        box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.05);
+      }
+
+      #input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-size: 16px;
+        resize: none;
+        outline: none;
+        height: auto;
+        min-height: 24px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      #sendBtn {
+        background-color: #a36f56;
+        border: none;
+        color: #fff;
+        font-size: 18px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-left: 12px;
+        cursor: pointer;
+      }
+
+      #sendBtn:disabled {
+        background: #ccc;
+        cursor: default;
+      }
+      .input-area #selectBtn,
+.input-area #googleBtn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  margin-left: 8px;
+  color: #7c5d4c;
+  padding: 4px;
+  transition: transform 0.1s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+}
+
+.input-area #selectBtn:hover,
+.input-area #googleBtn:hover {
+  transform: scale(1.1);
+}
+
+.input-area #googleBtn {
+  color: #4285f4;
+}
+
+.input-area button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#authDisplay {
+  font-size: 12px;
+  color: #4caf50;
+  margin-top: 8px;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* 선택된 경로를 작게 표시 */
+#pathDisplay {
+  font-size: 12px;
+  color: #888;
+  margin-top: 8px;
+  text-align: center;
+}
+    </style>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div>
+        <h1>Moca</h1>
+        <div class="menu">
+          <button class="active">새 채팅방</button>
+        </div>
+      </div>
+      <div class="bottom"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-icon lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></div>
+    </div>
+    <div class="main">
+      <h2>Moca가 도와드릴게요</h2>
+      <!-- Main -->
+      <div id="chat"></div>
+      <div class="input-area">
+        <textarea id="input" placeholder="무엇을 도와드릴까요?"></textarea>
+        <button id="selectBtn" title="프로젝트 폴더 선택"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-icon lucide-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></button>
+        <button id="googleBtn" title="Google 계정 인증"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M17.13 17.9a9 9 0 0 1-11.26-.01M6.4 9.39A9 9 0 0 1 12 6.09c2.85 0 5.47 1.31 7.19 3.33M9.13 14.1a3 3 0 1 1 5.74 0"/></svg></button>
+        <button id="sendBtn" disabled><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-icon lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+      </div>
+      <div id="pathDisplay">작업 디렉토리를 선택해주세요.</div>
+      <div id="authDisplay" style="display: none;">Google 계정 연결됨</div>
+    </div>
+
+    <script nonce="__NONCE__">
+      const chat = document.getElementById("chat");
+      const input = document.getElementById("input");
+      const sendBtn = document.getElementById("sendBtn");
+      const selectBtn = document.getElementById("selectBtn");
+      const googleBtn = document.getElementById("googleBtn");
+      const pathDisplay = document.getElementById("pathDisplay");
+      const authDisplay = document.getElementById("authDisplay");
+      
+      // 구글 인증 상태 관리
+      let isGoogleAuthenticated = false;
+
+      /* 폴더 선택 */
+      selectBtn.addEventListener("click", async () => {
+        const path = await window.api.selectProjectFolder();
+        if (path) {
+          window.projectPath = path;
+          pathDisplay.textContent = path;
+          pathDisplay.style.display = "block";
+          sendBtn.disabled = !input.value.trim();
+        }
+      });
+      
+      /* Google OAuth 인증 */
+      googleBtn.addEventListener("click", async () => {
+        try {
+          googleBtn.disabled = true;
+          googleBtn.style.opacity = "0.5";
+          appendMsg("자동 OAuth 인증을 시작합니다. 브라우저 창이 열리면 구글 로그인을 진행해주세요.", "assistant");
+          
+          // 인증 프로세스 시작 - 자동으로 키 파일 생성
+          const authResult = await window.api.authenticateGoogle();
+          
+          if (authResult.success) {
+            isGoogleAuthenticated = true;
+            authDisplay.textContent = "Google 계정 인증 완료";
+            authDisplay.style.display = "block";
+            appendMsg(authResult.message, "assistant");
+            
+            // 인증 성공 후 버튼 스타일 변경
+            googleBtn.style.backgroundColor = "#4caf50";
+            googleBtn.style.color = "#fff";
+            googleBtn.style.opacity = "1";
+            googleBtn.title = "Google 계정 인증 완료";
+            
+            // 사용 가능한 명령어 예시
+            setTimeout(() => {
+              appendMsg("이제 아래와 같은 명령을 사용할 수 있어요:\n- 지메일에서 최근 이메일 5개 보여줘\n- example@gmail.com에게 '회의 일정 안내' 제목으로 메일 보내주세요\n- 지메일 라벨 목록 보여줘", "assistant");
+            }, 1000);
+          } else {
+            appendMsg(authResult.message || "인증에 실패했습니다. 다시 시도해주세요.", "assistant");
+            googleBtn.disabled = false;
+            googleBtn.style.opacity = "1";
+          }
+        } catch (error) {
+          appendMsg(`⚠️ Google 인증 오류: ${error.message || "알 수 없는 오류가 발생했습니다."}`, "assistant");
+          googleBtn.disabled = false;
+          googleBtn.style.opacity = "1";
+        }
+      });
+
+      /* 입력 체크 + height auto-grow */
+      input.addEventListener("input", () => {
+        // 입력이 있으면 버튼 활성화 (경로 선택 없이도 가능)
+        sendBtn.disabled = !input.value.trim();
+        input.style.height = "auto";
+        input.style.height = input.scrollHeight + "px";
+      });
+
+      const appendMsg = (text, role) => {
+        const el = document.createElement("div");
+        el.className = `message ${role}`;
+        el.textContent = text;
+        chat.appendChild(el);
+        chat.scrollTop = chat.scrollHeight;
+      };
+
+      sendBtn.addEventListener("click", async () => {
+        const text = input.value.trim();
+        if (!text) return;
+        appendMsg(text, "user");
+        input.value = "";
+        input.dispatchEvent(new Event("input"));
+
+        appendMsg("…thinking…", "assistant"); // 로딩 표시
+        const loadingEl = chat.lastChild;
+
+        const res = await window.api.sendCommand(text);
+
+        loadingEl.remove();
+        if (res.error) {
+          appendMsg(`⚠️ ${res.error}`, "assistant");
+        } else {
+          const content =
+            typeof res.result === "string"
+              ? res.result
+              : JSON.stringify(res.result, null, 2);
+          appendMsg(content, "assistant");
+        }
+      });
+    </script>
+
+  </body>
+</html>
