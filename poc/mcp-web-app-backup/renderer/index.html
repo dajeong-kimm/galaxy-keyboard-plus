@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Chat</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Noto Sans KR', sans-serif;
+      background: #f7f7f8;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #343541;
+      color: #fff;
+      padding: 10px 20px;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 auto;
+    }
+    header .left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header button {
+      background: #10a37f;
+      border: none;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    header button:hover { opacity: 0.9; }
+    header #pathDisplay {
+      margin-left: 10px;
+      font-size: 14px;
+      color: #ccc;
+      max-width: 60%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #chat {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      line-height: 1.4;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .message.user {
+      background: #acf2bd;
+      align-self: flex-end;
+    }
+    .message.assistant {
+      background: #fff;
+      align-self: flex-start;
+      border: 1px solid #e0e0e0;
+    }
+
+    footer {
+      flex: 0 0 auto;
+      padding: 10px 20px;
+      background: #fff;
+      display: flex;
+      gap: 10px;
+      border-top: 1px solid #ddd;
+    }
+    #input {
+      flex: 1 1 auto;
+      resize: none;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      height: 50px;
+    }
+    #sendBtn {
+      flex: 0 0 auto;
+      background: #10a37f;
+      border: none;
+      color: #fff;
+      padding: 0 16px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #sendBtn:disabled {
+      background: #ccc;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="left">
+      MCP Chat
+      <button id="selectBtn">파일 선택</button>
+      <span id="pathDisplay">선택된 파일 없음</span>
+    </div>
+  </header>
+
+  <div id="chat"></div>
+
+  <footer>
+    <textarea id="input" placeholder="메시지를 입력하세요..." rows="1"></textarea>
+    <button id="sendBtn" disabled>전송</button>
+  </footer>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const selectBtn = document.getElementById('selectBtn');
+    const pathDisplay = document.getElementById('pathDisplay');
+
+    // 폴더 선택
+    selectBtn.addEventListener('click', async () => {
+      const path = await window.api.selectProjectFolder();
+      if (path) {
+        window.projectPath = path;
+        pathDisplay.textContent = path;
+      }
+    });
+
+    // 입력값 체크 및 높이 자동조절
+    input.addEventListener('input', () => {
+      sendBtn.disabled = !input.value.trim();
+      input.style.height = 'auto';
+      input.style.height = input.scrollHeight + 'px';
+    });
+
+    function appendMessage(text, role) {
+      const msg = document.createElement('div');
+      msg.classList.add('message', role);
+      msg.textContent = text;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const text = input.value.trim();
+      if (!text || !window.projectPath) return;
+      appendMessage(text, 'user');
+      input.value = '';
+      sendBtn.disabled = true;
+
+      const res = await window.api.sendCommand({
+        command: text,
+        projectPath: window.projectPath,
+      });
+
+      if (res.error) {
+        appendMessage(`Error: ${res.error}`, 'assistant');
+      } else {
+        const content = res.result;
+        appendMessage(
+          typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+          'assistant'
+        );
+      }
+    });
+  </script>
+</body>
+</html>

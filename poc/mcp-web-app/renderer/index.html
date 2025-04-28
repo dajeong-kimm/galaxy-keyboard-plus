@@ -13,7 +13,7 @@
       body {
         margin: 0;
         padding: 0;
-        font-family: "Noto Sans KR", sans-serif;
+        font-family: 'Noto Sans KR', sans-serif;
         height: 100%;
         background: #fff;
         display: flex;
@@ -41,7 +41,7 @@
       }
 
       .sidebar h1::before {
-        content: "☕";
+        content: '☕';
       }
 
       .menu {
@@ -90,44 +90,43 @@
         font-weight: 700;
         color: #3b2f29;
       }
-#chat {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%; /* 💡 추가 */
-}
+      #chat {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%; /* 💡 추가 */
+      }
 
-/* 공통 메시지 스타일 */
-.message {
-  max-width: 70%;
-  padding: 10px 16px;
-  border-radius: 14px;
-  line-height: 1.5;
-  word-break: break-word;
-  white-space: pre-wrap;
-  font-size: 15px;
-}
+      /* 공통 메시지 스타일 */
+      .message {
+        max-width: 70%;
+        padding: 10px 16px;
+        border-radius: 14px;
+        line-height: 1.5;
+        word-break: break-word;
+        white-space: pre-wrap;
+        font-size: 15px;
+      }
 
-/* 사용자 말풍선 (오른쪽 정렬) */
-.message.user {
-  align-self: flex-end;
-  background-color: #b89585;
-  color: #3f3f3f;
-  border-top-right-radius: 4px; /* 오른쪽 위 모서리만 살짝 각지게 */
-}
+      /* 사용자 말풍선 (오른쪽 정렬) */
+      .message.user {
+        align-self: flex-end;
+        background-color: #b89585;
+        color: #3f3f3f;
+        border-top-right-radius: 4px; /* 오른쪽 위 모서리만 살짝 각지게 */
+      }
 
-/* 어시스턴트 말풍선 (왼쪽 정렬) */
-.message.assistant {
-  align-self: flex-start;
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  color: #333;
-  border-bottom-left-radius: 4px; /* 왼쪽 아래만 살짝 각지게 */
-}
-
+      /* 어시스턴트 말풍선 (왼쪽 정렬) */
+      .message.assistant {
+        align-self: flex-start;
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        color: #333;
+        border-bottom-left-radius: 4px; /* 왼쪽 아래만 살짝 각지게 */
+      }
 
       .input-area {
         display: flex;
@@ -168,27 +167,27 @@
         cursor: default;
       }
       .input-area #selectBtn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  margin-left: 8px;
-  color: #7c5d4c;
-  padding: 4px;
-  transition: transform 0.1s ease-in-out;
-}
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        margin-left: 8px;
+        color: #7c5d4c;
+        padding: 4px;
+        transition: transform 0.1s ease-in-out;
+      }
 
-.input-area #selectBtn:hover {
-  transform: scale(1.1);
-}
+      .input-area #selectBtn:hover {
+        transform: scale(1.1);
+      }
 
-/* 선택된 경로를 작게 표시 */
-#pathDisplay {
-  font-size: 12px;
-  color: #888;
-  margin-top: 8px;
-  text-align: center;
-}
+      /* 선택된 경로를 작게 표시 */
+      #pathDisplay {
+        font-size: 12px;
+        color: #888;
+        margin-top: 8px;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -200,7 +199,25 @@
           <button class="active">새 채팅방</button>
         </div>
       </div>
-      <div class="bottom"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-icon lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div class="bottom">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="lucide lucide-settings-icon lucide-settings"
+        >
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </div>
     </div>
     <div class="main">
       <h2>Moca가 도와드릴게요</h2>
@@ -208,21 +225,54 @@
       <div id="chat"></div>
       <div class="input-area">
         <textarea id="input" placeholder="무엇을 도와드릴까요?"></textarea>
-        <button id="selectBtn" title="프로젝트 폴더 선택"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-icon lucide-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></button>
-        <button id="sendBtn" disabled><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up-icon lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+        <button id="selectBtn" title="프로젝트 폴더 선택">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-folder-icon lucide-folder"
+          >
+            <path
+              d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+            />
+          </svg>
+        </button>
+        <button id="sendBtn" disabled>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-arrow-up-icon lucide-arrow-up"
+          >
+            <path d="m5 12 7-7 7 7" />
+            <path d="M12 19V5" />
+          </svg>
+        </button>
       </div>
       <div id="pathDisplay">작업 디렉토리를 선택해주세요.</div>
     </div>
 
     <script nonce="__NONCE__">
-      const chat = document.getElementById("chat");
-      const input = document.getElementById("input");
-      const sendBtn = document.getElementById("sendBtn");
-      const selectBtn = document.getElementById("selectBtn");
-      const pathDisplay = document.getElementById("pathDisplay");
+      const chat = document.getElementById('chat');
+      const input = document.getElementById('input');
+      const sendBtn = document.getElementById('sendBtn');
+      const selectBtn = document.getElementById('selectBtn');
+      const pathDisplay = document.getElementById('pathDisplay');
 
       /* 폴더 선택 */
-      selectBtn.addEventListener("click", async () => {
+      selectBtn.addEventListener('click', async () => {
         const path = await window.api.selectProjectFolder();
         if (path) {
           window.projectPath = path;
@@ -232,44 +282,43 @@
       });
 
       /* 입력 체크 + height auto-grow */
-      input.addEventListener("input", () => {
+      input.addEventListener('input', () => {
         sendBtn.disabled = !input.value.trim() || !window.projectPath;
-        input.style.height = "auto";
-        input.style.height = input.scrollHeight + "px";
+        input.style.height = 'auto';
+        input.style.height = input.scrollHeight + 'px';
       });
 
       const appendMsg = (text, role) => {
-        const el = document.createElement("div");
+        const el = document.createElement('div');
         el.className = `message ${role}`;
         el.textContent = text;
         chat.appendChild(el);
         chat.scrollTop = chat.scrollHeight;
       };
 
-      sendBtn.addEventListener("click", async () => {
+      sendBtn.addEventListener('click', async () => {
         const text = input.value.trim();
         if (!text) return;
-        appendMsg(text, "user");
-        input.value = "";
-        input.dispatchEvent(new Event("input"));
+        appendMsg(text, 'user');
+        input.value = '';
+        input.dispatchEvent(new Event('input'));
 
-        appendMsg("…thinking…", "assistant"); // 로딩 표시
+        appendMsg('…thinking…', 'assistant'); // 로딩 표시
         const loadingEl = chat.lastChild;
 
         const res = await window.api.sendCommand(text);
 
         loadingEl.remove();
         if (res.error) {
-          appendMsg(`⚠️ ${res.error}`, "assistant");
+          appendMsg(`⚠️ ${res.error}`, 'assistant');
         } else {
           const content =
-            typeof res.result === "string"
+            typeof res.result === 'string'
               ? res.result
               : JSON.stringify(res.result, null, 2);
-          appendMsg(content, "assistant");
+          appendMsg(content, 'assistant');
         }
       });
     </script>
-
   </body>
 </html>
