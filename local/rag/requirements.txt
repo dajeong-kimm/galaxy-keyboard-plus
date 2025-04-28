@@ -13,3 +13,4 @@ pydantic-settings>=2.0.0
 
 # 모델 자동 다운로드를 위한 HF Hub 클라이언트
 huggingface-hub>=0.14.1
+hdbscan>=0.8.29

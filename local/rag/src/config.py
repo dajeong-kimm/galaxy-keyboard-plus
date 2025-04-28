@@ -1,3 +1,4 @@
+# src/config.py
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,7 +25,6 @@ class Settings(BaseSettings):
     openai_model_name: str = "gpt-3.5-turbo"  # env: OPENAI_MODEL_NAME
 
     # HuggingFace Hub 인증 토큰
-    # (자동 다운로드 필요 시 사용)
     hf_hub_token: str
 
     # LLM 동작 설정
@@ -33,6 +33,9 @@ class Settings(BaseSettings):
 
     # RAG 검색 개수
     rag_k: int = 3
+
+    # 클러스터링 설정: HDBSCAN 최소 클러스터 크기
+    clustering_min_size: int = 5
 
     # .env 로딩 설정
     model_config = SettingsConfigDict(
