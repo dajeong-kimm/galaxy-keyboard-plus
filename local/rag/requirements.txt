@@ -1,0 +1,26 @@
+# requirements.txt
+
+# FastAPI 웹 프레임워크
+fastapi>=0.95.1
+
+# ASGI 서버
+uvicorn[standard]>=0.22.0
+
+# 환경변수 로딩 (.env)
+python-dotenv>=1.0.0
+
+# RAG 오케스트레이션
+langchain>=0.0.337
+
+# Qdrant 벡터 DB 클라이언트
+qdrant-client>=1.6.0
+
+# 로컬 LLM 바인딩
+llama-cpp-python>=0.1.91
+
+# 임베딩 모델
+sentence-transformers>=2.2.2
+torch>=2.0.1
+
+# 외부 LLM 호출(선택)
+openai>=0.27.0
