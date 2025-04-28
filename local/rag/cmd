@@ -1,3 +1,19 @@
+# 시작 가이드
+docker run -d --name qdrant -p 6333:6333 qdrant/qdrant:latest
+
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 컬렉션 초기화
+curl -X DELETE http://localhost:6333/collections/chatlogs
+curl -X PUT http://localhost:6333/collections/chatlogs \
+  -H "Content-Type: application/json" \
+  -d '{"vectors":{"size":384,"distance":"Cosine"}}'
+
+# 서버 실행
+uvicorn app:app --reload --host 127.0.0.1 --port 8000
+
 # 헬스체크
 curl -i http://127.0.0.1:8000/health
 
