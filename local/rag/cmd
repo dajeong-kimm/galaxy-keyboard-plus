@@ -1,0 +1,25 @@
+# 헬스체크
+curl -i http://127.0.0.1:8000/health
+
+# 메시지 저장
+curl -X POST http://127.0.0.1:8000/v1/add_message \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"test-session","user_id":"user1","text":"첫 메시지","timestamp":"2025-04-28T12:00:00Z"}'
+
+# 문서 추가
+curl -X POST http://127.0.0.1:8000/v1/add_docs \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"test-session","docs":["문서 A","문서 B"]}'
+
+# 토픽 클러스터링
+python -m src.tasks.cluster_topics test-session
+
+# RAG 질의 (세션 전체)
+curl -X POST http://127.0.0.1:8000/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"test-session","question":"첫 메시지와 문서를 요약해줘"}'
+
+# RAG 질의 (특정 토픽)
+curl -X POST http://127.0.0.1:8000/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"test-session","topic_id":"0","question":"첫 메시지 설명해줘"}'
