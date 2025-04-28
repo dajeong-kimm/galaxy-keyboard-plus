@@ -1,7 +1,7 @@
 {
   "author": "SSAFY E201",
   "name": "mcp-web-app",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "Electron desktop wrapper around a single MCP-Filesystem server",
   "main": "main.js",
   "type": "commonjs",
@@ -23,8 +23,7 @@
     "productName": "MOCA",
     "npmRebuild": false,
     "asarUnpack": [
-      "node_modules/@modelcontextprotocol/server-filesystem/**",
-      "node_modules/.bin/**"
+      "node_modules/@modelcontextprotocol/server-*/*"
     ],
     "files": [
       "!dist/",
