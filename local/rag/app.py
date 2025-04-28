@@ -20,7 +20,7 @@ class DocsRequest(BaseModel):
 app = FastAPI(
     title="Local RAG Service",
     version="0.1.0",
-    description="UUID 기반 Qdrant + Local LLM RAG API",
+    description="UUID 기반 Qdrant + 외부 LLM RAG API",
 )
 
 @app.on_event("startup")
@@ -31,22 +31,17 @@ def startup_event():
     # 2) Qdrant 벡터스토어 초기화
     store = get_qdrant_store(settings, embedder)
 
-    # 컬렉션이 없으면 생성 (임베딩 크기와 거리 기준 설정)
-    sample_vector = embedder.embed_query("_init_")
-    dim = len(sample_vector)
+    # 2-a) 컬렉션이 이미 있으면 삭제하고, 새로 생성
+    dim = len(embedder.embed_query("__init__"))
     store.client.recreate_collection(
         collection_name=settings.qdrant_collection,
         vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
     )
 
-    # 3) 로컬 LLM 초기화
-    llm = get_llm(
-        model_path=settings.llm_model_path,  # ex: './models/llama/meta-llama-3-8b-instruct-q4_k_m.gguf'
-        n_ctx=settings.llm_n_ctx,
-        n_threads=settings.llm_threads,
-    )
+    # 3) 외부 LLM 초기화 (OpenAI ChatCompletion)
+    llm = get_llm()
 
-    # 4) 채팅별 RAG 체인 생성기 등록
+    # 4) RAG 체인 등록
     app.state.get_chain = lambda chat_id: get_rag_chain(
         llm=llm,
         vectorstore=store,
@@ -61,27 +56,21 @@ def startup_event():
 async def health_check():
     return {"status": "ok"}
 
-@app.post("/v1/query", tags=["query"])
-async def query_endpoint(req: QueryRequest):
-    chain = app.state.get_chain(req.chat_id)
-    try:
-        answer = chain.run(req.question)
-        app.state.vectorstore.add_texts(
-            [req.question, answer],
-            metadatas=[{"chat_id": req.chat_id}] * 2
-        )
-        return {"answer": answer}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/v1/add_docs", tags=["docs"])
 async def add_docs_endpoint(req: DocsRequest):
     try:
         app.state.vectorstore.add_texts(
             req.docs,
-            metadatas=[{"chat_id": req.chat_id} for _ in req.docs]
+            metadatas=[{"chat_id": req.chat_id, "source": "doc"} for _ in req.docs]
         )
         return {"status": "ok", "count": len(req.docs)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/v1/query", tags=["query"])
+async def query_endpoint(req: QueryRequest):
+    try:
+        answer = app.state.get_chain(req.chat_id).run(req.question)
+        return {"answer": answer}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

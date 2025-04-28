@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # 로컬 LLM 모델 경로
     llm_model_path: str  # ex) ./models/llama/gpt4all-lora.bin
 
+    # 외부 LLM (OpenAI) 호출용 설정
+    openai_api_key: str            # env: OPENAI_API_KEY
+    openai_model_name: str = "gpt-3.5-turbo"  # env: OPENAI_MODEL_NAME
+
     # HuggingFace Hub 인증 토큰
     # (자동 다운로드 필요 시 사용)
     hf_hub_token: str
