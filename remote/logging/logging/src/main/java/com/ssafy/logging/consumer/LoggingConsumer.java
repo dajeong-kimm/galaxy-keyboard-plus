@@ -52,6 +52,7 @@ public class LoggingConsumer {
                 .map(record -> record.value())
                 .map(evt -> {
                     ServerUsageLog logEntity = new ServerUsageLog();
+                    logEntity.setUserId(evt.getUserId());
                     logEntity.setServerId(evt.getServerId());
                     logEntity.setTimestamp(Instant.ofEpochMilli(evt.getTimestamp()));
                     log.info("Mapped to ServerUsageLog: {}", logEntity);

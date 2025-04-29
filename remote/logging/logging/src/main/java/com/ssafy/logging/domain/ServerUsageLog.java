@@ -12,6 +12,7 @@ import java.time.Instant;
 public class ServerUsageLog {
     @Id
     private String id;
+    private String userId;
     private String serverId;
     private Instant timestamp;
 }
