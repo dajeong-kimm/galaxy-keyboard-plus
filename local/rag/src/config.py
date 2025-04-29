@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     embed_model: str = "all-MiniLM-L6-v2"
     llm_n_ctx: int = 2048
     llm_threads: int = 4
-    chunk_size: int = 1000
-    chunk_overlap: int = 100
+    chunk_size: int = 300
+    chunk_overlap: int = 50
 
 
     # ── RAG / 검색 ────────────────────────────────────────────
