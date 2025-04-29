@@ -1,47 +1,42 @@
 # src/config.py
-from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AnyHttpUrl
+
 
 class Settings(BaseSettings):
-    # 서버 기본 설정
+    # ── FastAPI ───────────────────────────────────────────────
     host: str = "127.0.0.1"
     port: int = 8000
     debug: bool = True
 
-    # Qdrant 설정
-    qdrant_url: AnyHttpUrl
-    qdrant_port: int = 6333
-    qdrant_prefer_grpc: bool = False
-    qdrant_collection: str = "chatlogs"
+    # ── ChromaDB ──────────────────────────────────────────────
+    chroma_persist_dir: str = "./chroma_db"
+    chroma_collection_name: str = "chatlogs"
 
-    # 임베딩 모델 이름
+    # ── 모델 & 임베딩 ─────────────────────────────────────────
     embed_model: str = "all-MiniLM-L6-v2"
-
-    # 로컬 LLM 모델 경로
-    llm_model_path: str  # ex) ./models/llama/gpt4all-lora.bin
-
-    # 외부 LLM (OpenAI) 호출용 설정
-    openai_api_key: str            # env: OPENAI_API_KEY
-    openai_model_name: str = "gpt-3.5-turbo"  # env: OPENAI_MODEL_NAME
-
-    # HuggingFace Hub 인증 토큰
-    hf_hub_token: str
-
-    # LLM 동작 설정
     llm_n_ctx: int = 2048
     llm_threads: int = 4
+    chunk_size: int = 1000
+    chunk_overlap: int = 100
 
-    # RAG 검색 개수
+
+    # ── RAG / 검색 ────────────────────────────────────────────
     rag_k: int = 3
 
-    # 클러스터링 설정: HDBSCAN 최소 클러스터 크기
-    clustering_min_size: int = 5
+    # ── HDBSCAN 클러스터링 ───────────────────────────────────
+    # clustering_min_size: int = 5
 
-    # .env 로딩 설정
+    # ── 외부 LLM(OpenAI) ─────────────────────────────────────
+    openai_api_key: str | None = None
+    openai_model_name: str = "gpt-4o-mini"
+
+    # .env 로딩
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=".env", 
         env_file_encoding="utf-8"
-    )
+        )
 
-# 전역 인스턴스
+
+# 전역 싱글톤
 settings = Settings()

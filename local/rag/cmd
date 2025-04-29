@@ -1,41 +1,99 @@
-# 시작 가이드
-docker run -d --name qdrant -p 6333:6333 qdrant/qdrant:latest
-
+# 1) 가상환경 생성 & 활성화
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate            # macOS/Linux
+# Windows PowerShell:
+# .\.venv\Scripts\Activate.ps1
+
+# 2) 의존성 설치
 pip install -r requirements.txt
 
-# 컬렉션 초기화
-curl -X DELETE http://localhost:6333/collections/chatlogs
-curl -X PUT http://localhost:6333/collections/chatlogs \
+# 3) 서버 실행
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+# ------------------------------
+# 테스트용 별도 터미널에서 아래 명령어 수행
+# ------------------------------
+
+# A) 헬스 체크
+curl http://127.0.0.1:8000/health
+
+# B) 세션 UUID 생성 (bash)
+export SESSION_ID=$(uuidgen)
+# Windows PowerShell:
+# $env:SESSION_ID = [guid]::NewGuid().ToString()
+
+curl -s -X POST http://127.0.0.1:8000/v1/add_docs \
+     -H "Content-Type: application/json" \
+     -d '{
+           "session_id":"'"$SESSION_ID"'",
+           "docs":[
+             "첫 번째 문단: 로렘 입숨 돌로르 시트 아메트, 컨설트어블 ...",
+             "두 번째 문단: 시추에이트드 말리스러스 엘리메이츠 ...",
+             "세 번째 문단: 익스펙테이션샬리, 섹션 인코퍼레이티드 ...",
+             "네 번째 문단: 펑셔널리티 모듈러, 옵티마이즈드 퍼포먼스 ...",
+             "다섯 번째 문단: 인터컨넥티비티 리인벤트, 스케일러빌리티 어드밴스 ..."
+           ]
+         }' \
+| jq
+
+
+# 아이템(문서) 저장
+curl -s -X POST http://127.0.0.1:8000/v1/add_item \
   -H "Content-Type: application/json" \
-  -d '{"vectors":{"size":384,"distance":"Cosine"}}'
+  -d '{
+    "session_id": "'"$SESSION_ID"'",
+    "item_id": "item-'$(uuidgen)'",
+    "source": "sheet",
+    "uri": "gdrive:///1A2b3C4d5E6f",
+    "timestamp": "2025-04-29T10:05:00Z"
+  }' | jq .
 
-# 서버 실행
-uvicorn app:app --reload --host 127.0.0.1 --port 8000
 
-# 헬스체크
-curl -i http://127.0.0.1:8000/health
-
-# 메시지 저장
-curl -X POST http://127.0.0.1:8000/v1/add_message \
+# 컨텍스트 추출 
+curl -s -X POST http://127.0.0.1:8000/v1/context \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test-session","user_id":"user1","text":"첫 메시지","timestamp":"2025-04-28T12:00:00Z"}'
+  -d '{
+    "session_id": "'"$SESSION_ID"'",
+    "question": "테스트 문서에서 중요한 내용을 뽑아줘",
+    "k": 3
+  }' | jq .
 
-# 문서 추가
-curl -X POST http://127.0.0.1:8000/v1/add_docs \
+
+# 3) RAG 질의 (jq 포함)
+curl -s -X POST http://127.0.0.1:8000/v1/query \
+     -H "Content-Type: application/json" \
+     -d '{
+           "session_id":"'"$SESSION_ID"'",
+           "question":"위 다섯 문단의 주요 내용을 한 문장으로 요약해줘"
+         }' \
+| jq
+
+
+
+cat > run_full_test.sh << 'EOF'
+#!/usr/bin/env bash
+SESSION_ID=$(uuidgen)
+echo "SESSION_ID=$SESSION_ID"
+
+# 1) 메시지
+curl -s -X POST http://127.0.0.1:8000/v1/add_message \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test-session","docs":["문서 A","문서 B"]}'
+  -d "{\"session_id\":\"$SESSION_ID\",\"text\":\"테스트 메시지\",\"timestamp\":\"$(date -Iseconds)\"}" | jq .
 
-# 토픽 클러스터링
-python -m src.tasks.cluster_topics test-session
-
-# RAG 질의 (세션 전체)
-curl -X POST http://127.0.0.1:8000/v1/query \
+# 2) 문서
+curl -s -X POST http://127.0.0.1:8000/v1/add_docs \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test-session","question":"첫 메시지와 문서를 요약해줘"}'
+  -d "{\"session_id\":\"$SESSION_ID\",\"docs\":[\"문서 A\",\"문서 B\"]}" | jq .
 
-# RAG 질의 (특정 토픽)
-curl -X POST http://127.0.0.1:8000/v1/query \
+# 3) 컨텍스트
+curl -s -X POST http://127.0.0.1:8000/v1/context \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test-session","topic_id":"0","question":"첫 메시지 설명해줘"}'
+  -d "{\"session_id\":\"$SESSION_ID\",\"question\":\"문서 요약해줘\",\"k\":2}" | jq .
+
+# 4) RAG 질의
+curl -s -X POST http://127.0.0.1:8000/v1/query \
+  -H "Content-Type: application/json" \
+  -d "{\"session_id\":\"$SESSION_ID\",\"question\":\"문서 A에 대해 설명해줘\"}" | jq .
+EOF
+chmod +x run_full_test.sh
+./run_full_test.sh
