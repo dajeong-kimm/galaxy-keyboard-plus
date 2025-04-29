@@ -3,23 +3,6 @@ from typing import Optional
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
-# ───────── Prompt 템플릿 ─────────
-# 기존 QUESTION_PROMPT 주석 처리
-'''
-QUESTION_PROMPT = PromptTemplate(
-    input_variables=["context_str", "question"],
-    template=(
-        "당신은 사용자의 로컬 데이터를 기반으로 도움을 제공하는 비서입니다.\n\n"
-        "컨텍스트:\n{context_str}\n\n"
-        "질문: {question}\n\n"
-        "컨텍스트에 근거하여 간결하고 정확하게 답변하세요. "
-        "관련 정보가 없으면 '컨텍스트에 관련 정보가 없습니다'라고 답하세요. "
-        "필요 시 MCP 도구 사용을 제안하세요."
-    ),
-)
-'''
-
-# 개선된 QUESTION_PROMPT
 QUESTION_PROMPT = PromptTemplate(
     input_variables=["context_str", "question"],
     template=(
@@ -36,21 +19,6 @@ QUESTION_PROMPT = PromptTemplate(
     ),
 )
 
-# 기존 REFINE_PROMPT 주석 처리
-'''
-REFINE_PROMPT = PromptTemplate(
-    input_variables=["existing_answer", "context_str", "question"],
-    template=(
-        "이전 답변: {existing_answer}\n\n"
-        "추가 컨텍스트:\n{context_str}\n\n"
-        "질문: {question}\n\n"
-        "추가 컨텍스트를 활용해 답변을 보완하거나 정정하세요. "
-        "중복은 제거하고 핵심 정보만 포함하세요."
-    ),
-)
-'''
-
-# 개선된 REFINE_PROMPT
 REFINE_PROMPT = PromptTemplate(
     input_variables=["existing_answer", "context_str", "question"],
     template=(
@@ -67,9 +35,6 @@ REFINE_PROMPT = PromptTemplate(
     ),
 )
 
-# ───────── 체인 생성 함수 ─────────
-# 기존 get_rag_chain 함수 주석 처리
-'''
 def get_rag_chain(
     llm,
     vectorstore,
@@ -77,64 +42,23 @@ def get_rag_chain(
     k: int,
     topic_id: Optional[str] = None,
 ):
-    """
-    • chat_id  : 각 채팅방 UUID (메타데이터)
-    • topic_id : 선택적으로 세부 토픽 필터
-    """
-    # 여기를 session_id → chat_id로 변경했습니다
     metadata_filter = {"chat_id": chat_id}
     if topic_id:
         metadata_filter["topic_id"] = topic_id
 
-    # filter는 search_kwargs 안에 넣어야 Chroma가 인식합니다
     retriever = vectorstore.as_retriever(
-        search_kwargs={"k": k, "filter": metadata_filter}
-    )
-
-    return RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="refine",
-        retriever=retriever,
-        chain_type_kwargs={
-            "question_prompt": QUESTION_PROMPT,
-            "refine_prompt": REFINE_PROMPT,
-            "document_variable_name": "context_str",
-        },
-        return_source_documents=False,
-    )
-'''
-
-# 개선된 get_rag_chain 함수
-def get_rag_chain(
-    llm,
-    vectorstore,
-    chat_id: str,
-    k: int,
-    topic_id: Optional[str] = None,
-):
-    """
-    • chat_id  : 각 채팅방 UUID (메타데이터)
-    • topic_id : 선택적으로 세부 토픽 필터
-    """
-    # 메타데이터 필터 설정
-    metadata_filter = {"chat_id": chat_id}
-    if topic_id:
-        metadata_filter["topic_id"] = topic_id
-
-    # 검색 방식 개선 - MMR 방식 사용 (다양성 확보)
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",  # Maximum Marginal Relevance 사용
+        search_type="mmr",
         search_kwargs={
-            "k": k, 
+            "k": k,
             "filter": metadata_filter,
-            "fetch_k": k * 2,  # 더 많은 후보를 가져와서 다양성 확보
-            "lambda_mult": 0.7  # 0.7은 관련성과 다양성의 균형을 의미 (0: 다양성만, 1: 관련성만)
+            "fetch_k": k * 2,
+            "lambda_mult": 0.7
         }
     )
 
     return RetrievalQA.from_chain_type(
         llm=llm,
-        chain_type="refine",  # 기존과 동일하게 refine 방식 유지
+        chain_type="refine",
         retriever=retriever,
         chain_type_kwargs={
             "question_prompt": QUESTION_PROMPT,
