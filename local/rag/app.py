@@ -12,10 +12,15 @@ from functools import lru_cache
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.chat_models import ChatOpenAI   # 외부 LLM
+from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
+from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain.chains.query_constructor.base import AttributeInfo
+
 from src.config import settings
 from src.core.embeddings import get_embedder
 from src.core.chroma_store import get_chroma_store
-from src.core.rag import get_rag_chain
+from src.core.rag import get_rag_chain, QUESTION_PROMPT, REFINE_PROMPT
 
 # ────────────────────────── DTO ──────────────────────────
 class MessageRequest(BaseModel):
@@ -34,6 +39,14 @@ class QueryRequest(BaseModel):
     session_id: str
     question: str
     topic_id: Optional[str] = None
+
+
+class UniversalQueryRequest(BaseModel):
+    question: str
+    current_session_id: str
+    search_mode: str = "auto"  # "current", "auto", "all"
+    time_info: Optional[str] = None
+    k: int = Field(settings.rag_k, description="검색할 컨텍스트 개수")
 
 
 class ItemRequest(BaseModel):
@@ -96,6 +109,54 @@ def get_sqlite_connection():
     return conn
 
 
+# ─────────────────────── 시간 필터 생성 함수 ────────────────────────
+def create_time_filter(time_info: str = None):
+    """
+    시간 정보에 기반한 필터 생성
+    """
+    if not time_info:
+        return {}
+    
+    from datetime import datetime, timedelta
+    
+    now = datetime.utcnow()
+    
+    if time_info == "어제":
+        yesterday = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return {
+            "timestamp": {
+                "$gte": yesterday.isoformat(),
+                "$lt": today.isoformat()
+            }
+        }
+    elif time_info == "오늘":
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return {"timestamp": {"$gte": today_start.isoformat()}}
+    elif time_info == "지난주":
+        week_start = (now - timedelta(days=now.weekday() + 7)).replace(hour=0, minute=0, second=0, microsecond=0)
+        week_end = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        return {
+            "timestamp": {
+                "$gte": week_start.isoformat(),
+                "$lt": week_end.isoformat()
+            }
+        }
+    elif time_info == "지난달":
+        last_month = now.replace(day=1) - timedelta(days=1)
+        month_start = last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_end = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return {
+            "timestamp": {
+                "$gte": month_start.isoformat(),
+                "$lt": month_end.isoformat()
+            }
+        }
+    
+    # 기본값: 빈 필터
+    return {}
+
+
 # ─────────────────────── 벡터 스토어 함수 ────────────────────────
 async def add_to_vectorstore_async(text, metadata):
     # 별도의 스레드에서 실행하여 메인 스레드 차단 방지
@@ -140,6 +201,8 @@ def startup_event() -> None:
 
     # 6) 전역 저장
     app.state.vectorstore = store
+    app.state.llm = llm
+    app.state.embedder = embedder
 
 
 # ─────────────────────── 엔드포인트 ──────────────────────
@@ -346,6 +409,164 @@ async def query(req: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/v1/universal_query", tags=["query"])
+async def universal_query(req: UniversalQueryRequest):
+    """
+    랭체인을 활용한 간결하고 강력한 통합 쿼리 엔드포인트
+    """
+    try:
+        start_time = time.time()
+        
+        # 1. 시간 필터 생성
+        time_filter = {}
+        if req.time_info:
+            time_filter = create_time_filter(req.time_info)
+        
+        # 2. 검색 모드에 따른 검색 전략 결정
+        if req.search_mode == "current":
+            # 현재 세션만 검색
+            metadata_filter = {"chat_id": req.current_session_id}
+            if time_filter:
+                metadata_filter.update(time_filter)
+                
+            # 일반 검색
+            retriever = app.state.vectorstore.as_retriever(
+                search_type="mmr",
+                search_kwargs={
+                    "k": req.k,
+                    "filter": metadata_filter,
+                    "fetch_k": req.k * 2,
+                    "lambda_mult": 0.7  # 관련성과 다양성 균형
+                }
+            )
+            
+        elif req.search_mode == "all":
+            # 모든 세션 검색 (시간 필터만 적용)
+            retriever = app.state.vectorstore.as_retriever(
+                search_type="mmr",
+                search_kwargs={
+                    "k": req.k,
+                    "filter": time_filter if time_filter else None,
+                    "fetch_k": req.k * 2,
+                    "lambda_mult": 0.7
+                }
+            )
+            
+        else:  # "auto" 모드 - 랭체인의 Self Query Retriever 사용
+            # LangChain의 SelfQueryRetriever를 활용하여 질문 자체에서 필터 추출
+            
+            # 메타데이터 스키마 정의
+            metadata_field_info = [
+                AttributeInfo(
+                    name="chat_id",
+                    description="대화방 ID. 특정 대화를 식별하는 고유 문자열",
+                    type="string",
+                ),
+                AttributeInfo(
+                    name="source",
+                    description="메시지 출처 (user_message, assistant_message, doc 등)",
+                    type="string",
+                ),
+                AttributeInfo(
+                    name="timestamp",
+                    description="메시지 생성 시간. ISO 형식 타임스탬프 (YYYY-MM-DDTHH:MM:SS.sssZ)",
+                    type="string",
+                )
+            ]
+            
+            # 문서 내용 설명
+            document_content_description = "사용자와 AI 사이의 대화 내용, 또는 문서 텍스트"
+            
+            # Self Query Retriever 생성
+            # 참고: LLM이 질문 내용을 분석하여 자동으로 적절한 필터를 생성
+            retriever = SelfQueryRetriever.from_llm(
+                llm=app.state.llm,
+                vectorstore=app.state.vectorstore,
+                document_contents=document_content_description,
+                metadata_field_info=metadata_field_info,
+                verbose=True
+            )
+            
+            # 기본 필터 추가 (현재 세션 우선)
+            # SelfQueryRetriever의 default_filter 속성 사용
+            if hasattr(retriever, 'default_filter') and retriever.default_filter is not None:
+                # 기존 필터와 세션/시간 필터 결합
+                combined_filter = {
+                    "$and": [
+                        retriever.default_filter,
+                        {"chat_id": req.current_session_id}
+                    ]
+                }
+                # 시간 필터 추가
+                if time_filter:
+                    combined_filter["$and"].append(time_filter)
+                    
+                retriever.default_filter = combined_filter
+            else:
+                # 기본 필터 설정
+                default_filter = {"chat_id": req.current_session_id}
+                if time_filter:
+                    default_filter.update(time_filter)
+                retriever.default_filter = default_filter
+        
+        # 3. 랭체인 구성 - RetrievalQA
+        
+        # 프롬프트 템플릿 - 검색된 컨텍스트를 기반으로 답변
+        qa_prompt = PromptTemplate(
+            input_variables=["context_str", "question"],
+            template=(
+                "당신은 사용자의 대화 기록과 문서를 관리하는 AI 비서입니다.\n\n"
+                "# 검색된 컨텍스트:\n{context_str}\n\n"
+                "# 사용자 질문:\n{question}\n\n"
+                "# 응답 지침:\n"
+                "1. 제공된 컨텍스트만 사용하여 답변하세요.\n"
+                "2. 컨텍스트에 없는 정보는 '제공된 정보에서 관련 내용을 찾을 수 없습니다'라고 답변하세요.\n"
+                "3. 여러 대화에서 검색된 정보라면 일관된 형태로 통합하여 답변하세요.\n"
+                "4. 정확한 날짜, 이름, 숫자 정보는 그대로 인용하세요.\n"
+                "5. 답변은 간결하고 명확하게 작성하세요.\n\n"
+                "답변:"
+            ),
+        )
+        
+        # RetrievalQA 체인 구성
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=app.state.llm,
+            chain_type="stuff",  # 간단한 질의에는 'stuff' 방식이 효율적
+            retriever=retriever,
+            chain_type_kwargs={
+                "prompt": qa_prompt,
+            },
+            return_source_documents=True  # 소스 문서 반환 (결과 분석용)
+        )
+        
+        # 4. 질의 실행
+        result = qa_chain({"query": req.question})
+        
+        # 5. 소스 분석 (어떤 세션에서 검색됐는지)
+        source_sessions = {}
+        for doc in result.get("source_documents", []):
+            session_id = doc.metadata.get("chat_id", "unknown")
+            if session_id in source_sessions:
+                source_sessions[session_id] += 1
+            else:
+                source_sessions[session_id] = 1
+        
+        # 6. 결과 반환
+        total_time = time.time() - start_time
+        
+        return {
+            "answer": result["result"],
+            "search_mode": req.search_mode,
+            "source_sessions": source_sessions,
+            "found_in_current_session": req.current_session_id in source_sessions,
+            "time_info": req.time_info,
+            "processing_time": round(total_time, 3)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"universal_query 처리 실패: {str(e)}")
+
+
 @app.get("/v1/chat_history/{session_id}", tags=["chat"])
 async def get_chat_history(session_id: str, limit: int = 50, offset: int = 0):
     """특정 세션의 채팅 내역 조회"""
@@ -438,6 +659,7 @@ async def cleanup_chat_history(background_tasks: BackgroundTasks, days: int = 30
                 (cutoff_date,)
             ).rowcount
         
+        # 계속...
         conn.commit()
         conn.close()
         return {"status": "ok", "deleted_count": deleted}
