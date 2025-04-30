@@ -25,7 +25,6 @@ class VectorDBHandler:
         self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=settings.embed_model,
             device="cpu",  # CPU 명시적 지정
-            cache_folder=os.path.join(settings.chroma_persist_dir, "embedding_cache")
         )
         
         # 임시 저장소 디렉토리 생성
@@ -50,6 +49,30 @@ class VectorDBHandler:
             length_function=len,
             separators=["\n\n", "\n", ". ", " ", ""]  # 한글 문서도 효과적으로 분할
         )
+
+    def _sanitize_metadata(self,metadata):
+        """
+        ChromaDB에 저장하기 위해 메타데이터 값을 올바른 형식으로 변환
+        
+        Args:
+            metadata: 원본 메타데이터 딕셔너리
+            
+        Returns:
+            변환된 메타데이터 딕셔너리
+        """
+        if not metadata:
+            return {}
+            
+        result = {}
+        for key, value in metadata.items():
+            if isinstance(value, bool):
+                result[key] = str(value)  # 불리언을 문자열로 변환
+            elif isinstance(value, (str, int, float)) or value is None:
+                result[key] = value
+            else:
+                # 다른 복잡한 타입(리스트, 딕셔너리 등)을 문자열로 변환
+                result[key] = str(value)
+        return result
     
     def _get_or_create_collection(self, name: str, description: str):
         """컬렉션이 존재하지 않으면 생성하고, 존재하면 가져오기"""
@@ -222,7 +245,9 @@ class VectorDBHandler:
             
         if metadata is None:
             metadata = {}
-            
+        
+        if metadata:
+            metadata = self._sanitize_metadata(metadata)
         # 대화 내용이 너무 길면 자동 청크화
         chunks = self.text_splitter.split_text(conversation)
         
@@ -242,8 +267,12 @@ class VectorDBHandler:
         }
         
         # 사용자 제공 메타데이터 병합
-        base_metadata.update(metadata)
+        if metadata:
+            base_metadata.update(metadata)
         
+        # 메타데이터 정제 추가
+        base_metadata = self._sanitize_metadata(base_metadata)
+
         ids = []
         metadatas = []
         
@@ -323,6 +352,9 @@ class VectorDBHandler:
         """
         if metadata is None:
             metadata = {}
+
+        if metadata:
+            metadata = self._sanitize_metadata(metadata)
             
         # 문서를 청크로 분할
         chunks = self.text_splitter.split_text(document_content)
@@ -366,12 +398,24 @@ class VectorDBHandler:
         if chunks:
             chunks[0] = f"{document_summary}\n\n{chunks[0]}"
         
-        # Chroma에 저장
-        self.collections["documents"].add(
-            documents=chunks,
-            ids=ids,
-            metadatas=metadatas
-        )
+        # 배치 처리로 변경 - conversation 저장과 동일한 방식 적용
+        batch_size = 10
+        
+        # 배치 처리로 Chroma에 저장
+        for i in range(0, len(chunks), batch_size):
+            batch_chunks = chunks[i:i+batch_size]
+            batch_ids = ids[i:i+batch_size]
+            batch_metadatas = metadatas[i:i+batch_size]
+            
+            self.collections["documents"].add(
+                documents=batch_chunks,
+                ids=batch_ids,
+                metadatas=batch_metadatas
+            )
+            
+            # 메모리 정리
+            import gc
+            gc.collect()
         
         # 요약 정보 별도 저장
         summary_id = f"summary_doc_{document_name}"
