@@ -365,8 +365,8 @@ const SERVER_DEFS = [
     name: "Gmail",
     bin:
       process.platform === "win32"
-        ? "gmail-mcp.cmd"
-        : "gmail-mcp",
+        ? "ej-mcp-server-gmail.cmd"
+        : "ej-mcp-server-gmail",
   },
   {
     id: "calendar",

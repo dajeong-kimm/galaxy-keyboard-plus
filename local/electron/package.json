@@ -1,25 +1,25 @@
 {
+  "author": "SSAFY E201",
   "name": "mcp-web-app",
   "version": "1.1.0",
-  "description": "Electron desktop wrapper around a single MCP-Filesystem server",
+  "description": "Electron desktop wrapper around a single server",
   "main": "main.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "set NODE_OPTIONS=--no-warnings --trace-warnings --enable-source-maps && electron .",
+    "dev": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
   "dependencies": {
-    "@gongrzhe/server-gmail-autoauth-mcp": "^1.1.8",
     "@langchain/core": "^0.3.49",
     "@modelcontextprotocol/server-filesystem": "^2025.3.28",
     "axios": "^1.8.4",
     "cross-spawn": "^7.0.6",
     "dotenv": "^16.5.0",
-    "electron": "^35.2.0",
+    "ej-mcp-server-gdrive": "github:ejoyee/ej-mcp-server-gdrive",
+    "ej-mcp-server-gmail": "github:ejoyee/ej-mcp-server-gmail",
     "google-auth-library": "^9.15.1",
     "google-calendar-mcp": "github:heon0945/google-calendar-mcp",
-    "ej-mcp-server-gdrive": "github:ejoyee/ej-mcp-server-gdrive",
     "googleapis": "^148.0.0",
     "langchain": "^0.3.24",
     "open": "^10.1.1",
@@ -28,17 +28,42 @@
   },
   "build": {
     "appId": "com.mcp.webapp",
-    "productName": "MCP Desktop",
+    "productName": "MOCA",
+    "npmRebuild": false,
+    "asar": true,
     "asarUnpack": [
-      "node_modules/@modelcontextprotocol/server-filesystem/**",
-      "node_modules/.bin/**"
+      "**/node_modules/@modelcontextprotocol/server-filesystem/**",
+      "**/node_modules/.bin/**",
+      "**/node_modules/google-calendar-mcp/**",
+      "**/node_modules/ej-mcp-server-gdrive/**",
+      "**/node_modules/@modelcontextprotocol/server-filesystem/**",
+      "**/node_modules/@modelcontextprotocol/sdk/**",
+      "**/node_modules/zod/**",
+      "**/node_modules/zod-to-json-schema/**",
+      "**/node_modules/diff/**",
+      "**/node_modules/minimatch/**",
+      "**/node_modules/brace-expansion/**",
+      "**/node_modules/balanced-match/**",
+      "**/node_modules/json-schema-ref-parser/**",
+      "**/node_modules/@types/json-schema/**"
     ],
     "files": [
+      "**/*",
       "!dist/",
       "!node_modules/.cache/"
     ],
     "win": {
       "target": "nsis"
-    }
+    },
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": "."
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^35.2.0",
+    "electron-builder": "^26.0.12"
   }
 }
