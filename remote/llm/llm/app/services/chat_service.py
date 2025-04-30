@@ -15,6 +15,25 @@ from app.core.openai_client import generate_error_sse # SSE 오류 생성 헬퍼
 from app.core.kafka_producer import get_kafka_producer
 
 from app.core.config import get_settings, Settings
+import traceback
+
+# --- 백그라운드 Kafka 전송 함수 ---
+async def send_usage_to_kafka_bg(
+    usage_message: Dict[str, Any],
+    producer: AIOKafkaProducer,
+    topic: str
+):
+    """(Background Task) 사용량 메시지를 Kafka로 비동기 전송"""
+    try:
+        message_bytes = json.dumps(usage_message).encode('utf-8')
+        print(f"--- [Background Task] Sending usage info to Kafka topic '{topic}' ---")
+        # 백그라운드에서 실행되므로 send_and_wait 사용 가능 (전송 보장률 높임)
+        await producer.send_and_wait(topic, message_bytes)
+        print(f"--- [Background Task] Usage info sent successfully ---")
+    except Exception as kafka_e:
+        # 백그라운드 작업 실패는 로깅만 수행
+        print(f"!!! [Background Task] Failed to send usage info to Kafka: {kafka_e}")
+        traceback.print_exc() # 에러 상세 로깅
 
 class ChatService:
     """OpenAI 채팅 관련 비즈니스 로직을 처리하는 서비스 클래스"""
@@ -24,11 +43,9 @@ class ChatService:
     @staticmethod
     async def create_completion(
         payload: ChatCompletionInput,
-        client: AsyncOpenAI,
-        producer: AIOKafkaProducer,
-        settings: Settings
+        client: AsyncOpenAI
     ) -> Dict[str, Any]:
-        """OpenAI API를 호출하고 응답 반환 + 토큰 사용량 Kafka 전송"""
+        """OpenAI API를 호출하고 응답 반환"""
         try:
             request_data = payload.model_dump(exclude_none=True)
             completion = await client.chat.completions.create(
@@ -37,30 +54,6 @@ class ChatService:
                 stream=False
             )
             result_dict = completion.model_dump()
-        # --- Kafka로 토큰 사용량 정보 전송 ---
-            if (usage_info := result_dict.get("usage")) and producer:
-                try:
-                    usage_message = {
-                        "request_id": result_dict.get("id"), # 요청 ID
-                        "model": result_dict.get("model"),    # 사용 모델
-                        "usage": usage_info,                # 토큰 사용량 상세
-                        "api_timestamp_ms": result_dict.get("created", 0) * 1000, # OpenAI 타임스탬프 (ms)
-                        "processed_timestamp_ms": int(time.time() * 1000), # 처리 시점 타임스탬프 (ms)
-                        "stream": False
-                    }
-                    message_bytes = json.dumps(usage_message).encode('utf-8')
-
-                    # Kafka 토픽으로 메시지 전송 (send_and_wait는 전송 완료 대기)
-                    print(f"--- [Service] Sending usage info to Kafka topic '{settings.kafka_usage_topic}' ---")
-                    await producer.send_and_wait(settings.kafka_usage_topic, message_bytes)
-                    print(f"--- [Service] Usage info sent successfully ---")
-
-                except Exception as kafka_e:
-                    # Kafka 전송 실패는 로깅만 하고 API 응답에는 영향 주지 않음
-                    print(f"!!! [Service] Failed to send usage info to Kafka: {kafka_e}")
-                    import traceback
-                    traceback.print_exc() # 에러 상세 로깅
-
             return result_dict
         except OpenAIError as e:
             # 서비스 레벨에서 오류를 잡아서 다시 발생시켜 컨트롤러에서 처리하도록 함
@@ -108,27 +101,21 @@ class ChatService:
             error_json = json.dumps({"error": {"message": "스트리밍 중 서버 내부 오류 발생", "status_code": 500}})
             yield f"event: error\ndata: {error_json}\n\n"
         finally:
-            # --- 스트림 종료 후 Kafka 메시지 전송 ---
+            # 스트림 종료 후 Kafka 메시지 전송 (fire-and-forget)
             if usage_info and request_id and model_name and producer:
                 try:
                     usage_message = {
-                        "request_id": request_id,
-                        "model": model_name,
-                        "usage": usage_info,
-                        "api_timestamp_ms": None, # 스트림에서는 created 타임스탬프가 청크마다 같지 않을 수 있음
-                        "processed_timestamp_ms": processed_timestamp_ms, # 시작 시점 기록
-                        "stream": True # 스트림 여부 필드 추가
+                        "request_id": request_id, "model": model_name, "usage": usage_info,
+                        "api_timestamp_ms": None, "processed_timestamp_ms": processed_timestamp_ms,
+                        "stream": True
                     }
                     message_bytes = json.dumps(usage_message).encode('utf-8')
                     print(f"--- [Service Stream] Sending usage info to Kafka topic '{settings.kafka_usage_topic}' ---")
-                    # 스트림 응답은 이미 종료되었으므로, send() (fire-and-forget) 사용 고려 가능
-                    # send_and_wait 사용 시 Kafka 전송이 느리면 클라이언트 연결 종료 후에도 서버가 잠시 대기할 수 있음
+                    # fire-and-forget 방식 사용
                     await producer.send(settings.kafka_usage_topic, message_bytes)
-                    # await producer.send_and_wait(settings.kafka_usage_topic, message_bytes) # 전송 보장 필요시
-                    print(f"--- [Service Stream] Usage info sent (fire-and-forget) ---")
+                    print(f"--- [Service Stream] Usage info send task created (fire-and-forget) ---")
                 except Exception as kafka_e:
                     print(f"!!! [Service Stream] Failed to send usage info to Kafka: {kafka_e}")
-                    import traceback
                     traceback.print_exc()
 
     @staticmethod
@@ -209,22 +196,18 @@ class ChatService:
             error_json = json.dumps({"error": {"message": "버퍼 스트리밍 중 서버 내부 오류 발생", "status_code": 500}})
             yield f"event: error\ndata: {error_json}\n\n"
         finally:
-            # --- 스트림 종료 후 Kafka 메시지 전송 ---
+            # 스트림 종료 후 Kafka 메시지 전송 (fire-and-forget)
             if usage_info and request_id and model_name and producer:
                 try:
                     usage_message = {
-                        "request_id": request_id,
-                        "model": model_name,
-                        "usage": usage_info,
-                        "api_timestamp_ms": None,
-                        "processed_timestamp_ms": processed_timestamp_ms,
+                        "request_id": request_id, "model": model_name, "usage": usage_info,
+                        "api_timestamp_ms": None, "processed_timestamp_ms": processed_timestamp_ms,
                         "stream": True
                     }
                     message_bytes = json.dumps(usage_message).encode('utf-8')
                     print(f"--- [Service Buffered] Sending usage info to Kafka topic '{settings.kafka_usage_topic}' ---")
-                    await producer.send(settings.kafka_usage_topic, message_bytes) # Fire-and-forget
-                    print(f"--- [Service Buffered] Usage info sent (fire-and-forget) ---")
+                    await producer.send(settings.kafka_usage_topic, message_bytes)
+                    print(f"--- [Service Buffered] Usage info send task created (fire-and-forget) ---")
                 except Exception as kafka_e:
                     print(f"!!! [Service Buffered] Failed to send usage info to Kafka: {kafka_e}")
-                    import traceback
                     traceback.print_exc()

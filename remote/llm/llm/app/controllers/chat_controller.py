@@ -1,7 +1,9 @@
 # llm/app/controllers/chat_controller.py
+import time
+import json
 from typing import Dict, Any
 from aiokafka import AIOKafkaProducer
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from openai import AsyncOpenAI, OpenAIError
 
@@ -10,7 +12,7 @@ from app.core.openai_client import get_openai_client, handle_openai_error
 from app.core.config import get_stream_buffer_size, get_settings, Settings
 from app.core.kafka_producer import get_kafka_producer
 from app.models.chat import ChatCompletionInput
-from app.services.chat_service import ChatService
+from app.services.chat_service import ChatService, send_usage_to_kafka_bg
 
 # 컨트롤러 라우터 생성
 router = APIRouter(prefix="/llm", tags=["LLM Chat"])
@@ -23,6 +25,7 @@ router = APIRouter(prefix="/llm", tags=["LLM Chat"])
 )
 async def post_chat_completion(
     payload: ChatCompletionInput,
+    background_tasks: BackgroundTasks,
     client: AsyncOpenAI = Depends(get_openai_client),
     producer: AIOKafkaProducer = Depends(get_kafka_producer),
     settings: Settings = Depends(get_settings)
@@ -31,9 +34,30 @@ async def post_chat_completion(
     """컨트롤러: 요청 처리, 서비스 호출(Producer, Settings 전달), 전체 응답 반환"""
     try:
         # 서비스 계층 호출 (전체 OpenAI 응답 객체를 받음)
-        full_result = await ChatService.create_completion(payload, client, producer, settings)
-        # 추출 로직 없이 그대로 반환
+        full_result = await ChatService.create_completion(payload, client)
+
+        # --- 백그라운드 Kafka 작업 등록 ---
+        if (usage_info := full_result.get("usage")) and producer:
+             usage_message = {
+                "request_id": full_result.get("id"),
+                "model": full_result.get("model"),
+                "usage": usage_info,
+                "api_timestamp_ms": full_result.get("created", 0) * 1000,
+                "processed_timestamp_ms": int(time.time() * 1000),
+                 "stream": False
+             }
+             # 백그라운드 작업 추가 (producer와 토픽 이름 전달)
+             background_tasks.add_task(
+                 send_usage_to_kafka_bg,
+                 usage_message=usage_message,
+                 producer=producer,
+                 topic=settings.kafka_usage_topic
+             )
+             print("--- [Controller] Kafka usage sending task added to background ---")
+
+        # LLM 응답 즉시 반환
         return full_result
+    
     except OpenAIError as e:
         # 서비스에서 발생한 OpenAI 오류를 HTTP 예외로 변환
         raise handle_openai_error(e)
@@ -41,8 +65,10 @@ async def post_chat_completion(
     # except HTTPException:
     #      raise
     except Exception as e:
-        # 기타 예상치 못한 오류 처리
         print(f"Unexpected error in /chat controller: {e}")
+        # 서비스에서 발생한 오류가 아닐 경우 traceback 로깅
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="서버 내부 오류가 발생했습니다.",
