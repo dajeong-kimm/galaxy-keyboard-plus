@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 @RestController
-@RequestMapping("/stats")
+@RequestMapping("/logging")
 @RequiredArgsConstructor
 public class StatisticsController {
     private final DailyTokenStatRepository dailyTokenRepo;
