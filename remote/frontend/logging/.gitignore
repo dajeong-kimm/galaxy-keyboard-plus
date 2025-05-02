@@ -1,0 +1,45 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 빌드 결과물 및 캐시
+dist/
+build/
+
+# 시스템/IDE 관련 파일
+Thumbs.db
+
+# Vite 관련 캐시
+.vite/
+
+
+# 환경 변수 파일 (보안)
+.env
+.env.*
+
+
+# lock 파일은 팀 정책에 따라
+# package-lock.json 혹은 yarn.lock 중 하나만 유지하는 경우에는 해당되지 않는 쪽을 추가
+# 예시: yarn 사용 시 아래 추가
+package-lock.json

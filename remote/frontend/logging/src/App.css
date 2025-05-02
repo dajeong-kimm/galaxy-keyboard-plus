@@ -1,0 +1,8 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+  font-family: 'Arial', sans-serif;
+  background-color: #f5f3ef;
+  margin: 0;
+  padding: 0;
+}

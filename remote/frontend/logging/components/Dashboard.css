@@ -1,0 +1,45 @@
+.dashboard {
+    flex-grow: 1;
+    padding: 2rem;
+    background-color: #f7f6f3;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 2rem;
+  }
+  
+  .card {
+    background-color: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    width: 500px;
+  }
+  
+  .tabs {
+    display: flex;
+    gap: 1rem;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 1rem;
+  }
+  
+  .tab {
+    padding-bottom: 0.5rem;
+    cursor: pointer;
+  }
+  
+  .tab.active {
+    border-bottom: 3px solid #b47a62;
+    font-weight: bold;
+    color: #b47a62;
+  }
+  
+  .chart-placeholder {
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  

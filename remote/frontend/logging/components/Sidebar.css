@@ -1,0 +1,43 @@
+.sidebar {
+    width: 250px;
+    background-color: #f3e5dc;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2rem;
+    border-right: 1px solid #ddd;
+  }
+  
+  .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 2rem;
+  }
+  
+  .nav {
+    flex-grow: 1;
+  }
+  
+  .nav-item {
+    margin-bottom: 1rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.3s;
+  }
+  
+  .nav-item:hover {
+    background-color: #e0cfc3;
+  }
+  
+  .nav-item.active {
+    background-color: #b47a62;
+    color: white;
+  }
+  
+  .footer {
+    border-top: 1px solid #aaa;
+    padding-top: 1rem;
+    font-size: 0.9rem;
+  }
+  
