@@ -1,0 +1,36 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: backend
+
+  datasource:
+    url: jdbc:postgresql://3.38.95.110:5433/moca_sched_db
+    username: moca_sched
+    password: ey5p4NXFxFSvBqWSxh*gCU79eFs7jA2M
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+  jackson:
+    serialization:
+      indent_output: true
+
+# swagger 설정
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    
+# logging 설정
+logging:
+  level:
+    org.springframework: INFO
+    com.backend: DEBUG
+  file:
+    name: logs/backend.log
