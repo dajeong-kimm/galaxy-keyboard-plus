@@ -1,0 +1,188 @@
+// pipeline {
+//   agent any
+
+//   environment {
+//     FIREBASE_APP_ID = '1:189536895445:android:783ed885fd7c4b896bfd5c'
+//   }
+
+//   stages {
+//     stage('Checkout') {
+//       steps {
+//         checkout scm
+//       }
+//     }
+
+//     stage('Prepare Project') {
+//       steps {
+//         sh '''
+//           echo 📦 작업 디렉토리 준비
+//           rm -rf workspace
+//           mkdir -p workspace
+//           cp -a front/frontend/. workspace/
+//           chmod -R 777 workspace
+//           [ -f workspace/package.json ] && echo 📄 package.json 확인 완료
+//         '''
+//       }
+//     }
+
+//     stage('Prepare Secrets') {
+//       steps {
+//         withCredentials([
+//           file(credentialsId: 'android-release-keystore', variable: 'KEYSTORE_PATH'),
+//           file(credentialsId: 'google-services-json', variable: 'GOOGLE_JSON'),
+//           file(credentialsId: 'firebase-service-account', variable: 'FIREBASE_JSON')
+//         ]) {
+//           sh '''
+//             echo 🔐 시크릿 파일 복사
+//             mkdir -p workspace/android/app/keystore
+//             cp "$KEYSTORE_PATH" workspace/android/app/keystore/release.keystore
+//             cp "$GOOGLE_JSON" workspace/android/app/google-services.json
+//             cp "$FIREBASE_JSON" workspace/android/firebase_service_account.json
+//             chmod -R 777 workspace/android
+//           '''
+//         }
+//       }
+//     }
+
+//     stage('Build and Deploy') {
+//       steps {
+//         withCredentials([
+//           string(credentialsId: 'FIREBASE_TOKEN', variable: 'FIREBASE_TOKEN'),
+//           string(credentialsId: 'KEYSTORE_PASSWORD', variable: 'KEYSTORE_PASSWORD'),
+//           string(credentialsId: 'KEY_ALIAS', variable: 'KEY_ALIAS'),
+//           string(credentialsId: 'KEY_PASSWORD', variable: 'KEY_PASSWORD')
+//         ]) {
+//           sh '''
+//             echo 🚀 Docker 빌드 및 배포 시작
+
+//             docker run --rm \
+//               -v $PWD/workspace:/app \
+//               -e FIREBASE_TOKEN=$FIREBASE_TOKEN \
+//               -e FIREBASE_APP_ID=$FIREBASE_APP_ID \
+//               reactnativecommunity/react-native-android bash -c "
+//                 set -e
+//                 cd /app
+
+//                 echo '📦 npm install'
+//                 npm install
+
+//                 echo '🛠️ Android 빌드'
+//                 cd android
+//                 chmod +x ./gradlew
+//                 echo 'sdk.dir=/opt/android-sdk' > local.properties
+//                 echo 'KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD' >> gradle.properties
+//                 echo 'KEY_ALIAS=$KEY_ALIAS' >> gradle.properties
+//                 echo 'KEY_PASSWORD=$KEY_PASSWORD' >> gradle.properties
+//                 ./gradlew clean assembleRelease --stacktrace
+
+//                 echo '📦 빌드 산출물 복사'
+//                 mkdir -p /tmp/output
+//                 find . -name '*.apk' -o -name '*.aab' -exec cp {} /tmp/output/ \\;
+
+//                 echo '🔥 Firebase 배포'
+//                 npm install -g firebase-tools
+//                 firebase appdistribution:distribute /tmp/output/*.apk \
+//                   --app $FIREBASE_APP_ID \
+//                   --token $FIREBASE_TOKEN \
+//                   --groups testers \
+//                   --release-notes 'CI 자동 배포'
+//               "
+//           '''
+//         }
+//       }
+//     }
+//   }
+
+//   post {
+//     failure {
+//       sh '''
+//         echo ❌ 빌드 실패 디버깅 저장
+//         mkdir -p debug-archive
+//         echo "## package.json 내용" && cat workspace/package.json || echo 없음
+//         echo "\\n## 디렉토리 상태" && ls -al workspace || echo 없음
+//       '''
+//       archiveArtifacts artifacts: '**/workspace/**', allowEmptyArchive: true
+//     }
+//   }
+// }
+
+
+pipeline {
+  agent any
+
+  stages {
+    stage('Print Jenkins Credentials') {
+      steps {
+        withCredentials([
+          // Secret text
+          string(credentialsId: 'POSTGRES_AUTH_USER',       variable: 'POSTGRES_AUTH_USER'),
+          string(credentialsId: 'POSTGRES_AUTH_DB_NAME',    variable: 'POSTGRES_AUTH_DB_NAME'),
+          string(credentialsId: 'POSTGRES_AUTH_PASSWORD',   variable: 'POSTGRES_AUTH_PASSWORD'),
+          string(credentialsId: 'POSTGRES_SCHED_USER',      variable: 'POSTGRES_SCHED_USER'),
+          string(credentialsId: 'POSTGRES_SCHED_DB_NAME',   variable: 'POSTGRES_SCHED_DB_NAME'),
+          string(credentialsId: 'POSTGRES_SCHED_PASSWORD',  variable: 'POSTGRES_SCHED_PASSWORD'),
+          string(credentialsId: 'OPENAI_API_KEY',           variable: 'OPENAI_API_KEY'),
+          string(credentialsId: 'CLAUDE_API_KEY',           variable: 'CLAUDE_API_KEY'),
+          string(credentialsId: 'gitlab-token',             variable: 'GITLAB_TOKEN'),
+          string(credentialsId: 'gitlab-token-cicd',        variable: 'GITLAB_TOKEN_CICD'),
+          string(credentialsId: 'PINECONE_API_KEY',         variable: 'PINECONE_API_KEY'),
+          string(credentialsId: 'PINECONE_INDEX_NAME',      variable: 'PINECONE_INDEX_NAME'),
+          string(credentialsId: 'GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APP_CRED'),
+          string(credentialsId: 'KEYSTORE_PASSWORD',        variable: 'KEYSTORE_PASSWORD'),
+          string(credentialsId: 'KEY_ALIAS',                variable: 'KEY_ALIAS'),
+          string(credentialsId: 'KEY_PASSWORD',             variable: 'KEY_PASSWORD'),
+          string(credentialsId: 'FIREBASE_TOKEN',           variable: 'FIREBASE_TOKEN'),
+          string(credentialsId: 'FRONTEND_API_URL',         variable: 'FRONTEND_API_URL'),
+          string(credentialsId: 'FIREBASE_CREDENTIALS_JSON_BASE64', variable: 'FIREBASE_CRED_BASE64'),
+          string(credentialsId: 'JWT_SECRET_KEY',           variable: 'JWT_SECRET_KEY'),
+          string(credentialsId: 'KAKAO_CLIENT_ID',          variable: 'KAKAO_CLIENT_ID'),
+          string(credentialsId: 'JWT_AT_VALIDITY',          variable: 'JWT_AT_VALIDITY'),
+          string(credentialsId: 'JWT_RT_VALIDITY',          variable: 'JWT_RT_VALIDITY'),
+
+          // Username + password
+          usernamePassword(credentialsId: 'jjin4363@gmail.com',
+                           usernameVariable: 'JENKINS_USER',
+                           passwordVariable: 'JENKINS_PSW'),
+
+          // Secret files (we'll print the path to the temp file)
+          file(credentialsId: 'moca-457801-bfa12690864b.json',      variable: 'GCP_SA_FILE'),
+          file(credentialsId: 'android-release-keystore',          variable: 'ANDROID_KEYSTORE_FILE'),
+          file(credentialsId: 'firebase-service-account',          variable: 'FIREBASE_SA_FILE'),
+          file(credentialsId: 'google-services-json',              variable: 'GOOGLE_SERVICES_FILE')
+        ]) {
+          sh '''
+            echo "POSTGRES_AUTH_USER=$POSTGRES_AUTH_USER"
+            echo "POSTGRES_AUTH_DB_NAME=$POSTGRES_AUTH_DB_NAME"
+            echo "POSTGRES_AUTH_PASSWORD=$POSTGRES_AUTH_PASSWORD"
+            echo "POSTGRES_SCHED_USER=$POSTGRES_SCHED_USER"
+            echo "POSTGRES_SCHED_DB_NAME=$POSTGRES_SCHED_DB_NAME"
+            echo "POSTGRES_SCHED_PASSWORD=$POSTGRES_SCHED_PASSWORD"
+            echo "OPENAI_API_KEY=$OPENAI_API_KEY"
+            echo "CLAUDE_API_KEY=$CLAUDE_API_KEY"
+            echo "gitlab-token=$GITLAB_TOKEN"
+            echo "gitlab-token-cicd=$GITLAB_TOKEN_CICD"
+            echo "PINECONE_API_KEY=$PINECONE_API_KEY"
+            echo "PINECONE_INDEX_NAME=$PINECONE_INDEX_NAME"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APP_CRED"
+            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "KEY_ALIAS=$KEY_ALIAS"
+            echo "KEY_PASSWORD=$KEY_PASSWORD"
+            echo "FIREBASE_TOKEN=$FIREBASE_TOKEN"
+            echo "FRONTEND_API_URL=$FRONTEND_API_URL"
+            echo "FIREBASE_CREDENTIALS_JSON_BASE64=$FIREBASE_CRED_BASE64"
+            echo "JWT_SECRET_KEY=$JWT_SECRET_KEY"
+            echo "KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID"
+            echo "JWT_AT_VALIDITY=$JWT_AT_VALIDITY"
+            echo "JWT_RT_VALIDITY=$JWT_RT_VALIDITY"
+            echo "jjin4363@gmail.com_USERNAME=$JENKINS_USER"
+            echo "jjin4363@gmail.com_PASSWORD=$JENKINS_PSW"
+            echo "GCP_SA_FILE_PATH=$GCP_SA_FILE"
+            echo "ANDROID_KEYSTORE_FILE_PATH=$ANDROID_KEYSTORE_FILE"
+            echo "FIREBASE_SA_FILE_PATH=$FIREBASE_SA_FILE"
+            echo "GOOGLE_SERVICES_FILE_PATH=$GOOGLE_SERVICES_FILE"
+          '''
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+상수, 스타일값, URL 등을 저장합니다.
+- colors.ts: 색상 팔레트
+- urls.ts: API 주소 모음
+- strings.ts: 다국어 문자열 관리

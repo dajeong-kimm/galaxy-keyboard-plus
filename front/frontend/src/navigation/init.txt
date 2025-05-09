@@ -1,0 +1,3 @@
+React Navigation 관련 코드를 관리합니다.
+- AppNavigator.tsx: Stack Navigator 구성
+- AuthNavigator.tsx: 로그인/회원가입 흐름

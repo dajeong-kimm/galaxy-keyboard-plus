@@ -1,0 +1,2 @@
+API 요청, axios instance, 인증 처리 등을 위한 서비스 코드를 둡니다.
+예: authService.ts, imageService.ts

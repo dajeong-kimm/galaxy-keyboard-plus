@@ -19,12 +19,27 @@ repositories {
 
 ext {
 	set('springCloudVersion', "2024.0.1")
+	set('jjwtVersion', '0.11.5')
 }
 
 dependencies {
-	implementation 'org.springframework.cloud:spring-cloud-starter-gateway-mvc'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
+	implementation 'org.springframework.boot:spring-boot-starter-test'
+	implementation 'org.junit.platform:junit-platform-launcher'
+
+	// dotenv-java 환경 변수 주입
+	implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+
+	// JWT 파싱용 API
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	// JWT 내부 구현체 (runtime에 필요)
+	implementation "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	// Jackson 기반 Claims 처리 (JSON 직렬화/역직렬화용)
+	implementation "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
 }
 
 dependencyManagement {

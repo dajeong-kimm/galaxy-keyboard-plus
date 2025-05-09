@@ -1,0 +1,2 @@
+전역 상태 관리를 위한 zustand store 정의
+예: useUserStore.ts, usePermissionStore.ts

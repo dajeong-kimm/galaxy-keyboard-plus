@@ -1,45 +1,52 @@
 pipeline {
   agent any
+
   environment {
-    COMPOSE_FILE = "docker-compose-prod.yml"
-    ENV_FILE     = ".env.prod"
+    COMPOSE_FILE    = 'docker-compose-prod.yml'
+    ENV_FILE        = '.env.prod'
+  }
+
+  parameters {
+    string(
+      name: 'FORCE_SERVICES',
+      defaultValue: '',
+      description: '콤마(,)로 지정 시 해당 서비스만 빌드·배포 (예: gateway,auth,backend,rag)'
+    )
   }
 
   stages {
-    /* 0. Checkout ---------------------------------------------- */
-    stage('Checkout') { steps { checkout scm } }
-
-    /* 0-1. Branch Gate – release 만 진행 ------------------------ */
-    stage('Verify release branch') {
+    stage('Checkout') {
       steps {
-        script {
-          if (env.BRANCH_NAME != 'release') {
-            echo "Branch '${env.BRANCH_NAME}' ⇒ 배포 대상 아님. 파이프라인 종료."
-            currentBuild.result = 'SUCCESS'
-            return
-          }
-        }
+        checkout scm
       }
     }
 
-    /* 1. .env.prod 생성 (Credentials) -------------------------- */
     stage('Create .env.prod') {
       steps {
         withCredentials([
-          string(credentialsId: 'POSTGRES_AUTH_USER',     variable: 'AUTH_USER'),
-          string(credentialsId: 'POSTGRES_AUTH_PASSWORD', variable: 'AUTH_PW'),
-          string(credentialsId: 'POSTGRES_AUTH_DB_NAME',  variable: 'AUTH_DB'),
-          string(credentialsId: 'POSTGRES_SCHED_USER',    variable: 'SCHED_USER'),
-          string(credentialsId: 'POSTGRES_SCHED_PASSWORD',variable: 'SCHED_PW'),
-          string(credentialsId: 'POSTGRES_SCHED_DB_NAME', variable: 'SCHED_DB'),
-          string(credentialsId: 'JWT_SECRET',             variable: 'JWT'),
-          string(credentialsId: 'OPENAI_API_KEY',         variable: 'OPENAI')
+          string(credentialsId: 'POSTGRES_AUTH_USER',      variable: 'AUTH_USER'),
+          string(credentialsId: 'POSTGRES_AUTH_PASSWORD',  variable: 'AUTH_PW'),
+          string(credentialsId: 'POSTGRES_AUTH_DB_NAME',   variable: 'AUTH_DB'),
+          string(credentialsId: 'POSTGRES_SCHED_USER',     variable: 'SCHED_USER'),
+          string(credentialsId: 'POSTGRES_SCHED_PASSWORD', variable: 'SCHED_PW'),
+          string(credentialsId: 'POSTGRES_SCHED_DB_NAME',  variable: 'SCHED_DB'),
+          string(credentialsId: 'PINECONE_API_KEY',         variable: 'PINECONE_API_KEY'),
+          string(credentialsId: 'PINECONE_INDEX_NAME',      variable: 'PINECONE_INDEX_NAME'),
+          file(  credentialsId: 'moca-457801-bfa12690864b.json', variable: 'GCP_KEY_FILE'),
+          string(credentialsId: 'CLAUDE_API_KEY',           variable: 'CLAUDE_API_KEY'),
+          string(credentialsId: 'OPENAI_API_KEY',           variable: 'OPENAI'),
+          string(credentialsId: 'FIREBASE_CREDENTIALS_JSON_BASE64', variable: 'FIREBASE_CREDENTIALS_JSON_BASE64'),
+          string(credentialsId: 'JWT_SECRET_KEY',           variable: 'JWT_SECRET_KEY'),
+          string(credentialsId: 'KAKAO_CLIENT_ID',          variable: 'KAKAO_CLIENT_ID'),
+          string(credentialsId: 'JWT_AT_VALIDITY',          variable: 'JWT_AT_VALIDITY'),
+          string(credentialsId: 'JWT_RT_VALIDITY',          variable: 'JWT_RT_VALIDITY'),
         ]) {
-          // 필수 환경 변수 검증
-          if (!AUTH_USER || !AUTH_PW || !JWT || !OPENAI) {
-            error "필수 환경 변수가 설정되지 않았습니다."
-          }
-          
+          sh '''
+            cp "$GCP_KEY_FILE" gcp-key.json
+            chmod 644 gcp-key.json
+            mkdir -p back/rag
+            cp gcp-key.json back/rag/
+          '''
           writeFile file: '.env.prod', text: """
 POSTGRES_AUTH_USER=${AUTH_USER}
 POSTGRES_AUTH_PASSWORD=${AUTH_PW}
@@ -49,56 +56,60 @@ POSTGRES_SCHED_USER=${SCHED_USER}
 POSTGRES_SCHED_PASSWORD=${SCHED_PW}
 POSTGRES_SCHED_DB_NAME=${SCHED_DB}
 
-JWT_SECRET=${JWT}
 OPENAI_API_KEY=${OPENAI}
+PINECONE_API_KEY=${PINECONE_API_KEY}
+PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+CLAUDE_API_KEY=${CLAUDE_API_KEY}
+FIREBASE_CREDENTIALS_JSON_BASE64=${FIREBASE_CREDENTIALS_JSON_BASE64}
+JWT_SECRET_KEY=${JWT_SECRET_KEY}
+KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+JWT_AT_VALIDITY=${JWT_AT_VALIDITY}
+JWT_RT_VALIDITY=${JWT_RT_VALIDITY}
+
 ENV=prod
 """.trim()
         }
       }
     }
 
-    /* 2. 변경 서비스 탐지 -------------------------------------- */
     stage('Detect Changed Services') {
       steps {
         script {
           def diff = sh(
             script: "git diff --name-only ${env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: 'HEAD~1'} ${env.GIT_COMMIT}",
-            returnStdout: true).trim()
-
+            returnStdout: true
+          ).trim()
           def changed = diff.split('\n')
-                            .collect { it.tokenize('/')[0..1].join('/') }
+                            .findAll{ it }
+                            .findAll{ it.startsWith('back/') || it.startsWith('front/frontend/') }
+                            .collect{ p -> p.startsWith('front/frontend/') ? 'frontend' : p.tokenize('/')[1] }
                             .unique()
-                            .findAll { it.startsWith('back/') }
-
-          env.CHANGED_SERVICES = changed.join(',')
-          if (changed.isEmpty()) {
-            echo "No service changes."; currentBuild.result='SUCCESS'; return
+          def forced = params.FORCE_SERVICES?.trim() ? params.FORCE_SERVICES.split(',').collect{ it.trim() } : []
+          env.CHANGED_SERVICES = (forced ?: changed).toSet().join(',')
+          if (!env.CHANGED_SERVICES) {
+            echo 'No service changes.'
+            currentBuild.result = 'SUCCESS'
+          } else {
+            echo "Target services: ${env.CHANGED_SERVICES}"
           }
         }
       }
     }
 
-    /* 3. Build & Deploy --------------------------------------- */
-    stage('Build & Deploy') {
-      when { expression { env.CHANGED_SERVICES && !env.CHANGED_SERVICES.isEmpty() } }
+    stage('Build & Deploy Backend') {
+      when {
+        expression { env.CHANGED_SERVICES.split(',').any { it != 'frontend' } }
+      }
       steps {
         script {
-          // Docker Compose 파일 존재 확인
-          if (!fileExists(COMPOSE_FILE)) {
-            error "${COMPOSE_FILE} 파일이 존재하지 않습니다."
-          }
-          
-          env.CHANGED_SERVICES.split(',').each { path ->
-            def svc = path.tokenize('/')[1]
-            echo "▶ Building & deploying: ${svc}"
-            try {
+          env.CHANGED_SERVICES.split(',').each { svc ->
+            if (svc != 'frontend') {
+              echo "▶ Building & deploying ${svc}"
               sh """
-                docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build ${svc}
-                docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps ${svc}
+                docker rm -f ${svc}-service || true
+                docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --no-cache ${svc}
+                docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps --force-recreate ${svc}
               """
-            } catch (Exception e) {
-              echo "서비스 ${svc} 빌드/배포 중 오류 발생: ${e.message}"
-              error "서비스 ${svc} 빌드/배포 실패"
             }
           }
         }
@@ -106,8 +117,15 @@ ENV=prod
     }
   }
 
-  /* 4. 정리 & 알림 ------------------------------------------- */
   post {
-    // 비어있는 post 섹션
+    always {
+      sh 'rm -f .env.prod gcp-key.json back/rag/gcp-key.json'
+    }
+    success {
+      echo '빌드 및 배포 성공 🎉'
+    }
+    failure {
+      echo '빌드 또는 배포 실패 ❗'
+    }
   }
 }

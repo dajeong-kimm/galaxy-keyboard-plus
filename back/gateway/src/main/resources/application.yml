@@ -1,6 +1,58 @@
 server:
   port: 8000
 
+logging:
+  level:
+    com.gateway.filter: INFO
+
+management:
+  server:
+    base-path: /actuator
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+jwt:
+  secret: ${JWT_SECRET_KEY}
+
 spring:
   application:
-    name: gateway
+    name: moca-gateway
+
+  cloud:
+    gateway:
+      # ───────────── StripPrefix 제거 ─────────────
+      # default-filters:
+      #   - StripPrefix=1
+
+      routes:
+        # 1) 인증 서비스 --------------------------------------------
+        - id: auth-route
+          uri: http://auth-service:8082          # <- 컨테이너 이름
+          predicates:
+            - Path=/auth/**                 # /api/auth/** 그대로 전달
+          # 필요 시 필터 추가 가능 (CORS, 토큰 검사 등)
+
+        # 2) 백엔드 서비스 ----------------------------------------
+        - id: backend-route
+          uri: http://backend-service:8083
+          predicates:
+            - Path=/api/**                # /api/sched/** 그대로
+
+        # 3) RAG 서비스 --------------------------------------------
+        - id: rag-route
+          uri: http://rag-service:8090
+          predicates:
+            - Path=/rag/**                  # /api/rag/** 그대로
+
+      # (선택) 공통 CORS 설정
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"

@@ -1,0 +1,22 @@
+pluginManagement {
+    repositories {
+        google()           // 🔥 Google 저장소 - 필수
+        mavenCentral()     // Maven Central 저장소
+        gradlePluginPortal() // Gradle Plugin Portal
+        maven { url 'https://devrepo.kakao.com/nexus/content/groups/public/' }
+    }
+    // React Native CLI 플러그인
+    includeBuild("../node_modules/@react-native/gradle-plugin")
+}
+
+plugins {
+    id("com.facebook.react.settings")
+}
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) {
+    ex -> ex.autolinkLibrariesFromCommand()
+}
+
+rootProject.name = 'frontend'
+include ':app'
+includeBuild('../node_modules/@react-native/gradle-plugin')

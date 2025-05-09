@@ -1,0 +1,104 @@
+plugins {
+    // Google services Gradle 플러그인 추가
+    id 'com.google.gms.google-services'
+    // Firebase App Distribution 플러그인 추가
+    id 'com.google.firebase.appdistribution'
+}
+
+// 앱 모듈 build.gradle
+
+// Android 및 Kotlin 플러그인
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+// React Native 플러그인
+apply plugin: 'com.facebook.react'
+// Google 서비스, Firebase App Distribution 플러그인
+apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.firebase.appdistribution'
+// 벡터 아이콘 폰트 복사 스크립트
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+
+/* ──────────────────
+   React Native 구성
+   ────────────────── */
+
+react {
+    /* 오토링킹 */
+    autolinkLibrariesWithApp()
+
+}
+
+/* 프로가드 설정 – 릴리즈 빌드 시 바이트코드 최적화 여부 */
+def enableProguardInReleaseBuilds = false
+
+/* JSC(자바스크립트코어) 플레버 선택 */
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.frontend"
+    defaultConfig {
+        applicationId "com.frontend"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+    signingConfigs {
+        /* 디버그 서명 설정 (개발용) */
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        // 릴리스 서명 설정 추가
+        release {
+            storeFile file('keystore/release.keystore')
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias System.getenv("KEY_ALIAS")
+            keyPassword System.getenv("KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // 프로덕션 배포 시에는 별도 keystore 사용 권장
+            signingConfig signingConfigs.release
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            
+            // Firebase App Distribution 설정
+            firebaseAppDistribution {
+                appId = System.getenv("FIREBASE_APP_ID")
+                groups = "testers"
+                releaseNotes = "Jenkins 자동 배포 버전"
+            }
+        }
+    }
+}
+
+dependencies {
+    /* react‑native 버전은 React Native Gradle 플러그인에서 자동 지정 */
+    implementation("com.facebook.react:react-android")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+    
+    implementation "com.kakao.sdk:v2-user:2.10.0"
+    implementation "com.kakao.sdk:v2-common:2.10.0"
+
+    // Firebase BoM 추가
+    implementation platform('com.google.firebase:firebase-bom:33.13.0')
+    
+    // Firebase Analytics
+    implementation 'com.google.firebase:firebase-analytics'
+}

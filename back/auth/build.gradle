@@ -29,6 +29,25 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// OAuth ‑ 직접 호출이라 client 모듈 불필요
+//	implementation 'org.springframework.boot:spring-boot-starter-webflux' // WebClient
+	implementation 'org.springframework:spring-webflux'
+
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server' // JWT decoding용
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	runtimeOnly  'org.postgresql:postgresql'
+	implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+	implementation("io.jsonwebtoken:jjwt-impl:0.11.5")
+	implementation("io.jsonwebtoken:jjwt-jackson:0.11.5") // JSON 처리를 위한 Jackson 바인딩
 }
 
 tasks.named('test') {
