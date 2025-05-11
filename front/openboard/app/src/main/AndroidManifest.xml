@@ -15,12 +15,18 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="org.dslul.openboard.inputmethod.latin">
+    package="org.dslul.openboard.inputmethod.latin">
+
+    <!--Internet 권한, 가장 처음에-->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
 
     <!-- A signature-protected permission to ask AOSP Keyboard to close the software keyboard.
          To use this, add the following line into calling application's AndroidManifest.xml
@@ -37,23 +43,24 @@
          }
          </pre> -->
     <permission android:name="org.dslul.openboard.inputmethod.latin.HIDE_SOFT_INPUT"
-                android:protectionLevel="signature" />
+        android:protectionLevel="signature" />
 
     <application android:label="@string/english_ime_name"
-            android:icon="@mipmap/ic_launcher"
-            android:roundIcon="@mipmap/ic_launcher_round"
-            android:supportsRtl="true"
-            android:allowBackup="true"
-            android:defaultToDeviceProtectedStorage="true"
-            android:directBootAware="true"
-            android:extractNativeLibs="false">
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:allowBackup="true"
+        android:defaultToDeviceProtectedStorage="true"
+        android:directBootAware="true"
+        android:extractNativeLibs="false">
 
         <!-- Services -->
         <service android:name="LatinIME"
-                android:label="@string/english_ime_name"
-                android:permission="android.permission.BIND_INPUT_METHOD"
-                android:directBootAware="true"
-                android:exported="true">
+            android:label="@string/english_ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:directBootAware="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.view.InputMethod" />
             </intent-filter>
@@ -61,24 +68,24 @@
         </service>
 
         <service android:name=".spellcheck.AndroidSpellCheckerService"
-                 android:label="@string/spell_checker_service_name"
-                 android:permission="android.permission.BIND_TEXT_SERVICE"
-                 android:exported="true">
+            android:label="@string/spell_checker_service_name"
+            android:permission="android.permission.BIND_TEXT_SERVICE"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.service.textservice.SpellCheckerService" />
             </intent-filter>
             <meta-data android:name="android.view.textservice.scs"
-                    android:resource="@xml/spellchecker" />
+                android:resource="@xml/spellchecker" />
         </service>
 
         <!-- Activities -->
         <activity android:name=".setup.SetupActivity"
-                android:theme="@style/platformActivityTheme"
-                android:label="@string/english_ime_name"
-                android:icon="@mipmap/ic_launcher"
-                android:launchMode="singleTask"
-                android:noHistory="true"
-                android:exported="true">
+            android:theme="@style/platformActivityTheme"
+            android:label="@string/english_ime_name"
+            android:icon="@mipmap/ic_launcher"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -93,29 +100,29 @@
         </activity>
 
         <activity android:name=".setup.SetupWizardActivity"
-                android:theme="@style/platformActivityTheme"
-                android:label="@string/english_ime_name"
-                android:clearTaskOnLaunch="true"
-                android:exported="true">
+            android:theme="@style/platformActivityTheme"
+            android:label="@string/english_ime_name"
+            android:clearTaskOnLaunch="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
 
         <activity android:name=".settings.SettingsActivity"
-                android:theme="@style/platformActivityTheme"
-                android:label="@string/ime_settings"
-                android:excludeFromRecents="true"
-                android:exported="true">
+            android:theme="@style/platformActivityTheme"
+            android:label="@string/ime_settings"
+            android:excludeFromRecents="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
 
         <activity android:name=".spellcheck.SpellCheckerSettingsActivity"
-                  android:theme="@style/platformActivityTheme"
-                  android:label="@string/android_spell_checker_settings"
-                android:exported="true">
+            android:theme="@style/platformActivityTheme"
+            android:label="@string/android_spell_checker_settings"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -123,11 +130,11 @@
 
         <!-- Unexported activity used for tests. -->
         <activity android:name=".settings.TestFragmentActivity"
-                android:exported="false" />
+            android:exported="false" />
 
         <!-- Broadcast receivers -->
         <receiver android:name="SystemBroadcastReceiver"
-                android:exported="true">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -144,11 +151,11 @@
 
         <!-- Content providers -->
         <provider android:name="org.dslul.openboard.inputmethod.dictionarypack.DictionaryProvider"
-                android:grantUriPermissions="true"
-                android:exported="false"
-                android:authorities="@string/authority"
-                android:multiprocess="false"
-                android:label="@string/dictionary_provider_name">
+            android:grantUriPermissions="true"
+            android:exported="false"
+            android:authorities="@string/authority"
+            android:multiprocess="false"
+            android:label="@string/dictionary_provider_name">
         </provider>
     </application>
 </manifest>
