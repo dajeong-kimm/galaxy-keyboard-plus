@@ -8,6 +8,7 @@ from typing import Literal, Optional, Dict, List, Any, Union
 from dotenv import load_dotenv
 import openai
 import shutil
+import logging
 
 # 환경 변수 로드
 load_dotenv()
