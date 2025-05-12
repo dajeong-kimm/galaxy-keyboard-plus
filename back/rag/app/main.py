@@ -26,6 +26,23 @@ from app.utils.mcp_web_research import (
 
 app = FastAPI()
 
+import time
+from fastapi import Request
+
+
+@app.middleware("http")
+async def log_request_time(request: Request, call_next):
+    start_time = time.time()
+
+    response = await call_next(request)
+
+    duration = time.time() - start_time  # 초 단위
+    print(f"✅ [middleware] 처리 시간: {duration:.3f}s")
+    log_msg = f"⏱️ {request.method} {request.url.path} → {response.status_code} | {duration:.3f}s"
+    logging.info(log_msg)
+
+    return response
+
 
 # 앱 시작/종료 이벤트 핸들러 추가
 @app.on_event("startup")
@@ -80,19 +97,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8090)
-
-import time
-from fastapi import Request
-
-
-@app.middleware("http")
-async def log_request_time(request: Request, call_next):
-    start_time = time.time()
-
-    response = await call_next(request)
-
-    duration = time.time() - start_time  # 초 단위
-    log_msg = f"⏱️ {request.method} {request.url.path} → {response.status_code} | {duration:.3f}s"
-    logging.info(log_msg)
-
-    return response
