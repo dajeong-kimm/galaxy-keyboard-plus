@@ -109,11 +109,11 @@ class MCPWebResearch:
         return {}
 
     def search_google(self, query: str) -> Dict:
-        """Google 검색 수행"""
         if not self.initialized:
             return {"error": "MCP 웹 검색 서버가 초기화되지 않았습니다."}
 
         try:
+            logging.info("📤 MCP search_google 요청 전송 중...")
             search_msg = {
                 "jsonrpc": "2.0",
                 "id": 2,
@@ -123,8 +123,11 @@ class MCPWebResearch:
 
             self.process.stdin.write(json.dumps(search_msg) + "\n")
             self.process.stdin.flush()
+            logging.info("📤 MCP search_google 요청 전송 완료")
 
             response = self._read_response()
+            logging.info(f"📥 MCP search_google 응답 수신: {response}")
+
             if response and "result" in response:
                 content = response["result"].get("content", [])
                 if content and len(content) > 0:
