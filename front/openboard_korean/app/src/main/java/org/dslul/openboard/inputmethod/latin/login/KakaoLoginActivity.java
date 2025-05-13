@@ -1,6 +1,7 @@
 package org.dslul.openboard.inputmethod.latin.login;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
@@ -19,6 +20,7 @@ import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.auth.AuthCallback;
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import org.dslul.openboard.inputmethod.latin.data.SecureStorage;
+import org.dslul.openboard.inputmethod.latin.settings.SearchActivity;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -153,8 +155,8 @@ public class KakaoLoginActivity extends Activity {
                 tokenInfo.append("리프레시 토큰: 없음");
             }
 
-            tvTokenInfo.setText(tokenInfo.toString());
-            tvTokenInfo.setVisibility(View.VISIBLE);
+//            tvTokenInfo.setText(tokenInfo.toString());
+//            tvTokenInfo.setVisibility(View.VISIBLE);
         } else {
             tvLoginStatus.setText("로그인 상태: 로그아웃됨");
             btnKakaoLogin.setVisibility(View.VISIBLE);
@@ -170,17 +172,17 @@ public class KakaoLoginActivity extends Activity {
     private void checkAndShowLoginStatus() {
         if (authManager.isLoggedIn()) {
             String userId = secureStorage.getUserId();
-            String accessToken = secureStorage.getAccessToken();
-            String refreshToken = secureStorage.getRefreshToken();
+//            String accessToken = secureStorage.getAccessToken();
+//            String refreshToken = secureStorage.getRefreshToken();
 
-            Log.i(TAG, "로그인 상태: 로그인됨");
-            Log.i(TAG, "사용자 ID: " + userId);
-            if (accessToken != null) {
-                Log.i(TAG, "액세스 토큰: " + accessToken.substring(0, Math.min(20, accessToken.length())) + "...");
-            }
-            if (refreshToken != null) {
-                Log.i(TAG, "리프레시 토큰: " + refreshToken.substring(0, Math.min(20, refreshToken.length())) + "...");
-            }
+//            Log.i(TAG, "로그인 상태: 로그인됨");
+//            Log.i(TAG, "사용자 ID: " + userId);
+//            if (accessToken != null) {
+//                Log.i(TAG, "액세스 토큰: " + accessToken.substring(0, Math.min(20, accessToken.length())) + "...");
+//            }
+//            if (refreshToken != null) {
+//                Log.i(TAG, "리프레시 토큰: " + refreshToken.substring(0, Math.min(20, refreshToken.length())) + "...");
+//            }
 
             Toast.makeText(this, "이미 로그인되어 있습니다: " + userId, Toast.LENGTH_SHORT).show();
             btnKakaoLogin.setVisibility(View.GONE);
@@ -214,10 +216,11 @@ public class KakaoLoginActivity extends Activity {
                         } else {
                             checkAndShowLoginStatus();
                         }
-
+                        Intent intent = new Intent(getApplicationContext(), SearchActivity.class);
+                        startActivity(intent);
                         // 로그인 성공 후 액티비티 종료 (선택적)
                         // setResult(RESULT_OK);
-                        // finish();
+                         finish();
                     }
                 });
             }
