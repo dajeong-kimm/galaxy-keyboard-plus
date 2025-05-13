@@ -1,3 +1,12 @@
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
@@ -7,10 +16,21 @@ android {
 
     defaultConfig {
         applicationId "org.dslul.openboard.inputmethod.latin"
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 33
         versionCode 19
         versionName '1.4.5'
+
+
+        // local.properties에서 값을 읽어와 BuildConfig 필드로 설정
+        buildConfigField "String", "KAKAO_NATIVE_APP_KEY", "\"${localProperties.getProperty('kakao.native.app.key', '')}\""
+        buildConfigField "String", "SERVER_BASE_URL", "\"${localProperties.getProperty('server.base.url', '')}\""
+
+        // 매니페스트에 메타데이터로 추가하려면 이 코드 사용
+        manifestPlaceholders = [
+                kakaoNativeAppKey: localProperties.getProperty('kakao.native.app.key', '')
+        ]
+
     }
 
     buildTypes {
@@ -48,6 +68,13 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
 
+    // AppCompat (androidx.appcompat.widget.Toolbar 위해)
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    // ConstraintLayout
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    // RecyclerView (MessageAdapter 에서 사용)
+    implementation 'androidx.recyclerview:recyclerview:1.3.0'
+
     // EncryptedSharedPreferences를 위한 보안 라이브러리 추가
     implementation "androidx.security:security-crypto:1.1.0-alpha06"
 
@@ -60,7 +87,69 @@ dependencies {
     // OkHttp (Retrofit 내부적으로 사용됨)
     implementation 'com.squareup.okhttp3:okhttp:4.9.3'
     implementation 'com.squareup.okhttp3:logging-interceptor:4.9.3' // 로그 확인용 (선택)
+
+    implementation "com.github.bumptech.glide:glide:4.16.0"
+    annotationProcessor "com.github.bumptech.glide:compiler:4.16.0"
+    // 마크다운 파서
+    implementation 'io.noties.markwon:core:4.6.2'
+
+    // EncryptedSharedPreferences를 위한 보안 라이브러리
+    implementation "androidx.security:security-crypto:1.1.0-alpha06"
+
+    // Retrofit 관련 라이브러리
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.3'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.9.3'
+
+//    // 카카오 로그인 SDK 추가
+//    implementation "com.kakao.sdk:v2-user:2.17.0" // 로그인
+
+
+    // 코틀린 라이브러리 버전 명시적 지정
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+
+    // 카카오 SDK (코틀린 버전과 호환되는 버전 사용)
+//    implementation("com.kakao.sdk:v2-user:2.17.0") {
+//        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib'
+//        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+//        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+//    }
+
+    implementation "com.kakao.sdk:v2-user:2.17.0"
+
+    // 자바에서 Flow 사용을 위한 라이브러리
+    implementation 'androidx.lifecycle:lifecycle-livedata:2.6.2'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.6.2'
+    implementation 'io.reactivex.rxjava3:rxjava:3.1.5'
+    implementation 'io.reactivex.rxjava3:rxandroid:3.0.2'
+
+
 }
 repositories {
     mavenCentral()
+}
+
+configurations.all {
+    resolutionStrategy {
+        // 코틀린 스탠다드 라이브러리 버전 강제 지정
+        force "org.jetbrains.kotlin:kotlin-stdlib:1.6.0"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.0"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.0"
+        force "org.jetbrains.kotlin:kotlin-stdlib-common:1.6.0"
+
+        // 기존 코드에서 androidx.savedstate 라이브러리 버전 추가
+        force "androidx.savedstate:savedstate:1.2.0"  // 버전 업그레이드
+
+        // 기존 Lifecycle 관련 라이브러리들도 호환되는 버전으로 업그레이드
+        force "androidx.lifecycle:lifecycle-viewmodel:2.5.1"
+        force "androidx.lifecycle:lifecycle-livedata:2.5.1"
+        force "androidx.lifecycle:lifecycle-runtime:2.5.1"
+        force "androidx.lifecycle:lifecycle-common:2.5.1"
+        force "androidx.lifecycle:lifecycle-process:2.5.1"
+        force "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1"
+
+    }
 }

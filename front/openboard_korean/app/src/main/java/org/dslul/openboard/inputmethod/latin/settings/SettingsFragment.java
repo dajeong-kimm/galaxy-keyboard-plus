@@ -57,6 +57,21 @@ public final class SettingsFragment extends InputMethodSettingsFragment {
             final Preference gesturePreference = findPreference(Settings.SCREEN_GESTURE);
             preferenceScreen.removePreference(gesturePreference);
         }
+
+
+        // 카카오 로그인 preference에 클릭 리스너 추가
+        Preference kakaoLoginPref = findPreference("kakao_login");
+        if (kakaoLoginPref != null) {
+            kakaoLoginPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    // preference 클릭 시 KakaoLoginActivity 실행
+                    Intent kakaoLoginIntent = new Intent(getActivity(), org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity.class);
+                    startActivity(kakaoLoginIntent);
+                    return true;
+                }
+            });
+        }
     }
 
     @Override

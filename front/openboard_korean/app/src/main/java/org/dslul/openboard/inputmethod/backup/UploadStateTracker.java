@@ -4,6 +4,8 @@ package org.dslul.openboard.inputmethod.backup;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -12,10 +14,25 @@ import java.util.concurrent.TimeUnit;
 public class UploadStateTracker {
     private static final String PREF_NAME = "upload_state";
     private static final String KEY_LAST_UPLOADED_AT = "last_uploaded_at";
+    private static final String KEY_BACKED_UP_IDS = "backed_up_content_ids";
+
 
     private static SharedPreferences getPrefs(Context context) {
         return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
     }
+    // ---------- 📍 contentId 목록 관련 ----------
+    public static Set<String> getBackedUpContentIds(Context context) {
+        return new HashSet<>(getPrefs(context).getStringSet(KEY_BACKED_UP_IDS, new HashSet<>()));
+    }
+
+    public static void addBackedUpContentIds(Context context, Set<String> newIds) {
+        SharedPreferences prefs = getPrefs(context);
+        Set<String> existing = new HashSet<>(prefs.getStringSet(KEY_BACKED_UP_IDS, new HashSet<>()));
+        existing.addAll(newIds);
+        prefs.edit().putStringSet(KEY_BACKED_UP_IDS, existing).apply();
+    }
+
+    // ---------- 📍 contentId 목록 관련 ----------
 
     /**
      * 마지막 업로드된 timestamp를 저장 (밀리초)
@@ -48,6 +65,9 @@ public class UploadStateTracker {
      * 초기화 (테스트용 또는 리셋용)
      */
     public static void clear(Context context) {
-        getPrefs(context).edit().remove(KEY_LAST_UPLOADED_AT).apply();
+        getPrefs(context).edit()
+                .remove(KEY_LAST_UPLOADED_AT)
+                .remove(KEY_BACKED_UP_IDS)
+                .apply();
     }
 }

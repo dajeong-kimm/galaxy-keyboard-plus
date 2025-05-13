@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_margin="4dp"
+    android:background="@drawable/btn_keyboard_key_ics"
+    >
+
+    <!-- 1) 답변 텍스트 -->
+    <TextView
+        android:id="@+id/tvBotMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#000"
+        android:textSize="15sp" />
+
+    <!-- 2) 토글 버튼을 텍스트 바로 아래에 -->
+    <Button
+        android:id="@+id/btnToggleImages"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="사진 보기"
+        android:textSize="12sp" />
+
+    <!-- 2열 썸네일 그리드 -->
+    <GridLayout
+        android:id="@+id/glBotImages"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:columnCount="2"
+        android:visibility="gone"/>
+</LinearLayout>

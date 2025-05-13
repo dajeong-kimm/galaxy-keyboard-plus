@@ -1,6 +1,8 @@
 package org.dslul.openboard.inputmethod.backup;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Log;
 
@@ -27,58 +29,39 @@ import retrofit2.Response;
 public class ImageUploader {
     private static final String TAG = "Backup - ImageUploader";
 
-    /**
-     * 이미지 리스트를 서버에 업로드
-     * @param context Context
-     * @param images 업로드할 이미지 목록
-     * @param userId 사용자 ID
-     * @param accessToken JWT 토큰
-     * @param onSuccess 성공 시 콜백 (image.contentId 전달)
-     * @param onFailure 실패 시 콜백 (filename, throwable 전달)
-     */
     public static void uploadImages(
             Context context,
             List<GalleryImage> images,
             String userId,
             String accessToken,
             SuccessCallback onSuccess,
-            FailureCallback onFailure
+            FailureCallback onFailure,
+            CompletionCallback onComplete
     ) {
-        // HTTP 요청을 처리할 Retrofit 인스턴스를 생성
         ImageUploadApi api = RetrofitInstance.getApi();
+        int total = images.size();
+        final int[] completedCount = {0};
 
-        // 넘겨받은 이미지 리스트를 순회하며 하나씩 업로드
         for (GalleryImage image : images) {
             try {
-                // MediaStore URI로부터 InputStream 열기
-                InputStream inputStream = context.getContentResolver().openInputStream(image.getUri());
-                if (inputStream == null) {
-                    Log.w(TAG, "InputStream is null for " + image.getUri());
-                    continue;
-                }
-
-                // 이미지 바이트로 읽기 + 적절한 MIME 타입 지정
-                byte[] imageBytes = readBytes(inputStream);
+                // ✅ 이미지 압축 및 바이트 배열 획득
+                byte[] imageBytes = compressAndReadBytes(context, image.getUri());
                 MediaType mediaType = MediaType.parse(image.getMimeType());
                 RequestBody imageBody = RequestBody.create(mediaType, imageBytes);
 
-                // Retrofit용 Multipart 파트 생성 (파일 첨부용)
                 MultipartBody.Part filePart = MultipartBody.Part.createFormData(
                         "file",
                         image.getFilename(),
                         imageBody
                 );
 
-                // timestamp를 yyyy:MM:dd HH:mm:ss 형식으로 변환
                 String formattedTime = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.getDefault())
                         .format(new Date(image.getTimestamp()));
 
-                // 문자열 파라미터용 RequestBody 생성
                 RequestBody userIdBody = RequestBody.create(MediaType.parse("text/plain"), userId);
                 RequestBody accessIdBody = RequestBody.create(MediaType.parse("text/plain"), image.getContentId());
                 RequestBody imageTimeBody = RequestBody.create(MediaType.parse("text/plain"), formattedTime);
 
-                // Retrofit 호출 객체 생성 (POST multipart 요청)
                 Call<Void> call = api.uploadImage(
                         "Bearer " + accessToken,
                         userIdBody,
@@ -87,34 +70,35 @@ public class ImageUploader {
                         filePart
                 );
 
-                // 비동기 요청 실행 (enqueue)
                 call.enqueue(new Callback<Void>() {
                     @Override
                     public void onResponse(Call<Void> call, Response<Void> response) {
                         if (response.isSuccessful()) {
-                            // 성공 시 로그 출력 및 콜백 호출
                             Log.i(TAG, "✅ Uploaded: " + image.getFilename());
                             if (onSuccess != null) {
                                 onSuccess.onSuccess(image.getContentId());
                             }
                         } else {
-                            // 실패 시 상태 코드 로그 출력
                             Log.w(TAG, "⚠️ Upload failed: " + response.code() + " - " + image.getFilename());
+                        }
+                        if (++completedCount[0] == total && onComplete != null) {
+                            onComplete.onComplete();
                         }
                     }
 
                     @Override
                     public void onFailure(Call<Void> call, Throwable t) {
-                        // 네트워크 에러 등 실패 시 로그 및 콜백 호출
                         Log.e(TAG, "Upload failed: " + image.getFilename(), t);
                         if (onFailure != null) {
                             onFailure.onFailure(image.getFilename(), t);
+                        }
+                        if (++completedCount[0] == total && onComplete != null) {
+                            onComplete.onComplete();
                         }
                     }
                 });
 
             } catch (Exception e) {
-                // try 블록에서 예외 발생 시 로그 및 콜백 처리
                 Log.e(TAG, "Exception during upload: " + image.getFilename(), e);
                 if (onFailure != null) {
                     onFailure.onFailure(image.getFilename(), e);
@@ -123,14 +107,39 @@ public class ImageUploader {
         }
     }
 
-    private static byte[] readBytes(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        byte[] data = new byte[4096];
-        int nRead;
-        while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
-            buffer.write(data, 0, nRead);
+    /**
+     * ✅ Bitmap을 압축해서 byte[]로 변환하는 메서드
+     * 최대 해상도 제한 + JPEG 압축 품질 낮춰서 OutOfMemory 방지
+     */
+    private static byte[] compressAndReadBytes(Context context, Uri uri) throws IOException {
+        InputStream inputStream = context.getContentResolver().openInputStream(uri);
+        if (inputStream == null) throw new IOException("Failed to open InputStream");
+
+        // 1. 이미지 크기 확인용 decode
+        BitmapFactory.Options boundsOptions = new BitmapFactory.Options();
+        boundsOptions.inJustDecodeBounds = true;
+        BitmapFactory.decodeStream(inputStream, null, boundsOptions);
+        inputStream.close();
+
+        int originalWidth = boundsOptions.outWidth;
+        int targetWidth = 720;  // 최대 너비 720px
+        int scale = 1;
+        while ((originalWidth / scale) > targetWidth) {
+            scale *= 2;
         }
-        return buffer.toByteArray();
+
+        // 2. 샘플링 비율로 다시 decode
+        BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
+        decodeOptions.inSampleSize = scale;
+        inputStream = context.getContentResolver().openInputStream(uri);
+        Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, decodeOptions);
+        inputStream.close();
+
+        // 3. JPEG 압축 (최대 압축: 품질 50)
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, outputStream);
+        bitmap.recycle(); // 메모리 해제
+        return outputStream.toByteArray();
     }
 
     // 성공 콜백 인터페이스
@@ -141,5 +150,10 @@ public class ImageUploader {
     // 실패 콜백 인터페이스
     public interface FailureCallback {
         void onFailure(String filename, Throwable throwable);
+    }
+
+    // Completion 콜백
+    public interface CompletionCallback {
+        void onComplete();
     }
 }

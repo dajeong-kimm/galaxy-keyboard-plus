@@ -33,6 +33,7 @@ import android.os.Debug;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Process;
+import android.text.Editable;
 import android.text.InputType;
 import android.util.Log;
 import android.util.PrintWriterPrinter;
@@ -47,6 +48,7 @@ import android.view.WindowManager;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodSubtype;
+import android.widget.EditText;
 
 import org.dslul.openboard.inputmethod.accessibility.AccessibilityUtils;
 import org.dslul.openboard.inputmethod.annotations.UsedForTesting;
@@ -55,6 +57,7 @@ import org.dslul.openboard.inputmethod.compat.ViewOutlineProviderCompatUtils;
 import org.dslul.openboard.inputmethod.compat.ViewOutlineProviderCompatUtils.InsetsUpdater;
 import org.dslul.openboard.inputmethod.dictionarypack.DictionaryPackConstants;
 import org.dslul.openboard.inputmethod.event.Event;
+import org.dslul.openboard.inputmethod.event.HangulCombiner;
 import org.dslul.openboard.inputmethod.event.HangulEventDecoder;
 import org.dslul.openboard.inputmethod.event.HardwareEventDecoder;
 import org.dslul.openboard.inputmethod.event.HardwareKeyboardEventDecoder;
@@ -114,12 +117,16 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     static final String TAG = LatinIME.class.getSimpleName();
     private static final boolean TRACE = false;
 
+    // LatinIME.java (다른 멤버 변수들과 같은 레벨)
+    private final StringBuilder mSearchCommitted = new StringBuilder();
+
     private static final int EXTENDED_TOUCHABLE_REGION_HEIGHT = 100;
     private static final int PERIOD_FOR_AUDIO_AND_HAPTIC_FEEDBACK_IN_KEY_REPEAT = 2;
     private static final int PENDING_IMS_CALLBACK_DURATION_MILLIS = 800;
     static final long DELAY_WAIT_FOR_DICTIONARY_LOAD_MILLIS = TimeUnit.SECONDS.toMillis(2);
     static final long DELAY_DEALLOCATE_MEMORY_MILLIS = TimeUnit.SECONDS.toMillis(10);
 
+    private final HangulCombiner mSearchCombiner = new HangulCombiner();
     /**
      * A broadcast intent action to hide the software keyboard.
      */
@@ -154,7 +161,8 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     private SuggestionStripView mSuggestionStripView;
 
     private RichInputMethodManager mRichImm;
-    @UsedForTesting final KeyboardSwitcher mKeyboardSwitcher;
+    @UsedForTesting
+    final KeyboardSwitcher mKeyboardSwitcher;
     private final SubtypeState mSubtypeState = new SubtypeState();
     private EmojiAltPhysicalKeyDetector mEmojiAltPhysicalKeyDetector;
     private StatsUtilsManager mStatsUtilsManager;
@@ -186,6 +194,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             }
         }
     }
+
     final HideSoftInputReceiver mHideSoftInputReceiver = new HideSoftInputReceiver(this);
 
     final static class RestartAfterDeviceUnlockReceiver extends BroadcastReceiver {
@@ -204,6 +213,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             }
         }
     }
+
     final RestartAfterDeviceUnlockReceiver mRestartAfterDeviceUnlockReceiver = new RestartAfterDeviceUnlockReceiver();
 
     private AlertDialog mOptionsDialog;
@@ -326,7 +336,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                     latinIme.deallocateMemory();
                     break;
                 case MSG_SWITCH_LANGUAGE_AUTOMATICALLY:
-                    latinIme.switchLanguage((InputMethodSubtype)msg.obj);
+                    latinIme.switchLanguage((InputMethodSubtype) msg.obj);
                     break;
                 case MSG_UPDATE_CLIPBOARD_PINNED_CLIPS:
                     @SuppressWarnings("unchecked")
@@ -1367,7 +1377,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     /**
      * @param codePoints code points to get coordinates for.
-     * @return x,y coordinates for this keyboard, as a flattened array.
+     * @return x, y coordinates for this keyboard, as a flattened array.
      */
     public int[] getCoordinatesForCurrentKeyboard(final int[] codePoints) {
         final Keyboard keyboard = mKeyboardSwitcher.getKeyboard();
@@ -1412,13 +1422,12 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         // for RTL languages we want to invert pointer movement
         if (mRichImm.getCurrentSubtype().isRtlSubtype())
             steps = -steps;
-            
+
         mInputLogic.finishInput();
         if (steps < 0) {
             int availableCharacters = mInputLogic.mConnection.getTextBeforeCursor(64, 0).length();
             steps = availableCharacters < -steps ? -availableCharacters : steps;
-        }
-        else if (steps > 0) {
+        } else if (steps > 0) {
             int availableCharacters = mInputLogic.mConnection.getTextAfterCursor(64, 0).length();
             steps = Math.min(availableCharacters, steps);
         } else
@@ -1484,6 +1493,63 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     @Override
     public void onCodeInput(final int codePoint, final int x, final int y,
                             final boolean isKeyRepeat) {
+        // ── 검색 모드에서는 HangulCombiner 로 자모를 조합하여 EditText 에 표시 ──
+        if (mSuggestionStripView != null && mSuggestionStripView.isInSearchMode()) {
+            final MainKeyboardView kv   = mKeyboardSwitcher.getMainKeyboardView();
+            final int keyX = kv.getKeyX(x), keyY = kv.getKeyY(y);
+            final EditText et = mSuggestionStripView.getSearchInput();
+
+            /* ── 1)  공백(SPACE) : 조합 완료 + 공백 커밋 ─────────────────────── */
+            if (codePoint == Constants.CODE_SPACE) {
+                // 1-a  조합중 글자를 확정버퍼에 붙임
+                mSearchCommitted.append(mSearchCombiner.getCombiningStateFeedback());
+                // 1-b  combiner 리셋
+                mSearchCombiner.reset();
+                // 1-c  공백도 확정버퍼에 붙임
+                mSearchCommitted.append(' ');
+
+                et.setText(mSearchCommitted.toString());       // 공백까지 포함
+                et.setSelection(et.length());
+                return;
+            }
+
+            /* ── 2)  백스페이스 ──────────────────────────────────────────────── */
+            if (codePoint == Constants.CODE_DELETE) {
+                if (mSearchCombiner.getCombiningStateFeedback().length() > 0) {
+                    // 2-a  combiner 내부 한 글자 삭제
+                    Event ev = createSoftwareKeypressEvent(codePoint, keyX, keyY, isKeyRepeat);
+                    mSearchCombiner.processEvent(null, ev);
+                } else if (mSearchCommitted.length() > 0) {
+                    // 2-b  확정버퍼에서 한 글자 삭제
+                    mSearchCommitted.deleteCharAt(mSearchCommitted.length() - 1);
+                }
+                // 2-c  화면 갱신
+                et.setText(mSearchCommitted.toString()
+                        + mSearchCombiner.getCombiningStateFeedback());
+                et.setSelection(et.length());
+                return;
+            }
+
+            /* ── 3)  일반 자모/문자 입력 ─────────────────────────────────────── */
+            if (codePoint > 0) {
+                Event ev = createSoftwareKeypressEvent(codePoint, keyX, keyY, isKeyRepeat);
+                mSearchCombiner.processEvent(null, ev);
+
+                et.setText(mSearchCommitted.toString()
+                        + mSearchCombiner.getCombiningStateFeedback());
+                et.setSelection(et.length());
+                return;
+            }
+
+            /* ── 4)  그 밖의 기능키(한/영, 이모지 등) → 원래 IME 로 전달 ───── */
+            Event ev = createSoftwareKeypressEvent(
+                    getCodePointForKeyboard(codePoint), keyX, keyY, isKeyRepeat);
+            onEvent(ev);
+            return;
+        }
+
+
+
         // TODO: this processing does not belong inside LatinIME, the caller should be doing this.
         final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
         // x and y include some padding, but everything down the line (especially native
@@ -1533,6 +1599,19 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     // Called from PointerTracker through the KeyboardActionListener interface
     @Override
     public void onTextInput(final String rawText) {
+        if (mSuggestionStripView != null && mSuggestionStripView.isInSearchMode()) {
+            // rawText는 여러 글자일 수 있으니, 한 글자씩 combiner에 넘겨 줌
+            for (char c : rawText.toCharArray()) {
+                Event ev = Event.createSoftwareKeypressEvent(c, c, 0, 0, false);
+                mSearchCombiner.processEvent(null, ev);
+            }
+            String composed = mSearchCombiner.getCombiningStateFeedback().toString();
+            EditText et = mSuggestionStripView.getSearchInput();
+            et.setText(composed);
+            et.setSelection(composed.length());
+            return;
+        }
+
         // TODO: have the keyboard pass the correct key code when we need it.
         final Event event = Event.createSoftwareTextEvent(rawText, Constants.CODE_OUTPUT_TEXT);
         final InputTransaction completeInputTransaction =
@@ -1572,6 +1651,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
      * IME for the full gesture, possibly updating the TextView to reflect the first suggestion.
      * <p>
      * This method must be run on the UI Thread.
+     *
      * @param suggestedWords suggested words by the IME for the full gesture.
      */
     public void onTailBatchInputResultShown(final SuggestedWords suggestedWords) {
@@ -1721,6 +1801,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
      * After an input transaction has been executed, some state must be updated. This includes
      * the shift state of the keyboard and suggestions. This method looks at the finished
      * inputTransaction to find out what is necessary and updates the state accordingly.
+     *
      * @param inputTransaction The transaction that has been executed.
      */
     private void updateStateAfterInputTransaction(final InputTransaction inputTransaction) {
@@ -1887,7 +1968,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         final CharSequence title = getString(R.string.english_ime_input_options);
         // TODO: Should use new string "Select active input modes".
         final CharSequence languageSelectionTitle = getString(R.string.language_selection_title);
-        final CharSequence[] items = new CharSequence[] {
+        final CharSequence[] items = new CharSequence[]{
                 languageSelectionTitle,
                 getString(ApplicationUtils.getActivityTitleResId(this, SettingsActivity.class))
         };
@@ -2034,4 +2115,21 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                     visible ? Color.BLACK : Color.TRANSPARENT);
         }
     }
+
+    public HangulCombiner getSearchCombiner() {
+        return mSearchCombiner;
+    }
+
+    /** 검색 모드 조합기 초기화 용도로만 쓰입니다 */
+    public void resetSearchCombiner() {
+        mSearchCombiner.reset();
+    }
+
+    // LatinIME.java (public 메서드로 추가)
+    public void resetSearchBuffers() {
+        mSearchCommitted.setLength(0);
+        mSearchCombiner.reset();
+    }
+
+
 }

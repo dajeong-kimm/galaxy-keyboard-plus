@@ -41,4 +41,9 @@
         android:title="@string/settings_screen_advanced"
         android:key="screen_advanced"
         android:icon="@drawable/ic_settings_advanced"/>
+    <Preference
+        android:key="kakao_login"
+        android:title="카카오 로그인 테스트"
+        android:summary="카카오 로그인 기능 테스트"
+        android:icon="@drawable/ic_settings_preferences"/>
 </PreferenceScreen>

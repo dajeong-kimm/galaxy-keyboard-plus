@@ -1,5 +1,7 @@
 package org.dslul.openboard.inputmethod.backup;
 
+import java.util.concurrent.TimeUnit;
+
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
@@ -18,6 +20,9 @@ public class RetrofitInstance {
                     logging.setLevel(HttpLoggingInterceptor.Level.BODY);
 
                     OkHttpClient client = new OkHttpClient.Builder()
+                            .connectTimeout(30, TimeUnit.SECONDS)    // 연결 시도 제한 시간
+                            .writeTimeout(120, TimeUnit.SECONDS)     // 요청(업로드) 타임아웃
+                            .readTimeout(120, TimeUnit.SECONDS)      // 응답 대기 타임아웃
                             .addInterceptor(logging)
                             .build();
 

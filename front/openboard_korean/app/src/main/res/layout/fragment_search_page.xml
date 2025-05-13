@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 1. 헤더 바 (플랫폼 Toolbar) -->
+    <android.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="0dp"
+        android:layout_height="?android:attr/actionBarSize"
+        android:background="#000000"
+        android:title="갤러리에서 이미지 검색"
+        android:titleTextColor="#FFFFFF"
+        android:theme="@android:style/ThemeOverlay.Material.Light"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- archive 아이콘 -->
+        <ImageButton
+            android:id="@+id/btnArchive"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_archive_outline"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Archive"/>
+
+        <!-- settings 아이콘 -->
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="12dp"
+            android:src="@drawable/ic_cog_outline"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Settings"/>
+    </android.widget.Toolbar>
+
+    <!-- 2. 메시지 리스트 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMessages"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:padding="12dp"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintBottom_toTopOf="@+id/inputBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- 3. 로딩 / 에러 텍스트 -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="응답을 기다리는 중..."
+        android:textColor="#777777"
+        android:visibility="gone"
+        android:padding="4dp"
+        app:layout_constraintBottom_toTopOf="@+id/inputBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- 4. 입력 바 -->
+    <LinearLayout
+        android:id="@+id/inputBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#FFFFFF"
+        android:padding="10dp"
+        android:divider="?android:attr/dividerHorizontal"
+        android:showDividers="middle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <EditText
+            android:id="@+id/etMessage"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:background="#F9F9F9"
+            android:hint="메시지를 입력하세요…"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"/>
+
+        <ImageButton
+            android:id="@+id/btnSend"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_send"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Send"/>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

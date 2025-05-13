@@ -1,5 +1,6 @@
 package org.dslul.openboard.inputmethod.event
 
+import android.util.Log
 import org.dslul.openboard.inputmethod.latin.common.Constants
 import java.lang.StringBuilder
 import java.util.ArrayList
@@ -12,7 +13,14 @@ class HangulCombiner : Combiner {
     val syllable: HangulSyllable? get() = history.lastOrNull()
 
     override fun processEvent(previousEvents: ArrayList<Event>?, event: Event?): Event? {
-        if(event == null || event.mKeyCode == Constants.CODE_SHIFT) return event
+        Log.d("HangulCombiner", "ENTER  processEvent: mKeyCode=${event?.mKeyCode} " +
+                "mCodePoint=${event?.mCodePoint} " +
+                "composingWord=\"$composingWord\" " +
+                "history=$history")
+        if(event == null || event.mKeyCode == Constants.CODE_SHIFT) {
+            Log.d("HangulCombiner", "EARLY RETURN: keyCode==CODE_SHIFT, skipping composition")
+            return event
+        }
         if(Character.isWhitespace(event.mCodePoint)) {
             val text = combiningStateFeedback
             reset()
@@ -42,7 +50,8 @@ class HangulCombiner : Combiner {
         } else {
             val currentSyllable = syllable ?: HangulSyllable()
             val jamo = HangulJamo.of(event.mCodePoint)
-            if(!event.isCombining || jamo is HangulJamo.NonHangul) {
+//            if(!event.isCombining || jamo is HangulJamo.NonHangul) {
+            if (jamo is HangulJamo.NonHangul) {
                 composingWord.append(currentSyllable.string)
                 composingWord.append(jamo.string)
                 history.clear()
@@ -163,7 +172,7 @@ class HangulCombiner : Combiner {
                 }
             }
         }
-
+        Log.d("HangulCombiner", "EXIT   processEvent: combiningStateFeedback=\"$combiningStateFeedback\"")
         return Event.createConsumedEvent(event)
     }
 

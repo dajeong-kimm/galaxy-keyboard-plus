@@ -1,0 +1,142 @@
+[
+  {
+    "level_": 0,
+    "message_": "Start JSON generation. Platform version: 19 min SDK version: arm64-v8a",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 1357142761
+  },
+  {
+    "level_": 0,
+    "message_": "rebuilding JSON C:\\S12P31E201\\front\\openboard\\app\\build\\.cxx\\Debug\\ju4v6u4a\\arm64-v8a\\android_gradle_build.json due to:",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": -243995186
+  },
+  {
+    "level_": 0,
+    "message_": "- expected json C:\\S12P31E201\\front\\openboard\\app\\build\\.cxx\\Debug\\ju4v6u4a\\arm64-v8a\\android_gradle_build.json file is not present, will remove stale json folder",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 1501401674
+  },
+  {
+    "level_": 0,
+    "message_": "- missing previous command file C:\\S12P31E201\\front\\openboard\\app\\build\\.cxx\\Debug\\ju4v6u4a\\arm64-v8a\\metadata_generation_command.txt, will remove stale json folder",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": -927257816
+  },
+  {
+    "level_": 0,
+    "message_": "- command changed from previous, will remove stale json folder",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": -76096460
+  },
+  {
+    "level_": 0,
+    "message_": "removing stale contents from \u0027C:\\S12P31E201\\front\\openboard\\app\\build\\.cxx\\Debug\\ju4v6u4a\\arm64-v8a\u0027",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 1229360082
+  },
+  {
+    "level_": 0,
+    "message_": "created folder \u0027C:\\S12P31E201\\front\\openboard\\app\\build\\.cxx\\Debug\\ju4v6u4a\\arm64-v8a\u0027",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": -857585186
+  },
+  {
+    "level_": 0,
+    "message_": "executing ndkBuild Executable : C:\\Users\\CYH\\AppData\\Local\\Android\\Sdk\\ndk\\21.3.6528147\\ndk-build.cmd\narguments : \nNDK_PROJECT_PATH\u003dnull\nAPP_BUILD_SCRIPT\u003dC:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk\nAPP_ABI\u003darm64-v8a\nNDK_ALL_ABIS\u003darm64-v8a\nNDK_DEBUG\u003d1\nAPP_PLATFORM\u003dandroid-19\nNDK_OUT\u003dC:\\S12P31E201\\front\\openboard\\app\\build\\intermediates\\cxx\\Debug\\ju4v6u4a/obj\nNDK_LIBS_OUT\u003dC:\\S12P31E201\\front\\openboard\\app\\build\\intermediates\\cxx\\Debug\\ju4v6u4a/lib\nAPP_SHORT_COMMANDS\u003dfalse\nLOCAL_SHORT_COMMANDS\u003dfalse\n-B\n-n\njvmArgs : \n\n",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 1085883350
+  },
+  {
+    "level_": 0,
+    "message_": "Executable : C:\\Users\\CYH\\AppData\\Local\\Android\\Sdk\\ndk\\21.3.6528147\\ndk-build.cmd\narguments : \nNDK_PROJECT_PATH\u003dnull\nAPP_BUILD_SCRIPT\u003dC:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk\nAPP_ABI\u003darm64-v8a\nNDK_ALL_ABIS\u003darm64-v8a\nNDK_DEBUG\u003d1\nAPP_PLATFORM\u003dandroid-19\nNDK_OUT\u003dC:\\S12P31E201\\front\\openboard\\app\\build\\intermediates\\cxx\\Debug\\ju4v6u4a/obj\nNDK_LIBS_OUT\u003dC:\\S12P31E201\\front\\openboard\\app\\build\\intermediates\\cxx\\Debug\\ju4v6u4a/lib\nAPP_SHORT_COMMANDS\u003dfalse\nLOCAL_SHORT_COMMANDS\u003dfalse\n-B\n-n\njvmArgs : \n\n",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 2093601123
+  },
+  {
+    "level_": 0,
+    "message_": "JSON generation completed with problem. Exception: Build command failed.\nError while executing process C:\\Users\\CYH\\AppData\\Local\\Android\\Sdk\\ndk\\21.3.6528147\\ndk-build.cmd with arguments {NDK_PROJECT_PATH\u003dnull APP_BUILD_SCRIPT\u003dC:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk APP_ABI\u003darm64-v8a NDK_ALL_ABIS\u003darm64-v8a NDK_DEBUG\u003d1 APP_PLATFORM\u003dandroid-19 NDK_OUT\u003dC:\\S12P31E201\\front\\openboard\\app\\build\\intermediates\\cxx\\Debug\\ju4v6u4a/obj NDK_LIBS_OUT\u003dC:\\S12P31E201\\front\\openboard\\app\\build\\intermediates\\cxx\\Debug\\ju4v6u4a/lib APP_SHORT_COMMANDS\u003dfalse LOCAL_SHORT_COMMANDS\u003dfalse -B -n}\n\nC:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk:97: C:/S12P31E201/front/openboard/app/src/main/jni/CleanupNativeFileList.mk: No such file or directory\nmake: *** No rule to make target \u0027C:/S12P31E201/front/openboard/app/src/main/jni/CleanupNativeFileList.mk\u0027.  Stop.\n",
+    "file_": "C:\\S12P31E201\\front\\openboard\\app\\src\\main\\jni\\Android.mk",
+    "tag_": "debug|arm64-v8a",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {},
+      "fieldsDescending": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": -357535567
+  }
+]

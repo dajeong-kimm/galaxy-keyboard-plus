@@ -131,4 +131,9 @@
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">none</item>
     </style>
+    <style name="Theme.Platform.NoActionBar" parent="android:Theme.Material.Light.DarkActionBar">
+        <!-- 창 제목 표시줄(액션바) 제거 -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+    </style>
 </resources>

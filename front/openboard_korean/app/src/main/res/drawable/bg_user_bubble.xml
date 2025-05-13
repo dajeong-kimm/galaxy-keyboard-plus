@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- 사용자 메시지 배경색 -->
+    <solid android:color="#FFF0B4"/>
+    <!-- 모서리 둥글게 -->
+    <corners android:radius="12dp"/>
+</shape>

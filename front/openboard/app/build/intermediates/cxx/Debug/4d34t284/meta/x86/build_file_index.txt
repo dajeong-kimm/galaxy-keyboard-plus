@@ -1,0 +1,2 @@
+C:\S12P31E201\front\openboard\app\src\main\jni\Android.mk
+C:\S12P31E201\front\openboard\app\src\main\jni\Application.mk

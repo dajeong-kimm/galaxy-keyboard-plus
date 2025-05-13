@@ -1,0 +1,2 @@
+C:\S12P31E201\front\openboard\app\src\main\jni\Android.mk:97: C:/S12P31E201/front/openboard/app/src/main/jni/CleanupNativeFileList.mk: No such file or directory
+make: *** No rule to make target 'C:/S12P31E201/front/openboard/app/src/main/jni/CleanupNativeFileList.mk'.  Stop.

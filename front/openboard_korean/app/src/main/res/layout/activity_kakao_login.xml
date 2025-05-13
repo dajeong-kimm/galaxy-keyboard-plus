@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:gravity="center">
+
+    <TextView
+        android:id="@+id/tv_login_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="로그인 상태: 로그아웃됨"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:id="@+id/tv_token_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="14sp"
+        android:visibility="gone"
+        android:layout_marginBottom="24dp"/>
+
+    <Button
+        android:id="@+id/btn_kakao_login"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="카카오 로그인"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@android:color/holo_orange_light"
+        android:textColor="@android:color/black"/>
+
+    <Button
+        android:id="@+id/btn_logout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="로그아웃"
+        android:padding="12dp"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp"/>
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"/>
+
+</LinearLayout>

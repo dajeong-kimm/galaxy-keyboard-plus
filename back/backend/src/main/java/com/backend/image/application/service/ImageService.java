@@ -15,6 +15,8 @@ import com.backend.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,28 +38,36 @@ public class ImageService {
     private final ImageRepository imageRepository;
     private final ModelMapper modelMapper;
 
+    private static final Logger log = LoggerFactory.getLogger(ImageService.class);
+
     @Transactional
     public SaveImageOutDto saveImage(SaveImageInDto inDto) {
+        try {
+            User user = userRepository.findByIdForUpdate(inDto.getUserId())
+                    .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_USER));
 
-        User user = userRepository.findById(inDto.getUserId())
-                .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_USER));
+            // imageTime이 String 형태로 넘어왔으므로 LocalDateTime으로 변환
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
+            LocalDateTime imageTime = LocalDateTime.parse(inDto.getImageTime(), formatter);
 
-        // imageTime이 String 형태로 넘어왔으므로 LocalDateTime으로 변환
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
-        LocalDateTime imageTime = LocalDateTime.parse(inDto.getImageTime(), formatter);
+            Image image = Image.builder()
+                    .imageId(UUID.randomUUID())
+                    .user(user)
+                    .accessId(inDto.getAccessId())
+                    .imageTime(imageTime)
+                    .type(inDto.getType())
+                    .content(inDto.getContent())
+                    .build();
 
-        Image image = Image.builder()
-                .imageId(UUID.randomUUID())
-                .user(user)
-                .accessId(inDto.getAccessId())
-                .imageTime(imageTime)  // 변환된 imageTime 사용
-                .type(inDto.getType())
-                .content(inDto.getContent())
-                .build();
+            user.updateInfoCount(user.getInfoCount() + 1);
 
-        user.updateInfoCount(user.getInfoCount()+1);
+            return modelMapper.map(imageRepository.save(image), SaveImageOutDto.class);
 
-        return modelMapper.map(imageRepository.save(image), SaveImageOutDto.class);
+        } catch (Exception e) {
+            log.error("❌ 이미지 저장 중 예외 발생 - userId: {}, accessId: {}, message: {}",
+                    inDto.getUserId(), inDto.getAccessId(), e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR); // 예외 던짐
+        }
     }
 
     public List<ImageThumbnailOutDto> getStarPreview(UUID userId) {
@@ -79,11 +89,19 @@ public class ImageService {
         return images.map(image -> modelMapper.map(image, ImageThumbnailOutDto.class));
     }
 
-    public ImageOutDto getImageById(UUID imageId){
-        Image image = imageRepository.findById(imageId)
-                .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_IMAGE));
-        return modelMapper.map(image, ImageOutDto.class);
+    public ImageOutDto getImageById(UUID imageId) {
+        try {
+            Image image = imageRepository.findById(imageId)
+                    .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_IMAGE));
+
+            return modelMapper.map(image, ImageOutDto.class);
+
+        } catch (Exception e) {
+            log.error("❌ 이미지 조회 중 예외 발생 - imageId: {}, message: {}", imageId, e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR); // 그대로 예외를 다시 던짐
+        }
     }
+
     public void deleteImage(UUID imageId){
         Image image = imageRepository.findById(imageId)
                 .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_IMAGE));

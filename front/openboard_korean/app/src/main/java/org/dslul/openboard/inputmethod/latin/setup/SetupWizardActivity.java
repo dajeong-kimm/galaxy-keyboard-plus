@@ -16,12 +16,15 @@
 
 package org.dslul.openboard.inputmethod.latin.setup;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.provider.Settings;
@@ -33,8 +36,12 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.VideoView;
 
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import org.dslul.openboard.inputmethod.latin.R;
-import org.dslul.openboard.inputmethod.latin.settings.SettingsActivity;
+import org.dslul.openboard.inputmethod.latin.settings.SearchActivity;
 import org.dslul.openboard.inputmethod.latin.utils.LeakGuardHandlerWrapper;
 import org.dslul.openboard.inputmethod.latin.utils.UncachedInputMethodManagerUtils;
 
@@ -44,6 +51,59 @@ import javax.annotation.Nonnull;
 
 // TODO: Use Fragment to implement welcome screen and setup steps.
 public final class SetupWizardActivity extends Activity implements View.OnClickListener {
+
+    // ────────── 퍼미션 관련 상수 ──────────
+    private static final int REQ_MEDIA_PERMS = 0x31;
+
+    /** 버전에 맞게 요청할 미디어 읽기 권한 목록 반환 */
+    private static String[] getMediaPermissions() {
+        if (Build.VERSION.SDK_INT >= 33) {          // Android 13
+            return new String[] { Manifest.permission.READ_MEDIA_IMAGES };
+        } else {                                           // 23 ≤ API < 33
+            return new String[] { Manifest.permission.READ_EXTERNAL_STORAGE };
+        }
+    }
+
+    /** 이미 허가돼 있나 확인하고, 없으면 런타임 요청 */
+    private void ensureMediaPermission() {
+        String[] perms = getMediaPermissions();
+        for (String p : perms) {
+            if (ContextCompat.checkSelfPermission(this, p)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, perms, REQ_MEDIA_PERMS);
+                return;   // 요청했으니 결과 콜백 기다림
+            }
+        }
+        onMediaPermissionGranted();  // 모두 허가 상태
+    }
+
+    /** 퍼미션 OK 이후 실행할 로직(필요 시 수정) */
+    private void onMediaPermissionGranted() {
+        // 예) SharedPreferences에 플래그 저장, 안내 배너 숨김 등
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        if (requestCode == REQ_MEDIA_PERMS) {
+            boolean granted = false;
+            for (int g : grantResults) {
+                if (g == PackageManager.PERMISSION_GRANTED) {
+                    granted = true;
+                    break;
+                }
+            }
+            if (granted) {
+                onMediaPermissionGranted();
+            } else {
+                // 거절 시 안내 다이얼로그·토스트 등 표시 가능
+            }
+            return;
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
     static final String TAG = SetupWizardActivity.class.getSimpleName();
 
     // For debugging purpose.
@@ -83,7 +143,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         private final InputMethodManager mImmInHandler;
 
         public SettingsPoolingHandler(@Nonnull final SetupWizardActivity ownerInstance,
-                final InputMethodManager imm) {
+                                      final InputMethodManager imm) {
             super(ownerInstance);
             mImmInHandler = imm;
         }
@@ -95,14 +155,14 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 return;
             }
             switch (msg.what) {
-            case MSG_POLLING_IME_SETTINGS:
-                if (UncachedInputMethodManagerUtils.isThisImeEnabled(setupWizardActivity,
-                        mImmInHandler)) {
-                    setupWizardActivity.invokeSetupWizardOfThisIme();
-                    return;
-                }
-                startPollingImeSettings();
-                break;
+                case MSG_POLLING_IME_SETTINGS:
+                    if (UncachedInputMethodManagerUtils.isThisImeEnabled(setupWizardActivity,
+                            mImmInHandler)) {
+                        setupWizardActivity.invokeSetupWizardOfThisIme();
+                        return;
+                    }
+                    startPollingImeSettings();
+                    break;
             }
         }
 
@@ -221,7 +281,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         mActionNext.setOnClickListener(this);
         mActionFinish = findViewById(R.id.setup_finish);
         mActionFinish.setCompoundDrawablesRelativeWithIntrinsicBounds(getResources().getDrawable(R.drawable.ic_setup_finish),
-                                                        null, null, null);
+                null, null, null);
         mActionFinish.setOnClickListener(this);
     }
 
@@ -260,11 +320,17 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
 
     private void invokeSettingsOfThisIme() {
         final Intent intent = new Intent();
-        intent.setClass(this, SettingsActivity.class);
+//        intent.setClass(this, SettingsActivity.class);
+//        intent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+//                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//        intent.putExtra(SettingsActivity.EXTRA_ENTRY_KEY,
+//                SettingsActivity.EXTRA_ENTRY_VALUE_APP_ICON);
+//        startActivity(intent);
+        intent.setClass(this, SearchActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        intent.putExtra(SettingsActivity.EXTRA_ENTRY_KEY,
-                SettingsActivity.EXTRA_ENTRY_VALUE_APP_ICON);
+//        intent.putExtra(SettingsActivity.EXTRA_ENTRY_KEY,
+//                SettingsActivity.EXTRA_ENTRY_VALUE_APP_ICON);
         startActivity(intent);
     }
 
@@ -361,6 +427,11 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
             finish();
             return;
         }
+
+        if (mStepNumber == STEP_2) {   // Step 2 화면에서만 퍼미션 체크
+            ensureMediaPermission();
+        }
+
         updateSetupStepView();
     }
 
@@ -439,8 +510,8 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         private Runnable mAction;
 
         public SetupStep(final int stepNo, final String applicationName, final TextView bulletView,
-                final View stepView, final int title, final int instruction,
-                final int finishedInstruction, final int actionIcon, final int actionLabel) {
+                         final View stepView, final int title, final int instruction,
+                         final int finishedInstruction, final int actionIcon, final int actionLabel) {
             mStepNo = stepNo;
             mStepView = stepView;
             mBulletView = bulletView;

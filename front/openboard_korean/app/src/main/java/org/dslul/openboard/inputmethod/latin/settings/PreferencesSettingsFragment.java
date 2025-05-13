@@ -27,15 +27,27 @@ import org.dslul.openboard.inputmethod.latin.AudioAndHapticFeedbackManager;
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.RichInputMethodManager;
 
+import android.content.Intent;
+import android.widget.Toast;
+import org.dslul.openboard.inputmethod.latin.auth.AuthCallback;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
+import org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity;
+
 public final class PreferencesSettingsFragment extends SubScreenFragment {
 
     private static final boolean VOICE_IME_ENABLED =
             true;
 
+    private static final int REQUEST_KAKAO_LOGIN = 100;
+
     @Override
     public void onCreate(final Bundle icicle) {
         super.onCreate(icicle);
         addPreferencesFromResource(R.xml.prefs_screen_preferences);
+
+
+
+
 
         final Resources res = getResources();
         final Context context = getActivity();
@@ -62,7 +74,79 @@ public final class PreferencesSettingsFragment extends SubScreenFragment {
         setupKeypressSoundVolumeSettings();
         setupHistoryRetentionTimeSettings();
         refreshEnablingsOfKeypressSoundAndVibrationAndHistRetentionSettings();
+
+        // 카카오 로그인 preference 가져오기
+        Preference kakaoLoginPref = findPreference("kakao_login");
+        if (kakaoLoginPref != null) {
+            kakaoLoginPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    AuthManager authManager = AuthManager.getInstance(getActivity());
+                    if (authManager.isLoggedIn()) {
+                        // 로그인되어 있으면 로그아웃
+                        authManager.logout(new AuthCallback() {
+                            @Override
+                            public void onLoginSuccess(String userId) {
+                                // 로그아웃 중에는 호출되지 않음
+                            }
+
+                            @Override
+                            public void onLoginFailure(String errorMessage) {
+                                // 로그아웃 중에는 호출되지 않음
+                            }
+
+                            @Override
+                            public void onLogoutSuccess() {
+                                // 메인 스레드에서 UI 업데이트
+                                getActivity().runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        Toast.makeText(getActivity(), "로그아웃 성공", Toast.LENGTH_SHORT).show();
+                                        updateKakaoLoginStatus(kakaoLoginPref);
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        // 로그인되어 있지 않으면 로그인 액티비티 표시
+                        Intent intent = new Intent(getActivity(), KakaoLoginActivity.class);
+                        startActivityForResult(intent, REQUEST_KAKAO_LOGIN);
+                    }
+                    return true;
+                }
+            });
+
+            // 로그인 상태에 따라 preference 요약 업데이트
+            updateKakaoLoginStatus(kakaoLoginPref);
+        }
+
     }
+
+
+    private void updateKakaoLoginStatus(Preference kakaoLoginPref) {
+        AuthManager authManager = AuthManager.getInstance(getActivity());
+        if (authManager.isLoggedIn()) {
+            kakaoLoginPref.setSummary("로그인 계정: " + authManager.getUserId());
+            // 직접 하드코딩된 문자열 사용
+            kakaoLoginPref.setTitle("카카오 로그아웃");
+        } else {
+            kakaoLoginPref.setSummary("카카오 로그인 기능 테스트");
+            kakaoLoginPref.setTitle("카카오 로그인 테스트");
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_KAKAO_LOGIN) {
+            // 로그인 액티비티에서 돌아온 후 preference 요약 업데이트
+            Preference kakaoLoginPref = findPreference("kakao_login");
+            if (kakaoLoginPref != null) {
+                updateKakaoLoginStatus(kakaoLoginPref);
+            }
+        }
+    }
+
 
     @Override
     public void onResume() {

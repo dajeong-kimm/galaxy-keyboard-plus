@@ -23,16 +23,49 @@
     <string name="english_ime_input_options" msgid="3909945612939668554">"입력 옵션"</string>
     <string name="use_contacts_for_spellchecking_option_title" msgid="5374120998125353898">"연락처 이름 조회"</string>
     <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"맞춤법 검사기가 연락처 목록의 항목을 사용합니다."</string>
+    <string name="settings_category_input">"입력"</string>
+    <string name="show_hints">"보조 문자 힌트 표시"</string>
+    <string name="show_hints_summary">"보조 문자 힌트 표시"</string>
     <string name="vibrate_on_keypress" msgid="5258079494276955460">"키를 누를 때 진동 발생"</string>
     <string name="sound_on_keypress" msgid="6093592297198243644">"키를 누를 때 소리 발생"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"키를 누를 때 팝업"</string>
+    <string name="settings_category_additional_keys" >"버튼 추가하기"</string>
+    <string name="number_row" >"숫자 키 보이기"</string>
+    <string name="number_row_summary" >"키보드 상단에 숫자 열이 추가됩니다."</string>
+    <string name="show_emoji_key" >"이모티콘 버튼 추가하기"</string>
+    <string name="show_clipboard_key" >"클립보드 버튼 추가하기"</string>
+
+    <string name="settings_category_clipboard_history" >"클립보드 기록"</string>
+    <string name="enable_clipboard_history" >"클립보드 기록 사용"</string>
+    <string name="enable_clipboard_history_summary" >"설정을 켰을 때, 최근 복사한 항목들을 목록으로 보여줍니다."</string>
+
+    <string name="clipboard_history_retention_time" >"클립보드 기록 보존 시간"</string>
+
     <string name="settings_screen_preferences" msgid="2696713156722014624">"환경설정"</string>
     <string name="settings_screen_accounts" msgid="2786418968536696670">"계정 및 개인정보 보호"</string>
     <string name="settings_screen_appearance" msgid="7358046399111611615">"모양 및 레이아웃"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"제스처 타이핑"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"텍스트 수정"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"고급"</string>
-    <string name="settings_screen_theme" msgid="2137262503543943871">"테마"</string>
+    <!--  테마 -->
+    <string name="settings_screen_theme" >"테마"</string>
+    <string name="theme_family" >"테마 목록"</string>
+
+    <string name="theme_variant" >"테마 색상"</string>
+    <string name="key_borders" >"입력 키 테두리"</string>
+    <string name="day_night_mode" >"시스템 설정 모드"</string>
+    <string name="day_night_mode_summary" >"시스템 디스플레이 설정에 따라 라이트/다크모드로 자동 전환됩니다."</string>
+    <string name="amoled_mode" >"검정 배경 사용"</string>
+    <string name="amoled_mode_summary" >"배터리 절약을 위해 화면 배경을 완전한 검정색으로 바꿉니다."</string>
+
+
+    <!--  기타  -->
+    <string name="settings_category_miscellaneous" >"기타"</string>
+    <string name="custom_input_styles_title" msgid="8429952441821251512">"맞춤 입력 스타일"</string>
+    <string name="prefs_resize_keyboard" >"키보드 사이즈 기능 조절 활성화"</string>
+
+
+
     <string name="enable_split_keyboard" msgid="4177264923999493614">"분할 키보드 사용"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"다른 입력 방법으로 전환"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"언어 전환 키가 제공하는 기타 입력 방법"</string>
@@ -54,12 +87,24 @@
     <string name="edit_personal_dictionary" msgid="3996910038952940420">"개인 사전"</string>
     <string name="configure_dictionaries_title" msgid="4238652338556902049">"사전 추가"</string>
     <string name="main_dictionary" msgid="4798763781818361168">"기본 사전"</string>
+
+    <!--  제안  -->
+    <string name="settings_category_suggestions" msgid="8026799663445531637">"제안"</string>
+
     <string name="prefs_show_suggestions" msgid="8026799663445531637">"수정 제안 표시"</string>
     <string name="prefs_show_suggestions_summary" msgid="1583132279498502825">"글자를 입력하는 동안 추천 단어 표시"</string>
+
+    <!-- Correction   -->
+    <string name="settings_category_correction" >"텍스트 수정"</string>
+
     <string name="prefs_block_potentially_offensive_title" msgid="5078480071057408934">"불쾌감을 주는 단어 차단"</string>
     <string name="prefs_block_potentially_offensive_summary" msgid="2371835479734991364">"불쾌감을 줄 수 있는 단어는 추천하지 않음"</string>
     <string name="auto_correction" msgid="7630720885194996950">"자동 수정"</string>
     <string name="auto_correction_summary" msgid="5625751551134658006">"스페이스바와 문장부호 키를 사용하면 오타가 자동으로 교정됩니다."</string>
+
+    <string name="auto_correction_confidence" >"자동 수정 강도"</string>
+
+
     <string name="auto_correction_threshold_mode_off" msgid="8470882665417944026">"사용 안함"</string>
     <string name="auto_correction_threshold_mode_modest" msgid="8788366690620799097">"약"</string>
     <string name="auto_correction_threshold_mode_aggressive" msgid="7319007299148899623">"강력"</string>
@@ -111,7 +156,10 @@
     <string name="subtype_no_language_pcqwerty" msgid="5354918232046200018">"알파벳(PC)"</string>
     <string name="subtype_emoji" msgid="7483586578074549196">"이모티콘"</string>
     <string name="keyboard_theme" msgid="4909551808526178852">"키보드 테마"</string>
-    <string name="custom_input_styles_title" msgid="8429952441821251512">"맞춤 입력 스타일"</string>
+
+
+
+
     <string name="add_style" msgid="6163126614514489951">"스타일 추가"</string>
     <string name="add" msgid="8299699805688017798">"추가"</string>
     <string name="remove" msgid="4486081658752944606">"삭제"</string>
@@ -124,9 +172,34 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"같은 입력 스타일이 다음과 같이 이미 존재합니다. <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"키를 누를 때 진동 시간"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"키를 누를 때 소리 볼륨"</string>
+
+    <!--  고급 설정  -->
+    <string name="prefs_force_incognito_mode">"시크릿 모드 항상 사용"</string>
+    <string name="prefs_force_incognito_mode_summary">"활성화 시, 새로 입력한 단어를 자동으로 학습하지 않습니다."</string>
+
     <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"키 길게 누르기 지연"</string>
+
+    <string name="prefs_long_press_keyboard_to_change_lang">"스페이스 키로 입력기 전환"</string>
+    <string name="prefs_long_press_keyboard_to_change_lang_summary">"스페이스 키를 길게 누르면 입력 방법 선택 메뉴가 표시됩니다."</string>
+
     <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"물리적 키보드용 그림 이모티콘"</string>
     <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"물리적 Alt 키로 그림 이모티콘 팔레트 표시"</string>
+
+    <string name="show_setup_wizard_icon" msgid="5008028590593710830">"앱 아이콘 표시"</string>
+    <string name="show_setup_wizard_icon_summary" msgid="4119998322536880213">"런처에 애플리케이션 아이콘 표시"</string>
+
+    <!-- 실험실  -->
+    <string name="settings_category_experimental">"실험실"</string>
+
+    <string name="space_trackpad">"스페이스바 트랙패드 기능"</string>
+    <string name="space_trackpad_summary">"스페이스바를 스와이프하여 커서를 이동할 수 있습니다."</string>
+
+    <string name="delete_swipe">"삭제 스와이프 기능"</string>
+    <string name="delete_swipe_summary">"삭제 키를 스와이프하면 더 많은 글자를 한 번에 지울 수 있습니다."</string>
+
+    <string name="autospace_after_punctuation">"	문장부호 뒤 자동 띄어쓰기"</string>
+    <string name="autospace_after_punctuation_summary">"문장부호 입력 후 자동으로 띄어쓰기를 추가합니다."</string>
+
     <string name="button_default" msgid="3988017840431881491">"기본값"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>에 오신 것을 환영합니다."</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"제스처 타이핑 사용"</string>
@@ -144,8 +217,6 @@
     <string name="setup_step3_instruction" msgid="8025981829605426000">"이제 즐겨찾는 앱을 <xliff:g id="APPLICATION_NAME">%s</xliff:g>에 입력할 수 있습니다."</string>
     <string name="setup_step3_action" msgid="600879797256942259">"추가 언어 설정"</string>
     <string name="setup_finish_action" msgid="276559243409465389">"완료됨"</string>
-    <string name="show_setup_wizard_icon" msgid="5008028590593710830">"앱 아이콘 표시"</string>
-    <string name="show_setup_wizard_icon_summary" msgid="4119998322536880213">"런처에 애플리케이션 아이콘 표시"</string>
     <string name="app_name" msgid="6320102637491234792">"사전 제공업체"</string>
     <string name="dictionary_provider_name" msgid="3027315045397363079">"사전 제공업체"</string>
     <string name="dictionary_service_name" msgid="6237472350693511448">"사전 서비스"</string>
