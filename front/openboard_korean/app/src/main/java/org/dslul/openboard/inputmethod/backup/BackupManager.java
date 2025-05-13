@@ -9,6 +9,8 @@ import android.util.Log;
 
 import androidx.core.content.PermissionChecker;
 
+import org.dslul.openboard.inputmethod.backup.model.FilterImageResponse;
+import org.dslul.openboard.inputmethod.backup.model.FilterImageResult;
 import org.dslul.openboard.inputmethod.backup.model.GalleryImage;
 
 import java.util.ArrayList;
@@ -18,6 +20,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import retrofit2.Call;
+import retrofit2.Callback;
 
 /**
  * 자동 백업의 전체 흐름을 관리하는 매니저 클래스
@@ -51,6 +56,8 @@ public class BackupManager {
         }
 
         // 2. 사용자 인증 정보 가져오기
+        String userId = "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258";
+        String accessToken = "";
 //        String userId = TokenStore.getUserId(context);
 //        String accessToken = TokenStore.getAccessToken(context);
 //        if (userId.isEmpty() || accessToken.isEmpty()) {
@@ -65,29 +72,70 @@ public class BackupManager {
         // ✅ 필터링 시간 측정 시작
         long filteringStart = System.currentTimeMillis();
 
-        // 4. 마지막 업로드 시간 이후의 이미지만 필터링
-//        List<GalleryImage> newImages = new ArrayList<>();
-//        for (GalleryImage image : allImages) {
-//            if (image.getTimestamp() >= lastUploadedAt) {
-//                newImages.add(image);
-//            }
-//        }
+        // 4. 필터링 : 서버 통신
+        filterNewImages(context, allImages, userId, accessToken, filteringStart);
 
-        Set<String> backedUpIds = UploadStateTracker.getBackedUpContentIds(context);
-        List<GalleryImage> newImages = new ArrayList<>();
+    }
+
+    private static void filterNewImages(Context context, List<GalleryImage> allImages, String userId, String accessToken, long filteringStart) {
+        List<GalleryImage> newImages = Collections.synchronizedList(new ArrayList<>());
+        AtomicInteger pending = new AtomicInteger(allImages.size());
+
         for (GalleryImage image : allImages) {
-            if (!backedUpIds.contains(image.getContentId())) {
-                newImages.add(image);
-            }
+            String accessId = image.getContentId();
+
+            RetrofitInstance.getFilterApi().checkImage(userId, accessId).enqueue(new Callback<FilterImageResponse>() {
+                @Override
+                public void onResponse(Call<FilterImageResponse> call, retrofit2.Response<FilterImageResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        FilterImageResult result = response.body().getResult();
+                        if (result != null && !result.isExist()) {
+                            newImages.add(image);
+                        }
+                    } else {
+                        Log.e(TAG, "⚠️ 응답 오류 (contentId=" + accessId + "): " + response.code());
+                    }
+                    checkComplete();
+                }
+
+                @Override
+                public void onFailure(Call<FilterImageResponse> call, Throwable t) {
+                    Log.e(TAG, "❗ 요청 실패 (contentId=" + accessId + "): " + t.getMessage());
+                    checkComplete();
+                }
+
+                private void checkComplete() {
+                    if (pending.decrementAndGet() == 0) {
+                        onAllChecksCompleted(context, newImages, userId, accessToken, filteringStart);
+                    }
+                }
+            });
+
+
+        }
+    }
+
+    private static void onAllChecksCompleted(Context context, List<GalleryImage> newImages, String userId, String accessToken, long filteringStart) {
+        Log.i(TAG, "\u2714\uFE0F 서버 필터링 완료, 존재하지 않는 이미지 수: " + newImages.size());
+
+        Collections.sort(newImages, Comparator.comparingLong(GalleryImage::getTimestamp).reversed());
+        if (newImages.size() > MAX_IMAGES) {
+            newImages = newImages.subList(0, MAX_IMAGES);
         }
 
-        // 최신순 정렬
-        Collections.sort(newImages, new Comparator<GalleryImage>() {
-            @Override
-            public int compare(GalleryImage o1, GalleryImage o2) {
-                return Long.compare(o2.getTimestamp(), o1.getTimestamp()); // 내림차순
-            }
-        });
+        if (newImages.isEmpty()) {
+            Log.i(TAG, "\uD83D\uDFB6 업로드할 이미지 없음");
+            isBackupRunning = false;
+            return;
+        }
+
+        long filteringDuration = System.currentTimeMillis() - filteringStart;
+        Log.i(TAG, "\u23F1 필터링 시간: " + filteringDuration + "ms");
+
+        uploadImages(context, newImages, userId, accessToken, filteringStart);
+    }
+
+    private static void uploadImages(Context context, List<GalleryImage> newImages, String userId, String accessToken, long filteringStart) {
 
         // 최대 업로드 사진 수 제한
         if (newImages.size() > MAX_IMAGES) {
@@ -105,7 +153,7 @@ public class BackupManager {
         // 필터링 시간 측정 종료
         long filteringEnd = System.currentTimeMillis();
         long filteringDuration = filteringEnd - filteringStart;
-        Log.i(TAG, "⏱✅ 필터링 완료 (" + newImages.size() + "개), 소요 시간: " + filteringDuration + "ms");
+        Log.i(TAG, "✅ 필터링 완료 (" + newImages.size() + "개), 소요 시간: " + filteringDuration + "ms");
 
 
         // ✅ 시간 측정 시작 (필터링 완료 직후)
@@ -125,12 +173,13 @@ public class BackupManager {
                 ImageUploader.uploadImages(
                         context,
                         Collections.singletonList(image),
-                        "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258", // userId
-                        "", // accessToken
+                        userId,
+                        accessToken,
                         contentId -> uploadedIds.add(contentId),
                         (filename, throwable) -> {
                             // 실패 로그
                         },
+                        // 비동기 실행이 끝나는 모든 순간에 실행
                         () -> {
                             if (completedCount.incrementAndGet() == uploadCount) {
                                 UploadStateTracker.addBackedUpContentIds(context, uploadedIds);
@@ -147,16 +196,6 @@ public class BackupManager {
                 );
             }, delay);
         }
-
-        // 6. UploadStateTracker 업데이트
-//        long latestTimestamp = lastUploadedAt;
-//        for (GalleryImage image : newImages) {
-//            if (image.getTimestamp() > latestTimestamp) {
-//                latestTimestamp = image.getTimestamp();
-//            }
-//        }
-
-//        UploadStateTracker.setLastUploadedAt(context, latestTimestamp);
     }
 
     private static boolean hasReadPermission(Context context) {

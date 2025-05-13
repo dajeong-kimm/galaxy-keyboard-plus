@@ -9,6 +9,8 @@ import android.util.Log;
 import org.dslul.openboard.inputmethod.backup.model.GalleryImage;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
@@ -38,16 +40,16 @@ public class ImageUploader {
             FailureCallback onFailure,
             CompletionCallback onComplete
     ) {
-        ImageUploadApi api = RetrofitInstance.getApi();
+        ImageUploadApi api = RetrofitInstance.getUploadApi();
         int total = images.size();
         final int[] completedCount = {0};
 
         for (GalleryImage image : images) {
             try {
                 // ✅ 이미지 압축 및 바이트 배열 획득
-                byte[] imageBytes = compressAndReadBytes(context, image.getUri());
+                File imageFile = compressAndSaveToFile(context, image.getUri());
                 MediaType mediaType = MediaType.parse(image.getMimeType());
-                RequestBody imageBody = RequestBody.create(mediaType, imageBytes);
+                RequestBody imageBody = RequestBody.create(mediaType, imageFile);
 
                 MultipartBody.Part filePart = MultipartBody.Part.createFormData(
                         "file",
@@ -71,27 +73,31 @@ public class ImageUploader {
                 );
 
                 call.enqueue(new Callback<Void>() {
+                    // 업로드 성공
                     @Override
                     public void onResponse(Call<Void> call, Response<Void> response) {
                         if (response.isSuccessful()) {
-                            Log.i(TAG, "✅ Uploaded: " + image.getFilename());
+                            Log.i(TAG, "✅ 업로드한 이미지: " + image.getFilename());
                             if (onSuccess != null) {
                                 onSuccess.onSuccess(image.getContentId());
                             }
                         } else {
-                            Log.w(TAG, "⚠️ Upload failed: " + response.code() + " - " + image.getFilename());
+                            Log.w(TAG, "⚠️ 업로드 실패한 이미지: " + response.code() + " - " + image.getFilename());
                         }
+                        imageFile.delete();
                         if (++completedCount[0] == total && onComplete != null) {
                             onComplete.onComplete();
                         }
                     }
 
+                    // 업로드 실행 중 에러
                     @Override
                     public void onFailure(Call<Void> call, Throwable t) {
                         Log.e(TAG, "Upload failed: " + image.getFilename(), t);
                         if (onFailure != null) {
                             onFailure.onFailure(image.getFilename(), t);
                         }
+                        imageFile.delete();
                         if (++completedCount[0] == total && onComplete != null) {
                             onComplete.onComplete();
                         }
@@ -99,19 +105,23 @@ public class ImageUploader {
                 });
 
             } catch (Exception e) {
-                Log.e(TAG, "Exception during upload: " + image.getFilename(), e);
+                Log.e(TAG, "업로드 중 예외 발생: " + image.getFilename(), e);
                 if (onFailure != null) {
                     onFailure.onFailure(image.getFilename(), e);
+                }
+
+                // 전처리 에러에 대해서도 수행
+                if (++completedCount[0] == total && onComplete != null) {
+                    onComplete.onComplete();
                 }
             }
         }
     }
 
     /**
-     * ✅ Bitmap을 압축해서 byte[]로 변환하는 메서드
-     * 최대 해상도 제한 + JPEG 압축 품질 낮춰서 OutOfMemory 방지
+     * ✅ Bitmap을 압축하여 임시 파일로 저장하는 메서드 (메모리 효율적)
      */
-    private static byte[] compressAndReadBytes(Context context, Uri uri) throws IOException {
+    private static File compressAndSaveToFile(Context context, Uri uri) throws IOException {
         InputStream inputStream = context.getContentResolver().openInputStream(uri);
         if (inputStream == null) throw new IOException("Failed to open InputStream");
 
@@ -136,10 +146,12 @@ public class ImageUploader {
         inputStream.close();
 
         // 3. JPEG 압축 (최대 압축: 품질 50)
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, outputStream);
-        bitmap.recycle(); // 메모리 해제
-        return outputStream.toByteArray();
+        File file = new File(context.getCacheDir(), "upload_" + System.currentTimeMillis() + ".jpg");
+        FileOutputStream fos = new FileOutputStream(file);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, fos);
+        bitmap.recycle();
+        fos.close();
+        return file;
     }
 
     // 성공 콜백 인터페이스
