@@ -18,6 +18,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.dslul.openboard.inputmethod.latin.R;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
+import org.dslul.openboard.inputmethod.latin.network.ApiClient;
 import org.dslul.openboard.inputmethod.latin.network.ChatApiService;
 import org.dslul.openboard.inputmethod.latin.network.MessageRequest;
 import org.dslul.openboard.inputmethod.latin.network.MessageResponse;
@@ -25,15 +27,10 @@ import org.dslul.openboard.inputmethod.latin.network.MessageResponse;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-import okhttp3.OkHttpClient;
-import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 public class SearchPageFragment extends Fragment {
     private RecyclerView rvMessages;
@@ -76,23 +73,7 @@ public class SearchPageFragment extends Fragment {
         rvMessages.setLayoutManager(new LinearLayoutManager(getContext()));
         rvMessages.setAdapter(adapter);
 
-        // Retrofit + OkHttp 로깅 설정
-        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
-        OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(logging)
-                .connectTimeout(120, TimeUnit.SECONDS)   // 연결 타임아웃
-                .readTimeout(120, TimeUnit.SECONDS)      // 읽기(응답 대기) 타임아웃
-                .writeTimeout(120, TimeUnit.SECONDS)     // 쓰기(요청 바디 전송) 타임아웃
-                .build();
-
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://k12e201.p.ssafy.io:8090/") // 실제 베이스 URL 로 변경
-                .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        chatApiService = retrofit.create(ChatApiService.class);
+        chatApiService = ApiClient.getChatApiService();
 
         btnSend.setOnClickListener(v -> {
             String text = etMessage.getText().toString().trim();
@@ -117,7 +98,14 @@ public class SearchPageFragment extends Fragment {
 
         Log.d(TAG, "▶ sendMessage: \"" + text + "\"");
 
-        String userId = "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258";
+        /* 사용자 ID - AuthManager에서 가져오기 ------------- */
+        String userId = AuthManager.getInstance(getContext()).getUserId();
+        if (userId == null || userId.isEmpty()) {          // 로그인 안 된 경우
+            Log.w(TAG, "userId null → 로그인 필요");
+            showStatus("로그인 후 이용해 주세요", true);
+            return;
+        }
+
         MessageRequest req = new MessageRequest(userId, text);
 
         /* API 호출 로그 */
@@ -148,7 +136,6 @@ public class SearchPageFragment extends Fragment {
                                 + "  photos=" + (body.getPhotoResults()==null?0:body.getPhotoResults().size())
                                 + "  infos="  + (body.getInfoResults()==null?0:body.getInfoResults().size()));
 
-                        // getReply() 대신 getAnswer()
                         String botText = body.getAnswer() != null ? body.getAnswer() : "정보를 찾았습니다.";
                         Message botMsg = new Message(
                                 Message.Sender.BOT,
@@ -162,7 +149,6 @@ public class SearchPageFragment extends Fragment {
                         adapter.notifyItemInserted(messages.size() - 1);
                         rvMessages.scrollToPosition(messages.size() - 1);
 
-//                        displayFullResponse(body);
                     }
 
                     @Override

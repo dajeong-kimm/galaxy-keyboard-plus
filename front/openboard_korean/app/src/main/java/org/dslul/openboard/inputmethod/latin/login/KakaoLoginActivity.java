@@ -14,8 +14,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.auth.AuthCallback;
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
@@ -43,6 +41,9 @@ public class KakaoLoginActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Log.d(TAG, "onCreate()");
+
         setContentView(R.layout.activity_kakao_login);
 
         // 매니저 인스턴스 초기화
@@ -105,6 +106,7 @@ public class KakaoLoginActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume() → currentActivity 갱신");
         // 화면이 다시 보일 때마다 현재 액티비티 업데이트 및 로그인 상태 갱신
         if (authManager != null) {
             authManager.setCurrentActivity(this);
@@ -196,6 +198,7 @@ public class KakaoLoginActivity extends Activity {
      * 카카오 로그인 수행
      */
     private void performKakaoLogin() {
+        Log.d(TAG, "버튼 눌림 → performKakaoLogin()");
         // 로딩 표시
         setLoading(true);
 
@@ -203,6 +206,7 @@ public class KakaoLoginActivity extends Activity {
         authManager.loginWithKakao(new AuthCallback() {
             @Override
             public void onLoginSuccess(final String userId) {
+                Log.d(TAG, "로그인 성공 userId=" + userId);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {

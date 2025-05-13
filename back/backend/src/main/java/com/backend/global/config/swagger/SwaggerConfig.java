@@ -51,4 +51,13 @@ public class SwaggerConfig {
                 .pathsToMatch("/api/v1/alarms/**")
                 .build();
     }
+
+    //채팅 관련 API 그룹
+    @Bean
+    public GroupedOpenApi chatGroup() {
+        return GroupedOpenApi.builder()
+                .group("Chat") // swagger-ui에서 탭 이름
+                .pathsToMatch("/api/v1/chats/**")
+                .build();
+    }
 }

@@ -4,7 +4,14 @@
     android:layout_height="match_parent"
     android:background="#e8eaed">
 
-<!--    <LinearLayout-->
+    <ProgressBar
+        android:id="@+id/loading_box"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"/>
+
+    <!--    <LinearLayout-->
 <!--        android:id="@+id/loading_box"-->
 <!--        android:layout_width="match_parent"-->
 <!--        android:layout_height="wrap_content"-->
@@ -52,7 +59,24 @@
                 android:lineSpacingExtra="2dp"
                 android:paddingBottom="8dp" />
 
-            <!-- (2) InfoResult 들이 동적으로 addView 될 자리 -->
+            <!-- 2) 사진 리스트 (가로 스크롤)  ──────── -->
+            <HorizontalScrollView
+                android:id="@+id/photo_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:visibility="gone"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/search_result_photos"
+                    android:orientation="horizontal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+            </HorizontalScrollView>
+
+
+            <!-- (3) InfoResult 들이 동적으로 addView 될 자리 -->
             <LinearLayout
                 android:id="@+id/search_result_infos"
                 android:layout_width="match_parent"

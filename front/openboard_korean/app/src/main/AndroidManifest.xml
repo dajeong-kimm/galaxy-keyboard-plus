@@ -51,7 +51,6 @@
     <permission android:name="org.dslul.openboard.inputmethod.latin.HIDE_SOFT_INPUT"
                 android:protectionLevel="signature" />
 
-
     <application
         android:name=".OpenBoardApplication"
         android:label="@string/english_ime_name"
@@ -84,8 +83,6 @@
             android:name=".login.KakaoLoginActivity"
             android:theme="@style/platformActivityTheme"
             android:exported="false" />
-
-
 
         <!-- Services -->
         <service android:name="LatinIME"
