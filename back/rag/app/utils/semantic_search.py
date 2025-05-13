@@ -358,7 +358,7 @@ def filter_relevant_items_with_context(
 """
 
     response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=50,
         temperature=0.3,
@@ -426,56 +426,86 @@ def expand_query_with_synonyms(query: str) -> list[str]:
         return [query]
 
 
-def enhance_query_with_personal_context_v2(user_id: str, query: str) -> str:
-    """개선된 쿼리 향상 - 자연어 확장 및 맥락 추가"""
+def enhance_query_with_personal_context_v2(user_id: str, query: str) -> list[str]:
+    """개선된 쿼리 향상 - 의미 기반 유사 질문 생성 + 맥락 반영"""
 
-    # 1. 쿼리 동의어 확장
-    expanded_queries = expand_query_with_synonyms(query)
-
-    # 2. 관련 대화/맥락 검색
-    context_keywords = ["이전에", "아까", "방금", "그때", "다시", "그거", "그것"]
+    # 1. 맥락이 필요한지 판단
+    context_keywords = [
+        "이전에",
+        "아까",
+        "방금",
+        "그때",
+        "다시",
+        "그거",
+        "그것",
+        "저번에",
+        "어제",
+        "지난주에",
+    ]
     needs_context = any(keyword in query for keyword in context_keywords)
 
-    personal_context = ""
+    context_text = ""
     if needs_context:
-        # 이전 대화에서 관련 정보 찾기
         history = search_chat_history(user_id, query, top_k=5)
-
         if history:
-            # 간단한 맥락 추출
-            prompt = f"""
-현재 질문: "{query}"
-이전 대화: {json.dumps([h['text'] for h in history[:3]], ensure_ascii=False)}
+            context_text = "\n".join([f"- {h['text']}" for h in history[:3]])
 
-현재 질문에 필요한 맥락 정보만 추출해줘. (예: 누구에 대한 것인지, 어떤 이벤트인지 등)
-간단한 키워드나 구문으로만.
-"""
-            response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=50,
-                temperature=0.3,
-            )
-            personal_context = response.choices[0].message.content.strip()
-
-    # 3. 확장된 쿼리 생성
-    if personal_context:
-        enhanced_query = f"{query} ({personal_context})"
-        # 확장 쿼리에도 맥락 추가
-        expanded_queries = [f"{q} {personal_context}" for q in expanded_queries]
+    # 2. LLM에게 유사 질문 생성 요청
+    if context_text:
+        context_block = f"\n이전에 나눈 대화:\n{context_text}"
     else:
-        enhanced_query = query
+        context_block = ""
 
-    # 확장된 쿼리들을 공백으로 결합 (벡터 검색 시 더 많은 매칭 가능)
-    final_query = " ".join(expanded_queries)
+    prompt = f"""
+    다음 사용자 질문을 보고, 유사한 의미를 가진 질문 3~5개를 생성해줘.
+    - 질문은 정보 검색에 유용하도록 명확하고 직관적이어야 해.
+    - 각 질문은 실제 사용자가 검색할 법한 자연스러운 문장으로 구성해줘.
+    - 출력은 리스트 형태로 해줘 (ex: ["...질문1...", "...질문2...", "...질문3..."])
 
-    return final_query
+    사용자 질문: "{query}"
+    {context_block}
+    """
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.5,
+        max_tokens=300,
+    )
+
+    output_text = response.choices[0].message.content.strip()
+
+    try:
+        # 안전하게 리스트로 파싱
+        enhanced_queries = json.loads(output_text)
+        if isinstance(enhanced_queries, list):
+            return enhanced_queries
+    except json.JSONDecodeError:
+        pass
+
+    # 실패한 경우 fallback
+    return [query]
 
 
 def generate_answer_by_intent(
-    query: str, info_results: list[dict], photo_results: list[dict], query_intent: str
+    user_id: str,
+    query: str,
+    info_results: list[dict],
+    photo_results: list[dict],
+    query_intent: str,
 ) -> dict:
     """질문 의도에 따라 LLM을 통해 자연스러운 응답 생성"""
+
+    # 1. 맥락 필요 여부 판단
+    history_text = ""
+    if needs_context(query):
+        history = search_chat_history(user_id, query, top_k=5)
+        if history:
+            history_text = (
+                "이전 대화 기록:\n"
+                + "\n".join([f"{h['role']}: {h['text']}" for h in history])
+                + "\n\n"
+            )
 
     # 결과 통합
     combined_results = (photo_results or []) + (info_results or [])
@@ -498,6 +528,7 @@ def generate_answer_by_intent(
         prompt = f"""
 당신은 사용자 질문에 대해 친절하고 정확하게 답변하는 어시스턴트입니다.
 
+{history_text}
 사용자 질문:
 "{query}"
 
@@ -524,3 +555,18 @@ def generate_answer_by_intent(
         "info_results": info_results[:5],
         "query_intent": query_intent,
     }
+
+
+def needs_context(query: str) -> bool:
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "이 질문이 과거 대화 내용이 없으면 이해하기 어려운지 판단해줘. 'yes' 또는 'no'로만 답해.",
+            },
+            {"role": "user", "content": query},
+        ],
+        max_tokens=1,
+    )
+    return "yes" in response.choices[0].message.content.lower()

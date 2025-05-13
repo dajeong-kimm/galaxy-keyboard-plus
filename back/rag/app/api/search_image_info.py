@@ -11,8 +11,10 @@ from app.utils.chat_vector_store import save_chat_vector_to_pinecone
 import json, time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/search/")
@@ -33,13 +35,12 @@ async def search(
             executor, save_chat_vector_to_pinecone, user_id, "user", query, timestamp
         )
 
-        # 2. 쿼리 확장 및 맥락 추가
-        enhanced_query = await loop.run_in_executor(
+        # 2. 쿼리 확장 및 맥락 추가 → List[str] 리턴
+        expanded_queries = await loop.run_in_executor(
             executor, enhance_query_with_personal_context_v2, user_id, query
         )
 
-        # 확장된 쿼리들 추출
-        expanded_queries = enhanced_query.split(" ")[:3]  # 상위 3개
+        logger.info(f"🔍 의미 기반 확장 쿼리 (Top 3): {expanded_queries[:3]}")
 
         # 3. 질문 의도 파악
         query_intent = determine_query_intent(query)
@@ -67,12 +68,12 @@ async def search(
             info_search_task, photo_search_task
         )
 
-        # 5. LLM 필터링 (원본 질문으로)
+        # 5. LLM 필터링 (원본 질문 사용)
         info_filter_task = loop.run_in_executor(
             executor,
             filter_relevant_items_with_context,
             query,
-            enhanced_query,
+            "",  # enhanced_query 대신 생략 또는 빈 문자열
             raw_info_results,
             "정보",
         )
@@ -81,7 +82,7 @@ async def search(
             executor,
             filter_relevant_items_with_context,
             query,
-            enhanced_query,
+            "",  # enhanced_query 대신 생략 또는 빈 문자열
             raw_photo_results,
             "사진",
         )
@@ -94,6 +95,7 @@ async def search(
         result = await loop.run_in_executor(
             executor,
             generate_answer_by_intent,
+            user_id,
             query,
             info_results,
             photo_results,
