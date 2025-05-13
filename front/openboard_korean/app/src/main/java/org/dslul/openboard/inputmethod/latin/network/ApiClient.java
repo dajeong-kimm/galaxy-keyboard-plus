@@ -1,84 +1,85 @@
+// File: org.dslul.openboard.inputmethod.latin.network.ApiClient
 package org.dslul.openboard.inputmethod.latin.network;
 
 import android.content.Context;
+import android.util.Log;
 
+import org.dslul.openboard.inputmethod.latin.BuildConfig;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-import org.dslul.openboard.inputmethod.latin.BuildConfig;
+
 /**
- * API 클라이언트 클래스
+ * 모든 API 인스턴스를 총괄하는 싱글톤.
+ *  ① 토큰 헤더 자동 첨부
+ *  ② 공통 타임아웃·로깅
+ *  ③ Service 캐싱
  */
-public class ApiClient {
+public final class ApiClient {
     private static final String BASE_URL = BuildConfig.SERVER_BASE_URL;
-    private static final int TIMEOUT = 120; // 초 단위
+    private static final int    TIMEOUT  = 120;          // seconds
 
-    private static Retrofit sRetrofit;
-    private static ApiService sApiService;
+    private static volatile Retrofit retrofit;           // ① 단일 Retrofit
+    private static ChatApiService   chatApiService;      // ② 서비스 캐시
+    private static ApiService       apiService;
 
-    /**
-     * Retrofit 인스턴스 생성
-     */
-    private static Retrofit getRetrofit(Context context) {
-        if (sRetrofit == null) {
-            // 로깅 인터셉터 설정
-            HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
-            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
-
-            // OkHttp 클라이언트 설정
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(TIMEOUT, TimeUnit.SECONDS)
-                    .readTimeout(TIMEOUT, TimeUnit.SECONDS)
-                    .writeTimeout(TIMEOUT, TimeUnit.SECONDS)
-                    .addInterceptor(loggingInterceptor)
-                    .build();
-
-            // Retrofit 빌드
-            sRetrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .client(client)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
+    /** 최초 한 번 앱 전체를 초기화 */
+    public static void init(Context ctx) {
+        if (retrofit != null) {
+            Log.d("ApiClient", "→ 이미 초기화 완료, skip");
+            return;                    // 이미 초기화O
         }
-        return sRetrofit;
+        Log.d("ApiClient", "★ Retrofit 초기화 시작 (ctx=" + ctx + ")");
+
+        // ── ① 공통 Interceptor : 토큰 헤더 삽입 ─────────────
+        Interceptor authInterceptor = chain -> {
+            String access = AuthManager.getInstance(ctx).getAccessToken();
+            Log.d("ApiClient", "  ↳ Intercept: Authorization="
+                    + (access == null ? "null" : access));
+
+            Request req = chain.request().newBuilder()
+                    .header("Authorization",
+                            access == null ? "" : "Bearer " + access)
+                    .build();
+            return chain.proceed(req);
+        };
+
+        // ── ② 로깅 Interceptor ────────────────────────────
+        HttpLoggingInterceptor logger = new HttpLoggingInterceptor();
+        logger.setLevel(HttpLoggingInterceptor.Level.BODY);
+
+        // ── ③ OkHttp 클라이언트 ───────────────────────────
+        OkHttpClient ok = new OkHttpClient.Builder()
+                .addInterceptor(authInterceptor)
+                .addInterceptor(logger)
+                .connectTimeout(TIMEOUT, TimeUnit.SECONDS)
+                .readTimeout   (TIMEOUT, TimeUnit.SECONDS)
+                .writeTimeout  (TIMEOUT, TimeUnit.SECONDS)
+                .build();
+
+        // ── ④ Retrofit 단일 인스턴스 ──────────────────────
+        retrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(ok)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        // ── ⑤ 서비스 캐싱 ────────────────────────────────
+        chatApiService = retrofit.create(ChatApiService.class);
+        apiService     = retrofit.create(ApiService.class);
+
+        Log.d("ApiClient", "★ Retrofit 초기화 완료");
     }
 
-    /**
-     * API 서비스 인터페이스 가져오기
-     */
-    public static ApiService getApiService(Context context) {
-        if (sApiService == null) {
-            sApiService = getRetrofit(context).create(ApiService.class);
-        }
-        return sApiService;
-    }
+    /** 어디서든 호출 가능한 getter */
+    public static ChatApiService getChatApiService() { return chatApiService; }
+    public static ApiService   getApiService()      { return apiService;   }
 
-    public static ChatApiService getChatApiService() {
-        if (sRetrofit == null) {
-            // 전체 패킷을 logcat에 찍어 주는 interceptor
-            HttpLoggingInterceptor log = new HttpLoggingInterceptor();
-            log.setLevel(HttpLoggingInterceptor.Level.BODY);
-
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .addInterceptor(log)
-                    // ▼ 타임아웃 설정 -------------------------------------------------
-                    .connectTimeout(TIMEOUT, TimeUnit.SECONDS)   // 연결
-                    .readTimeout   (TIMEOUT, TimeUnit.SECONDS)   // 서버 응답(Body) 대기
-                    .writeTimeout  (TIMEOUT, TimeUnit.SECONDS)   // 요청 Body 전송
-                    // ---------------------------------------------------------------
-                    .build();
-
-
-            sRetrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .client(client)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
-        }
-        return sRetrofit.create(ChatApiService.class);
-    }
-
+    /** 로그인 성공 후 새 토큰이 들어오면 SecureStorage만 갈아끼우면 끝 */
 }
