@@ -78,15 +78,23 @@
                 android:layout_height="match_parent"
                 android:contentDescription="@string/send"
                 android:src="@drawable/ic_send" />
+
+            <ImageButton
+                android:id="@+id/suggestions_strip_copy_key"
+                android:src="@drawable/ic_copy"
+                style="?attr/suggestionWordStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"/>
+
         </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/suggestions_strip_other_key"
-            style="?attr/suggestionWordStyle"
-            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
-            android:layout_height="fill_parent"
-            android:layout_weight="0"
-            android:contentDescription="@string/more_keys_strip_description" />
+<!--        <ImageButton-->
+<!--            android:id="@+id/suggestions_strip_other_key"-->
+<!--            style="?attr/suggestionWordStyle"-->
+<!--            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"-->
+<!--            android:layout_height="fill_parent"-->
+<!--            android:layout_weight="0"-->
+<!--            android:contentDescription="@string/more_keys_strip_description" />-->
         <!-- Provide audio and haptic feedback by ourselves based on the keyboard settings.
              We just need to ignore the system's audio and haptic feedback settings. -->
         <ImageButton
