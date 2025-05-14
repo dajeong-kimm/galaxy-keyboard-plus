@@ -1,0 +1,43 @@
+pipeline {
+  agent any
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build & Deploy') {
+      steps {
+        dir('back/mcp') {
+          sh '''
+            # 기존 컨테이너 중지 및 제거
+            docker rm -f mcp-service || true
+            
+            # 도커 이미지 빌드
+            docker build -t mcp-service:latest .
+            
+            # 컨테이너 실행
+            docker run -d \
+              --name mcp-service \
+              --restart always \
+              -p 8091:8000 \
+              -p 8100:8100 \
+              --network internal \
+              mcp-service:latest
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '빌드 및 배포 성공'
+    }
+    failure {
+      echo '빌드 또는 배포 실패'
+    }
+  }
+}
