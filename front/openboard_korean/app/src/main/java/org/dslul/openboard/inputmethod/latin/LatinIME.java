@@ -115,6 +115,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         DictionaryFacilitator.DictionaryInitializationListener,
         PermissionsManager.PermissionsResultCallback {
     static final String TAG = LatinIME.class.getSimpleName();
+
+    private MainKeyboardView mKeyboardView;
+
     private static final boolean TRACE = false;
 
     // LatinIME.java (다른 멤버 변수들과 같은 레벨)
@@ -859,6 +862,12 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
+        super.onStartInputView(editorInfo, restarting);
+
+        MainKeyboardView keyboardView = mKeyboardSwitcher.getMainKeyboardView();
+        if (keyboardView != null) {
+            keyboardView.setInputConnection(getCurrentInputConnection());
+        }
         mHandler.onStartInputView(editorInfo, restarting);
         mStatsUtilsManager.onStartInputView();
     }

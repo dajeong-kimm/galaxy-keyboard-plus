@@ -35,6 +35,9 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.InputConnection;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -87,6 +90,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private LinearLayout mInputContainer;// EditText+Send 래퍼
     private EditText mSearchInput;       // 검색어 입력창
     private boolean mInSearchMode = false;
+
     // 기존 필드 바로 아래
     private Drawable mIconSearch;   // 돋보기
     private Drawable mIconClose;    // X 아이콘
@@ -251,20 +255,26 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             ((LatinIME) mListener).resetSearchBuffers();
         }
 
+        // ▼ 대신 UI를 숨기고 검색으로 바로 이동하도록 설정
+        mInputContainer.setVisibility(GONE);
+
         // 아이콘 ❌로 교체
         mSearchKey.setImageDrawable(mIconClose);
 
         // UI 전환
+        mSearchKey.setImageDrawable(mIconClose); // X 아이콘으로 변경
         mSuggestionsStrip.setVisibility(GONE);
         mVoiceKey.setVisibility(GONE);
         mClipboardKey.setVisibility(GONE);
 //        mOtherKey.setVisibility(GONE);
-        mInputContainer.setVisibility(VISIBLE);
+//        mInputContainer.setVisibility(VISIBLE);
         mCopyKey.setVisibility(GONE);
 
+        // ▼ 검색 시작
+        dispatchSearchQuery();
 
-        mSearchInput.setText("");
-        mSearchInput.requestFocus();
+//        mSearchInput.setText("");
+//        mSearchInput.requestFocus();
     }
 
     public void exitSearchMode() {
@@ -290,14 +300,42 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     }
 
     private void dispatchSearchQuery() {
-        final String query = mSearchInput.getText().toString().trim();
+//        final String query = mSearchInput.getText().toString().trim();
+        String query;
+
+        // 내부 입력창이 아니라 외부 입력창에서 텍스트 가져오기
+        InputConnection ic = mMainKeyboardView.getInputConnection();
+        if (ic != null) {
+            ExtractedText et = ic.getExtractedText(new ExtractedTextRequest(), 0);
+            query = et != null && et.text != null ? et.text.toString().trim() : "";
+        } else {
+            query = "";
+        }
         if (query.isEmpty()) return;
 
-        /* ---------- ① 패널 & 로딩 스피너 바로 띄우기 ---------- */
-        if (mSearchPanel == null)
-            mSearchPanel = new SearchResultView(getContext());
+        // ✅ 로그 출력 추가
+        Log.d(TAG_NET, "🔍 전송된 query: " + query);
 
-        mSearchPanel.showLoading();                 // ⬅ 스피너 ON
+        // 2) SearchResultView 준비
+        if (mSearchPanel == null) {
+            mSearchPanel = new SearchResultView(getContext());
+            // 리스너와 키보드 뷰 바인딩
+            setListener(mListener, getRootView());
+        }
+
+        // 3) 사용자 질문 말풍선만 그리기
+        mSearchPanel.bindUserQuery(query);
+
+        // 4) 반드시 MainKeyboardView 타입의 뷰를 넘겨서 띄우기
+        if (mMainKeyboardView == null) {
+            View root = getRootView();
+            mMainKeyboardView = root.findViewById(R.id.keyboard_view);
+        }
+        if (mMainKeyboardView == null) {
+            Log.e(TAG_NET, "MainKeyboardView를 찾을 수 없어 패널을 띄우지 않습니다.");
+            return;
+        }
+        // ⬅ 스피너 ON
 
         Log.d(TAG_NET, "▶ REQUEST\n" +
                 "URL   : http://k12e201.p.ssafy.io:8090/rag/search/\n" +
@@ -339,23 +377,12 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             return;
                         }
                         MessageResponse body = res.body();
-                        post(() -> mSearchPanel.bind(body));   // 내용 채우기 + 스피너 OFF
+                        post(() -> {
+//                            mSearchPanel.bind(body);
+                            post(() -> mSearchPanel.bindResponseAndDetails(body));
+                        });   // 내용 채우기 + 스피너 OFF
                         Log.d(TAG_NET, "✅ 결과 수신");
 
-                        // ------- 키보드 패널 보여주기 -------
-                        post(() -> {                   // SuggestionStripView 는 이미 UI Thread
-                            if (mSearchPanel == null) {
-                                mSearchPanel = new SearchResultView(getContext());
-                            }
-                            mSearchPanel.bind(body);
-
-
-                            // pointX, pointY는 키보드 상단 중앙에 붙이도록
-                            int x = mMainKeyboardView.getWidth() / 2;
-                            int y = 0;
-                            mSearchPanel.showMoreKeysPanel(mMainKeyboardView, c, x, y,
-                                    (KeyboardActionListener) null); // 두 시그니처 중 아무거나
-                        });
                     }
 
                     @Override
@@ -656,7 +683,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             return;
         }
 
-        if (view == mSearchKey) {          // 🔍 또는 ❌
+        if (view == mSearchKey) {
+//            dispatchSearchQuery();// 🔍 또는 ❌
             if (mInSearchMode) {
                 exitSearchMode();          // ❌ 눌림
             } else {
@@ -664,17 +692,11 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
             return;
         }
-        if (view == mSendKey) {            // 전송 버튼
-            dispatchSearchQuery();
-            mCopyKey.setVisibility(VISIBLE);  // 복사 버튼 노출
-//            exitSearchMode();
-//            mSearchInput.setText("");
-            return;
-        }
 
         if (view == mCopyKey) {                   // ⧉ 복사 버튼
             if (mSearchPanel != null) {
                 String answer = mSearchPanel.getAnswerText();
+
                 if (!answer.isEmpty()) {
                     ClipboardManager cb = (ClipboardManager)
                             getContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -722,4 +744,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     public EditText getSearchInput() {
         return mSearchInput;
     }
+
+
+
 }
