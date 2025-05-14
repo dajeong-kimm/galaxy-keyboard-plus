@@ -6,11 +6,16 @@ import android.util.Log;
 
 import org.dslul.openboard.inputmethod.latin.BuildConfig;
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
+import org.dslul.openboard.inputmethod.latin.data.SecureStorage;
+
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Authenticator;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.Route;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -28,6 +33,9 @@ public final class ApiClient {
     private static volatile Retrofit retrofit;           // ① 단일 Retrofit
     private static ChatApiService   chatApiService;      // ② 서비스 캐시
     private static ApiService       apiService;
+
+    private static ImageUploadApi imageUploadApi;
+    private static ImageFilterApi imageFilterApi;
 
     /** 최초 한 번 앱 전체를 초기화 */
     public static void init(Context ctx) {
@@ -50,6 +58,45 @@ public final class ApiClient {
             return chain.proceed(req);
         };
 
+        /* 401 처리용 Authenticator */
+        Authenticator tokenAuthenticator = new Authenticator() {
+            @Override public Request authenticate(Route route, okhttp3.Response resp) throws IOException {
+                // 401이지만 이미 리트라이한 요청이면 null → 최종 실패
+                if (resp.request().header("Authorization-Retry") != null) return null;
+
+                String refresh = AuthManager.getInstance(ctx).getRefreshToken();
+                if (refresh == null || refresh.isEmpty()) return null;
+
+                // ── 토큰 리프레시 동기 호출 ──
+                Retrofit bare = new Retrofit.Builder()
+                        .baseUrl(BASE_URL)
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build();
+                ApiService bareApi = bare.create(ApiService.class);
+
+                retrofit2.Response<AuthResponse> r = bareApi.reissue(
+                        new ReissueRequest(refresh)).execute();
+
+                if (!r.isSuccessful() || r.body() == null) {
+                    Log.e("ApiClient", "❌ 토큰 갱신 실패 code=" + r.code());
+                    return null;
+                }
+
+                AuthResponse ar = r.body();
+
+                // AuthManager 메모리 캐시 및 SecureStorage 동시 갱신(updateTokens 메서드에서 둘 다 처리)
+                AuthManager.getInstance(ctx)
+                        .updateTokens(ar.getAccessToken(), ar.getRefreshToken(), ar.getUserId());
+                Log.i("ApiClient", "🔄 액세스 토큰 갱신 성공");
+
+                // ④ 새 토큰으로 원 요청 재시도 (무한루프 방지 헤더 추가)
+                return resp.request().newBuilder()
+                        .header("Authorization", "Bearer " + ar.getAccessToken())
+                        .header("Authorization-Retry", "true")
+                        .build();
+            }
+        };
+
         // ── ② 로깅 Interceptor ────────────────────────────
         HttpLoggingInterceptor logger = new HttpLoggingInterceptor();
         logger.setLevel(HttpLoggingInterceptor.Level.BODY);
@@ -58,6 +105,7 @@ public final class ApiClient {
         OkHttpClient ok = new OkHttpClient.Builder()
                 .addInterceptor(authInterceptor)
                 .addInterceptor(logger)
+                .authenticator(tokenAuthenticator)
                 .connectTimeout(TIMEOUT, TimeUnit.SECONDS)
                 .readTimeout   (TIMEOUT, TimeUnit.SECONDS)
                 .writeTimeout  (TIMEOUT, TimeUnit.SECONDS)
@@ -81,5 +129,20 @@ public final class ApiClient {
     public static ChatApiService getChatApiService() { return chatApiService; }
     public static ApiService   getApiService()      { return apiService;   }
 
-    /** 로그인 성공 후 새 토큰이 들어오면 SecureStorage만 갈아끼우면 끝 */
+    /* 업로드용 */
+    public static synchronized ImageUploadApi getImageUploadApi() {
+        if (imageUploadApi == null) {
+            imageUploadApi = retrofit.create(ImageUploadApi.class);
+        }
+        return imageUploadApi;
+    }
+
+    /* 필터(존재 여부 확인)용 */
+    public static synchronized ImageFilterApi getImageFilterApi() {
+        if (imageFilterApi == null) {
+            imageFilterApi = retrofit.create(ImageFilterApi.class);
+        }
+        return imageFilterApi;
+    }
+
 }

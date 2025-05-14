@@ -1,4 +1,4 @@
-package org.dslul.openboard.inputmethod.backup;
+package org.dslul.openboard.inputmethod.latin.network;
 
 import org.dslul.openboard.inputmethod.backup.model.FilterImageResponse;
 

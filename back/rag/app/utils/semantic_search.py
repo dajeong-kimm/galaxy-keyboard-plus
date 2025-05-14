@@ -73,6 +73,73 @@ def search_similar_items(
     return results
 
 
+def search_similar_items_enhanced_optimized(
+    user_id: str, queries: list[str], target: str, top_k: int = 5
+) -> list[dict]:
+    """최적화된 벡터 검색 - 임베딩 재사용 및 배치 처리"""
+    namespace = f"{user_id}_{target}"
+
+    # 1. 모든 쿼리의 임베딩을 한 번에 생성 (배치 처리)
+    all_texts = queries[:3]  # 최대 3개만 사용
+
+    # OpenAI는 배치 임베딩을 지원합니다
+    response = openai.embeddings.create(model="text-embedding-ada-002", input=all_texts)
+
+    vectors = [item.embedding for item in response.data]
+
+    # 2. 비동기로 Pinecone 쿼리 실행
+    all_results = {}
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        futures = []
+        for i, vector in enumerate(vectors):
+            future = executor.submit(
+                index.query,
+                vector=vector,
+                namespace=namespace,
+                top_k=top_k,
+                include_metadata=True,
+            )
+            futures.append((i, future))
+
+        # 결과 수집
+        for i, future in futures:
+            response = future.result()
+            for match in response["matches"]:
+                match_id = match["id"]
+                if (
+                    match_id not in all_results
+                    or match["score"] > all_results[match_id]["score"]
+                ):
+                    all_results[match_id] = match
+
+    # 3. 결과 정렬 및 반환
+    sorted_matches = sorted(
+        all_results.values(), key=lambda x: x["score"], reverse=True
+    )[:top_k]
+
+    results = []
+    for match in sorted_matches:
+        full_text = match["metadata"].get("text", "")
+        if ": " in full_text:
+            image_id, description = full_text.split(": ", 1)
+        else:
+            image_id, description = "unknown", full_text
+
+        image_id = re.sub(r"\s*\([^)]*\)", "", image_id).strip()
+
+        results.append(
+            {
+                "score": round(match["score"], 3),
+                "id": image_id,
+                "text": description,
+            }
+        )
+
+    return results
+
+
 def search_similar_items_enhanced(
     user_id: str, queries: list[str], target: str, top_k: int = 5
 ) -> list[dict]:

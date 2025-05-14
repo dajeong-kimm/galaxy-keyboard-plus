@@ -1,4 +1,4 @@
-package org.dslul.openboard.inputmethod.backup;
+package org.dslul.openboard.inputmethod.latin.network;
 
 
 import okhttp3.MultipartBody;
@@ -10,7 +10,6 @@ public interface ImageUploadApi {
     @Multipart
     @POST("rag/upload-image/")
     Call<Void> uploadImage(
-            @Header("Authorization") String authHeader,
             @Part("user_id") RequestBody userId,
             @Part("access_id") RequestBody accessId,
             @Part("image_time") RequestBody imageTime,
