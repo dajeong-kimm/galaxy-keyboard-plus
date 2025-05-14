@@ -10,8 +10,8 @@ pipeline {
         MCP_API_CONTAINER = "mcp-api"
         WEB_SEARCH_CONTAINER = "web-search"
         
-        // 네트워크 이름 설정
-        NETWORK_NAME = "mcp-network"
+        // 네트워크 이름 설정 - 기존 네트워크 사용
+        NETWORK_NAME = "moca-pipeline_internal"
     }
     
     stages {
@@ -21,34 +21,20 @@ pipeline {
             }
         }
         
-        stage('Create Network') {
-            steps {
-                sh '''
-                # 기존 네트워크 확인 및 없으면 생성
-                if ! docker network inspect ${NETWORK_NAME} &>/dev/null; then
-                    docker network create ${NETWORK_NAME}
-                    echo "Created network: ${NETWORK_NAME}"
-                else
-                    echo "Network ${NETWORK_NAME} already exists"
-                fi
-                '''
-            }
-        }
-        
         stage('Build Images') {
             parallel {
                 stage('Build MCP API') {
                     steps {
-                        dir('back/mcp-api') {
-                            sh 'docker build -t ${MCP_API_IMAGE} .'
+                        dir('back/mcp') {
+                            sh 'docker build -t ${MCP_API_IMAGE} -f Dockerfile .'
                         }
                     }
                 }
                 
                 stage('Build Web Search') {
                     steps {
-                        dir('back/web-search') {
-                            sh 'docker build -t ${WEB_SEARCH_IMAGE} .'
+                        dir('back/mcp') {
+                            sh 'docker build -t ${WEB_SEARCH_IMAGE} -f Dockerfile .'
                         }
                     }
                 }
@@ -58,35 +44,39 @@ pipeline {
         stage('Deploy Services') {
             steps {
                 sh '''
-                # 기존 컨테이너 중지 및 제거
-                echo "Stopping and removing existing containers..."
-                docker stop ${MCP_API_CONTAINER} || true
-                docker rm ${MCP_API_CONTAINER} || true
-                docker stop ${WEB_SEARCH_CONTAINER} || true
-                docker rm ${WEB_SEARCH_CONTAINER} || true
-                
-                # Web Search 서비스 시작
-                echo "Starting Web Search service..."
-                docker run -d \\
-                    --name ${WEB_SEARCH_CONTAINER} \\
-                    --network ${NETWORK_NAME} \\
-                    --restart unless-stopped \\
-                    -p 8100:8100 \\
-                    ${WEB_SEARCH_IMAGE}
-                
-                # 서비스가 시작될 때까지 대기
-                echo "Waiting for Web Search service to start..."
-                sleep 15
-                
-                # MCP API 서비스 시작
-                echo "Starting MCP API service..."
-                docker run -d \\
-                    --name ${MCP_API_CONTAINER} \\
-                    --network ${NETWORK_NAME} \\
-                    --restart unless-stopped \\
-                    -e "WEB_SEARCH_URL=http://${WEB_SEARCH_CONTAINER}:8100" \\
-                    -p 8050:8050 \\
-                    ${MCP_API_IMAGE}
+                    # 기존 컨테이너 중지 및 제거
+                    echo "Stopping and removing existing containers..."
+                    docker stop ${MCP_API_CONTAINER} || true
+                    docker rm ${MCP_API_CONTAINER} || true
+                    docker stop ${WEB_SEARCH_CONTAINER} || true
+                    docker rm ${WEB_SEARCH_CONTAINER} || true
+                    
+                    # 네트워크 확인
+                    echo "Checking network ${NETWORK_NAME}..."
+                    docker network inspect ${NETWORK_NAME} > /dev/null 2>&1 || (echo "Network ${NETWORK_NAME} does not exist!" && exit 1)
+                    
+                    # Web Search 서비스 시작
+                    echo "Starting Web Search service..."
+                    docker run -d \\
+                        --name ${WEB_SEARCH_CONTAINER} \\
+                        --network ${NETWORK_NAME} \\
+                        --restart unless-stopped \\
+                        -p 8100:8100 \\
+                        ${WEB_SEARCH_IMAGE}
+                    
+                    # 서비스가 시작될 때까지 대기
+                    echo "Waiting for Web Search service to start..."
+                    sleep 15
+                    
+                    # MCP API 서비스 시작
+                    echo "Starting MCP API service..."
+                    docker run -d \\
+                        --name ${MCP_API_CONTAINER} \\
+                        --network ${NETWORK_NAME} \\
+                        --restart unless-stopped \\
+                        -e "WEB_SEARCH_URL=http://${WEB_SEARCH_CONTAINER}:8100" \\
+                        -p 8050:8050 \\
+                        ${MCP_API_IMAGE}
                 '''
             }
         }
@@ -94,26 +84,26 @@ pipeline {
         stage('Check Services') {
             steps {
                 sh '''
-                echo "Checking service status..."
-                sleep 10
-                
-                # 서비스 실행 상태 확인
-                echo "Web Search service:"
-                docker ps --filter "name=${WEB_SEARCH_CONTAINER}"
-                
-                echo "MCP API service:"
-                docker ps --filter "name=${MCP_API_CONTAINER}"
-                
-                # 로그 확인
-                echo "Web Search logs:"
-                docker logs ${WEB_SEARCH_CONTAINER} --tail 20
-                
-                echo "MCP API logs:"
-                docker logs ${MCP_API_CONTAINER} --tail 20
-                
-                # 연결 테스트
-                echo "Testing API endpoint..."
-                curl -s -o /dev/null -w "%{http_code}" http://localhost:8050/api/status/ || echo "API not responding"
+                    echo "Checking service status..."
+                    sleep 10
+                    
+                    # 서비스 실행 상태 확인
+                    echo "Web Search service:"
+                    docker ps --filter "name=${WEB_SEARCH_CONTAINER}"
+                    
+                    echo "MCP API service:"
+                    docker ps --filter "name=${MCP_API_CONTAINER}"
+                    
+                    # 로그 확인
+                    echo "Web Search logs:"
+                    docker logs ${WEB_SEARCH_CONTAINER} --tail 20
+                    
+                    echo "MCP API logs:"
+                    docker logs ${MCP_API_CONTAINER} --tail 20
+                    
+                    # 연결 테스트
+                    echo "Testing API endpoint..."
+                    curl -s -o /dev/null -w "%{http_code}" http://localhost:8050/api/status/ || echo "API not responding"
                 '''
             }
         }
@@ -126,17 +116,17 @@ pipeline {
         failure {
             echo 'Deployment failed!'
             sh '''
-            # 오류 시 컨테이너 로그 수집
-            docker logs ${WEB_SEARCH_CONTAINER} --tail 50 > web_search_error.log || true
-            docker logs ${MCP_API_CONTAINER} --tail 50 > mcp_api_error.log || true
-            
-            # 컨테이너 상태 확인
-            echo "Container status:"
-            docker ps -a --filter "name=${WEB_SEARCH_CONTAINER}" --filter "name=${MCP_API_CONTAINER}"
-            
-            # 네트워크 상태 확인
-            echo "Network status:"
-            docker network inspect ${NETWORK_NAME} || true
+                # 오류 시 컨테이너 로그 수집
+                docker logs ${WEB_SEARCH_CONTAINER} --tail 50 > web_search_error.log || true
+                docker logs ${MCP_API_CONTAINER} --tail 50 > mcp_api_error.log || true
+                
+                # 컨테이너 상태 확인
+                echo "Container status:"
+                docker ps -a --filter "name=${WEB_SEARCH_CONTAINER}" --filter "name=${MCP_API_CONTAINER}"
+                
+                # 네트워크 상태 확인
+                echo "Network status:"
+                docker network inspect ${NETWORK_NAME} || true
             '''
         }
         always {

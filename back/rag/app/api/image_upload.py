@@ -22,7 +22,7 @@ async def upload_image(
     file: UploadFile = File(...),
 ):
     try:
-        logger.info(f"📥 이미지 처리 시작 - user_id={user_id}, access_id={access_id}")
+        # logger.info(f"📥 이미지 처리 시작 - user_id={user_id}, access_id={access_id}")
 
         # 문자열로 받은 image_time → datetime 변환
         try:
@@ -34,7 +34,7 @@ async def upload_image(
                 detail="날짜 형식이 잘못되었습니다. (예: 2025:05:08 00:00:00)",
             )
 
-        logger.info(f"📥 이미지 업로드 시작 - user_id={user_id}, access_id={access_id}")
+        # logger.info(f"📥 이미지 업로드 시작 - user_id={user_id}, access_id={access_id}")
 
         async with httpx.AsyncClient() as client:
             # 중복 체크 요청
@@ -42,8 +42,8 @@ async def upload_image(
             params = {"userId": user_id, "accessId": access_id}
 
             check_response = await client.get(check_url, params=params)
-            logger.info(f"🔍 중복 체크 응답: {check_response.status_code}")
-            logger.debug(f"🔍 중복 체크 바디: {check_response.text}")
+            # logger.info(f"🔍 중복 체크 응답: {check_response.status_code}")
+            # logger.debug(f"🔍 중복 체크 바디: {check_response.text}")
 
             if check_response.status_code != 200:
                 raise HTTPException(status_code=500, detail="중복 확인 실패")
@@ -62,7 +62,7 @@ async def upload_image(
 
         image_bytes = await file.read()
         text_score = classify_image_from_bytes(image_bytes)
-        logger.info(f"🔍 이미지 분류 점수: {text_score:.3f} (access_id={access_id})")
+        # logger.info(f"🔍 이미지 분류 점수: {text_score:.3f} (access_id={access_id})")
 
         if text_score <= 0.09:  # photo
             caption = generate_image_caption(image_bytes)
@@ -73,17 +73,17 @@ async def upload_image(
             # 두 개의 텍스트를 하나로 결합 (개행으로 구분)
             content = f"[Caption]\n{caption}\n\n[OCR]\n{ocr_text}".strip()
 
-            logger.info(f"🖼️ 이미지 설명 생성 완료 - {caption}")
-            logger.info(f"🔤 OCR 텍스트 추출 완료 - {ocr_text}")
+            # logger.info(f"🖼️ 이미지 설명 생성 완료 - {caption}")
+            # logger.info(f"🔤 OCR 텍스트 추출 완료 - {ocr_text}")
         else:
             extracted_text = extract_text_from_image(image_bytes)
             target = "info"
             content = extracted_text
-            logger.info(f"📝 텍스트 추출 완료 - {extracted_text}")
+            # logger.info(f"📝 텍스트 추출 완료 - {extracted_text}")
 
         text_for_embedding = f"{access_id} ({image_time}): {content}"
         namespace = save_text_to_pinecone(user_id, text_for_embedding, target)
-        logger.info(f"✅ 벡터 저장 완료 - namespace={namespace}")
+        # logger.info(f"✅ 벡터 저장 완료 - namespace={namespace}")
 
         image_payload = {
             "userId": user_id,
@@ -94,16 +94,16 @@ async def upload_image(
         }
 
         async with httpx.AsyncClient() as client:
-            logger.info(f"📤 이미지 정보 전송 → payload: {image_payload}")
-            logger.info(
-                f"📤 JSON:\n{json.dumps(image_payload, ensure_ascii=False, indent=2)}"
-            )
+            # logger.info(f"📤 이미지 정보 전송 → payload: {image_payload}")
+            # logger.info(
+            #     f"📤 JSON:\n{json.dumps(image_payload, ensure_ascii=False, indent=2)}"
+            # )
 
             image_response = await client.post(
                 "http://backend-service:8083/api/v1/images", json=image_payload
             )
-            logger.info(f"📥 이미지 응답 상태: {image_response.status_code}")
-            logger.debug(f"📥 이미지 응답 내용: {image_response.text}")
+            # logger.info(f"📥 이미지 응답 상태: {image_response.status_code}")
+            # logger.debug(f"📥 이미지 응답 내용: {image_response.text}")
 
             if image_response.status_code != 200:
                 raise HTTPException(status_code=500, detail="이미지 정보 저장 실패")
@@ -122,10 +122,10 @@ async def upload_image(
                         "imageId": image_id,
                     }
 
-                    logger.info(f"📤 일정 등록 전송 → payload: {plan_payload}")
-                    logger.info(
-                        f"📤 JSON:\n{json.dumps(plan_payload, ensure_ascii=False, indent=2)}"
-                    )
+                    # logger.info(f"📤 일정 등록 전송 → payload: {plan_payload}")
+                    # logger.info(
+                    #     f"📤 JSON:\n{json.dumps(plan_payload, ensure_ascii=False, indent=2)}"
+                    # )
 
                     plan_response = await client.post(
                         "http://backend-service:8083/api/v1/plans", json=plan_payload
