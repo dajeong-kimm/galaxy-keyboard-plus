@@ -33,7 +33,7 @@ pipeline {
                 
                 stage('Build Web Search') {
                     steps {
-                        dir('back/mcp') {
+                        dir('back/web-search') {
                             sh 'docker build -t ${WEB_SEARCH_IMAGE} -f Dockerfile .'
                         }
                     }
@@ -50,6 +50,15 @@ pipeline {
                     docker rm ${MCP_API_CONTAINER} || true
                     docker stop ${WEB_SEARCH_CONTAINER} || true
                     docker rm ${WEB_SEARCH_CONTAINER} || true
+                    
+                    # 8050과 8100 포트를 사용하는 컨테이너가 있는지 확인하고 종료
+                    for port in 8050 8100; do
+                        container_ids=$(docker ps -q --filter "publish=$port")
+                        if [ ! -z "$container_ids" ]; then
+                            echo "Stopping containers using port $port..."
+                            docker stop $container_ids || true
+                        fi
+                    done
                     
                     # 네트워크 확인
                     echo "Checking network ${NETWORK_NAME}..."
@@ -102,7 +111,10 @@ pipeline {
                     docker logs ${MCP_API_CONTAINER} --tail 20
                     
                     # 연결 테스트
-                    echo "Testing API endpoint..."
+                    echo "Testing Web Search endpoint:"
+                    curl -s http://localhost:8100 || echo "Web Search not responding"
+                    
+                    echo "Testing API endpoint:"
                     curl -s -o /dev/null -w "%{http_code}" http://localhost:8050/api/status/ || echo "API not responding"
                 '''
             }
@@ -127,6 +139,10 @@ pipeline {
                 # 네트워크 상태 확인
                 echo "Network status:"
                 docker network inspect ${NETWORK_NAME} || true
+                
+                # 포트 사용 상태 확인
+                echo "Port usage:"
+                netstat -tuln | grep -E ":(8050|8100)" || true
             '''
         }
         always {

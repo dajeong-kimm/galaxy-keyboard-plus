@@ -14,5 +14,5 @@ RUN npm install && \
 # 포트 노출
 EXPOSE 8100
 
-# 실행
+# 명시적으로 Node.js로 실행
 CMD ["node", "build/index.js", "--port", "8100"]
