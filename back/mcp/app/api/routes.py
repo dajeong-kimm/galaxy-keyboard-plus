@@ -1,6 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import web_search
-from app.api.endpoints import server_status
+from app.api.endpoints import web_search, server_status
 
 api_router = APIRouter()
 
