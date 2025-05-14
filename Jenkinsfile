@@ -47,6 +47,8 @@ pipeline {
             chmod 644 gcp-key.json
             mkdir -p back/rag
             cp gcp-key.json back/rag/
+            mkdir -p back/search
+            cp gcp-key.json back/search/
           '''
           writeFile file: '.env.prod', text: """
 POSTGRES_AUTH_USER=${AUTH_USER}
