@@ -88,6 +88,29 @@ services:
     networks:
       - internal
 
+  
+  search-service:
+    container_name: search-service
+    build: ./back/search
+    command:
+      - "uvicorn"
+      - "app.main:app"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8091"
+    ports:
+      - "0.0.0.0:8091:8091"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-key.json
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+    env_file: .env.prod
+    volumes:
+      - ./back/search/gcp-key.json:/app/gcp-key.json:ro
+    restart: always
+    networks:
+      - internal
+
   # MCP 웹 검색 서비스 추가
   mcp:
     container_name: mcp-service

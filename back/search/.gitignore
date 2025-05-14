@@ -1,0 +1,72 @@
+# Python 가상환경 관련 파일
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+
+# 환경 변수 파일 (보안상 git에 올리지 않음)
+.env
+
+# 로그 파일
+logs/
+*.log
+
+# FastAPI 관련 자동 생성 파일
+instance/
+*.pid
+
+# IDE 및 에디터 관련 파일
+.vscode/
+.idea/
+*.iml
+
+# Python 패키지 관리
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# 운영체제별 불필요한 파일
+.DS_Store
+Thumbs.db
+
+# Docker 관련
+docker-compose.override.yml
+.dockerignore
+
+# 빌드 및 배포 관련
+dist/
+build/
+site/
+
+# Uvicorn 및 Gunicorn 관련 파일
+*.sock
+*.pid
+*.log
+gunicorn_conf.py
+
+# MyPy 타입 검사 결과
+.mypy_cache/
+
+# pytest 관련 파일
+.pytest_cache/
+
+# Coverage 관련
+.coverage
+htmlcov/
+*.cover
+
+# Jupyter Notebook 체크포인트 (필요 시)
+.ipynb_checkpoints/
+
+# 기타 캐시 파일
+.cache/
+
+# 서비스 계정 키 파일
+moca-457801-bfa12690864b.json
+
+test/
+analyze_text_scores.py
+
+node_modules/

@@ -13,7 +13,7 @@ load_dotenv()
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index(os.getenv("PINECONE_INDEX_NAME"))
 
-openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY_2"))
 
 
 def determine_query_type(query: str) -> Literal["photo", "info", "ambiguous"]:
