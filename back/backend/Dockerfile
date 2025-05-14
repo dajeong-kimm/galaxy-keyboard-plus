@@ -21,4 +21,4 @@ WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
 
 HEALTHCHECK CMD curl -f http://localhost:8083/actuator/health || exit 1
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Seoul", "-jar", "/app/app.jar"]
