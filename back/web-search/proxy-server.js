@@ -37,10 +37,11 @@ app.post('/', async (req, res) => {
         const request = req.body;
         console.log('Received HTTP request:', JSON.stringify(request));
 
-        // 요청 형식 조정 - Model Context Protocol 형식으로 변환
+        // 요청 형식 변환
         let mcpRequest;
+
         if (request.method === 'search') {
-            // CallToolRequestSchema 형식으로 변환
+            // 'search' 메서드를 'callTool' 메서드로 변환
             mcpRequest = {
                 jsonrpc: "2.0",
                 id: request.id || Math.random().toString(36).substring(2, 9),
@@ -53,8 +54,11 @@ app.post('/', async (req, res) => {
                     }
                 }
             };
+        } else if (request.method === 'callTool' && request.params && request.params.name === 'search') {
+            // 이미 올바른 형식이면 그대로 전달
+            mcpRequest = request;
         } else {
-            // 그대로 전달
+            // 다른 메서드는 그대로 전달
             mcpRequest = request;
         }
 

@@ -30,10 +30,10 @@ class MCPClient:
         request_data = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
-            "method": "callTool",  # 'search' 대신 'callTool' 사용
+            "method": "callTool",  # CallToolRequestSchema 메서드 사용
             "params": {
-                "name": "search",  # 도구 이름을 params.name으로 지정
-                "arguments": {     # 인수를 params.arguments 안에 넣음
+                "name": "search",   # 도구 이름으로 'search' 지정
+                "arguments": {      # 인수는 arguments 객체 내에 포함
                     "query": query,
                     "limit": num_results
                 }
