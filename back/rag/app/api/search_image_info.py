@@ -29,6 +29,7 @@ async def _save_query_async(user_id: str, role: str, content: str, timestamp: in
         executor, save_chat_vector_to_pinecone, user_id, role, content, timestamp
     )
 
+
 async def _save_result_async(user_id: str, role: str, content: str, timestamp: int):
     """Async wrapper for saving result"""
     try:
@@ -58,9 +59,7 @@ async def search(
 
     try:
         # 1. 사용자 쿼리 저장 (완전 비동기)
-        asyncio.create_task(
-            _save_query_async(user_id, "user", query, timestamp)
-        )
+        asyncio.create_task(_save_query_async(user_id, "user", query, timestamp))
 
         # 2. 쿼리 확장
         expand_start = time.time()
@@ -145,14 +144,16 @@ async def search(
 
         # 전체 시간 (사용자 응답 시점)
         timings["total"] = time.time() - total_start
-        
+
         # 결과에 타이밍 정보 포함 (디버깅용)
         result["_timings"] = timings
-        
+
         # 7. 결과 저장 (응답 후 비동기로 처리)
         serialized_result = json.dumps(result, ensure_ascii=False)
         asyncio.create_task(
-            _save_result_async(user_id, "assistant", serialized_result, int(time.time()))
+            _save_result_async(
+                user_id, "assistant", serialized_result, int(time.time())
+            )
         )
 
         # 요약 로그
@@ -175,6 +176,17 @@ async def search(
         logger.error(f"Search error: {str(e)}", exc_info=True)
         timings["error"] = time.time() - total_start
         logger.error(f"⏱️ 에러 발생 시점: {timings['error']:.3f}초")
+
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "검색 처리 중 오류가 발생했습니다.",
+                "detail": str(e),
+                "timings": timings,
+            },
+        )
         raise
 
     finally:
