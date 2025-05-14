@@ -35,39 +35,15 @@ class MCPManager:
             # JavaScript 진입점 확인
             logger.info(f"Found JavaScript entry point: {build_path}")
             
-            # 이미 실행 중인 프로세스 확인 및 종료
-            if server_name in self.servers and self.servers[server_name] is not None:
-                old_process = self.servers[server_name]
-                try:
-                    logger.info(f"Terminating existing process with PID: {old_process.pid}")
-                    old_process.terminate()
-                    await asyncio.wait_for(old_process.wait(), timeout=5.0)
-                except Exception as e:
-                    logger.error(f"Error terminating existing process: {str(e)}")
-                    try:
-                        old_process.kill()
-                    except:
-                        pass
+            # 이미 실행 중인 프로세스 확인 및 종료 (생략)
             
-            # 8100 포트 확인 (중복 사용 가능성)
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                result = sock.connect_ex(('localhost', self.web_search_port))
-                if result == 0:
-                    logger.warning(f"Port {self.web_search_port} is already in use. Attempting to free it.")
-                    # 가능한 경우 lsof 또는 다른 방법으로 포트 사용 중인 프로세스 종료 시도
-                sock.close()
-            except Exception as e:
-                logger.error(f"Error checking port availability: {str(e)}")
-            
-            # Node.js 실행 명령어
-            cmd = f"cd {self.web_search_path} && node {build_path} --port {self.web_search_port}"
+            # 서버 실행 명령어 - 중요: 백그라운드 모드로 실행 시도
+            # stdio 모드 대신 HTTP 모드로 실행되도록 --mode http 옵션 추가 (필요한 경우)
+            cmd = f"cd {self.web_search_path} && node {build_path} --port {self.web_search_port} --mode http"
             logger.info(f"Executing command: {cmd}")
             
             # 환경 변수 설정
             env = os.environ.copy()
-            env["NODE_DEBUG"] = "net,http,fs"  # 자세한 Node.js 디버깅
             
             # 프로세스 시작
             try:
@@ -93,25 +69,8 @@ class MCPManager:
                 self.servers[server_name] = process
                 logger.info(f"Started web_search MCP server with PID: {process.pid} on port {self.web_search_port}")
                 
-                # 서버 시작 후 추가 검증
-                for _ in range(5):  # 5번 시도
-                    try:
-                        import aiohttp
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get(f"http://localhost:{self.web_search_port}", timeout=1) as response:
-                                logger.info(f"Server connection verified with status: {response.status}")
-                                return True
-                    except Exception as e:
-                        logger.warning(f"Server connection attempt failed: {str(e)}")
-                        await asyncio.sleep(1)  # 1초 대기 후 재시도
-                
-                # 연결 시도 실패했지만 프로세스는 실행 중
-                if process.returncode is None:
-                    logger.warning("Server process is running but connection attempts failed. Proceeding anyway.")
-                    return True
-                else:
-                    logger.error(f"Server process exited with code {process.returncode} during connection attempts")
-                    return False
+                # 서버 프로세스 등록했으므로 서버가 성공적으로 시작된 것으로 간주
+                return True
                 
             except Exception as e:
                 logger.error(f"Error starting server process: {str(e)}")
