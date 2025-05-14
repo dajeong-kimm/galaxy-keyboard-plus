@@ -78,13 +78,15 @@ spring:
           uri: http://rag-service:8090
           predicates:
             - Path=/rag/**
-          filters:
-            - name: RequestRateLimiter
-              args:
-                rate-limiter: "#{@ragServerRateLimiter}"
-                key-resolver: "#{@userKeyResolver}"
           metadata:
             description: "RAG Service with Rate Limiting"
+
+        - id: search-route
+          uri: http://search-service:8091
+          predicates:
+            - Path=/search/**
+          metadata:
+            description: "Search Service"
 
       globalcors:
         corsConfigurations:
