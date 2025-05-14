@@ -12,10 +12,28 @@
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:padding="12dp"
-        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/inputBar"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 로딩 스피너: 응답 대기 중에만 보임 -->
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/avLoading"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tvStatus"
+
+        app:lottie_fileName="loadingSpinner.json"
+        app:lottie_autoPlay="false"
+        app:lottie_loop="true"
+
+        android:scaleType="fitXY"
+        />
 
     <!-- 3. 로딩/에러 텍스트: 라이트 테마의 Secondary 텍스트 색 -->
     <TextView
@@ -37,10 +55,10 @@
         android:layout_height="wrap_content"
         android:background="?android:attr/colorBackground"
         android:divider="?android:attr/dividerHorizontal"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
         android:padding="10dp"
         android:showDividers="middle"
-        android:gravity="center_vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">

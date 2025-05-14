@@ -7,9 +7,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.util.Log;
 
+import com.airbnb.lottie.LottieAnimationView;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -45,6 +47,7 @@ import retrofit2.Response;
 public class SearchPageFragment extends Fragment {
     private RecyclerView rvMessages;
     private TextView tvStatus;
+    private LottieAnimationView avLoading;
     private EditText etMessage;
     private ImageButton btnSend;
     private MessageAdapter adapter;
@@ -81,6 +84,7 @@ public class SearchPageFragment extends Fragment {
         Log.d(TAG_UI, "onViewCreated()");
         rvMessages = view.findViewById(R.id.rvMessages);
         tvStatus = view.findViewById(R.id.tvStatus);
+        avLoading = view.findViewById(R.id.avLoading);
         etMessage = view.findViewById(R.id.etMessage);
         btnSend = view.findViewById(R.id.btnSend);
 
@@ -119,6 +123,10 @@ public class SearchPageFragment extends Fragment {
 
     private void sendMessage(String text) {
         Log.d(TAG_SEND, "sendMessage() text=\"" + text + "\"");
+
+        // 0) 시작 시점 기록
+        final long startTime = System.currentTimeMillis();
+
         // 1) 사용자 메시지 추가
         Message userMsg = new Message(
                 Message.Sender.USER,
@@ -130,7 +138,7 @@ public class SearchPageFragment extends Fragment {
         rvMessages.scrollToPosition(messages.size() - 1);
 
         etMessage.setText("");
-        showStatus("응답을 기다리는 중...", true);
+        showLoading(true);
 
         Log.d(TAG, "▶ sendMessage: \"" + text + "\"");
 
@@ -156,8 +164,11 @@ public class SearchPageFragment extends Fragment {
                 .enqueue(new Callback<MessageResponse>() {
                     @Override
                     public void onResponse(Call<MessageResponse> call, Response<MessageResponse> resp) {
+                        // 2-1) 응답까지 걸린 시간 계산
+                        long elapsed = System.currentTimeMillis() - startTime;
+                        Log.d(TAG_SEND, "응답 수신까지 걸린 시간: " + elapsed + "ms");
 
-                        showStatus("", false);
+                        showLoading(false);
 
                         Log.d(TAG_API, "HTTP " + resp.code()
                                 + " isSuccessful=" + resp.isSuccessful());
@@ -196,15 +207,37 @@ public class SearchPageFragment extends Fragment {
 
                     @Override
                     public void onFailure(Call<MessageResponse> call, Throwable t) {
-                        Log.e(API_TAG, "❌ onFailure: " + t.getMessage(), t);
+                        // 2-2) 실패까지 걸린 시간 계산
+                        long elapsed = System.currentTimeMillis() - startTime;
+                        Log.e(TAG_SEND, "네트워크 오류 (걸린 시간: " + elapsed + "ms): " + t.getMessage(), t);
+
+                        showLoading(false);
                         showStatus("네트워크 오류: " + t.getMessage(), true);
                     }
                 });
     }
 
+    /**
+     * 에러/상태 메시지 표시 (스피너 숨김)
+     */
     private void showStatus(String msg, boolean visible) {
+        avLoading.setVisibility(View.GONE);
         tvStatus.setText(msg);
         tvStatus.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * 로딩 스피너 표시 (상태 메시지 숨김)
+     */
+    private void showLoading(boolean loading) {
+        tvStatus.setVisibility(View.GONE);
+        if (loading) {
+            avLoading.setVisibility(View.VISIBLE);
+            avLoading.playAnimation();
+        } else {
+            avLoading.pauseAnimation();
+            avLoading.setVisibility(View.GONE);
+        }
     }
 
     private void loadPage(int p) {
@@ -236,8 +269,8 @@ public class SearchPageFragment extends Fragment {
                         + " last=" + cp.isLast());
 
                 // 오래된 것 → 앞으로 붙이기
-//                for (int i = 0; i <= newCount - 1; i++) {
-                for (int i = newCount - 1; i >= 0; i--) {
+                for (int i = 0; i <= newCount - 1; i++) {
+//                for (int i = newCount - 1; i >= 0; i--) {
                     messages.add(0, toMessage(list.get(i)));
                 }
 
