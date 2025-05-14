@@ -22,9 +22,8 @@ pipeline {
             docker run -d \
               --name mcp-service \
               --restart always \
-              -p 8091:8000 \
-              -p 8100:8100 \
-              --network internal \
+              -p 8050:8050 \
+              --network moca-pipeline_internal \
               mcp-service:latest
           '''
         }
