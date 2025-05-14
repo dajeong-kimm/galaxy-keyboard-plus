@@ -40,12 +40,29 @@ app.post('/', async (req, res) => {
         // 요청 형식 변환
         let mcpRequest;
 
-        if (request.method === 'search') {
-            // 'search' 메서드를 'callTool' 메서드로 변환
+        // 메서드 이름 변환 로직 추가
+        if (request.method === 'callTool') {
+            // SDK 내부에서 사용하는 메서드 이름으로 변환
+            mcpRequest = {
+                jsonrpc: "2.0",
+                id: request.id,
+                method: "CallToolRequestSchema", // 대문자로 시작하고 RequestSchema 붙임
+                params: request.params
+            };
+        } else if (request.method === 'listTools') {
+            // listTools를 ListToolsRequestSchema로 변환
+            mcpRequest = {
+                jsonrpc: "2.0",
+                id: request.id,
+                method: "ListToolsRequestSchema", // 대문자로 시작하고 RequestSchema 붙임
+                params: request.params || {}
+            };
+        } else if (request.method === 'search') {
+            // 'search' 메서드를 SDK 내부 형식으로 변환
             mcpRequest = {
                 jsonrpc: "2.0",
                 id: request.id || Math.random().toString(36).substring(2, 9),
-                method: "callTool",
+                method: "CallToolRequestSchema", // 올바른 내부 메서드 이름
                 params: {
                     name: "search",
                     arguments: {
@@ -54,9 +71,6 @@ app.post('/', async (req, res) => {
                     }
                 }
             };
-        } else if (request.method === 'callTool' && request.params && request.params.name === 'search') {
-            // 이미 올바른 형식이면 그대로 전달
-            mcpRequest = request;
         } else {
             // 다른 메서드는 그대로 전달
             mcpRequest = request;
@@ -127,11 +141,11 @@ app.get('/health', (req, res) => {
 // 도구 목록 확인용 엔드포인트
 app.get('/tools', async (req, res) => {
     try {
-        // 도구 목록 요청 생성
+        // 도구 목록 요청 생성 - 메서드 이름 변환
         const listToolsRequest = {
             jsonrpc: "2.0",
             id: "tools-request",
-            method: "listTools",
+            method: "ListToolsRequestSchema", // 올바른 내부 메서드 이름으로 변경
             params: {}
         };
 
