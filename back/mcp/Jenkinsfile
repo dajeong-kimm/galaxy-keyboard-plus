@@ -74,6 +74,10 @@ pipeline {
                     -p 8100:8100 \\
                     ${WEB_SEARCH_IMAGE}
                 
+                # 서비스가 시작될 때까지 대기
+                echo "Waiting for Web Search service to start..."
+                sleep 15
+                
                 # MCP API 서비스 시작
                 echo "Starting MCP API service..."
                 docker run -d \\
@@ -106,6 +110,10 @@ pipeline {
                 
                 echo "MCP API logs:"
                 docker logs ${MCP_API_CONTAINER} --tail 20
+                
+                # 연결 테스트
+                echo "Testing API endpoint..."
+                curl -s -o /dev/null -w "%{http_code}" http://localhost:8050/api/status/ || echo "API not responding"
                 '''
             }
         }
@@ -121,7 +129,19 @@ pipeline {
             # 오류 시 컨테이너 로그 수집
             docker logs ${WEB_SEARCH_CONTAINER} --tail 50 > web_search_error.log || true
             docker logs ${MCP_API_CONTAINER} --tail 50 > mcp_api_error.log || true
+            
+            # 컨테이너 상태 확인
+            echo "Container status:"
+            docker ps -a --filter "name=${WEB_SEARCH_CONTAINER}" --filter "name=${MCP_API_CONTAINER}"
+            
+            # 네트워크 상태 확인
+            echo "Network status:"
+            docker network inspect ${NETWORK_NAME} || true
             '''
+        }
+        always {
+            echo 'Cleaning up workspace...'
+            cleanWs()
         }
     }
 }

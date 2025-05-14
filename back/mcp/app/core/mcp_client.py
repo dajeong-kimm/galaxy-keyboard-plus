@@ -65,7 +65,19 @@ class MCPClient:
     async def health_check(self) -> bool:
         """서비스 상태 확인"""
         try:
-            async with self.session.get(f"{self.service_url}/health", timeout=5) as response:
+            # 일반 연결 테스트 시도
+            async with self.session.post(
+                self.service_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": str(uuid.uuid4()),
+                    "method": "ping",  # 간단한 ping 메서드 사용
+                    "params": {}
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=3
+            ) as response:
+                # 상태 코드가 200이면 서비스가 실행 중인 것으로 간주
                 return response.status == 200
         except Exception as e:
             logger.error(f"Health check failed: {str(e)}")
