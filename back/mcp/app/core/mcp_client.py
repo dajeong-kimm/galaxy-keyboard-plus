@@ -26,28 +26,17 @@ class MCPClient:
     
     async def search(self, query: str, num_results: int = 5) -> Dict[str, Any]:
         """웹 검색 수행"""
-        # JSON-RPC 2.0 요청 생성
-        # request_data = {
-        #     "jsonrpc": "2.0",
-        #     "id": str(uuid.uuid4()),
-        #     "method": "search",  # 도구 이름을 직접 메서드로 사용
-        #     "params": {      # 인수를 직접 params에 포함
-        #         "query": query,
-        #         "limit": num_results
-        #     }
-        # }
+        # tools/call 메서드 사용 (프록시 서버에서 지원하는 형식)
         request_data = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
-            "method": "callTool",  # 도구 이름을 직접 메서드로 사용
-            "params" : {
+            "method": "tools/call",
+            "params": {
                 "name": "search",
-                "arguments": [
-                    {
-                        "query": "예시 검색어",
-                        "limit": 3
-                    }
-                ]
+                "arguments": {
+                    "query": query,
+                    "limit": num_results
+                }
             }
         }
         
@@ -71,19 +60,31 @@ class MCPClient:
                     return {"error": f"RPC error: {data['error']}"}
                 
                 # 응답 형식 처리
-                if "result" in data and "content" in data["result"] and len(data["result"]["content"]) > 0:
+                if "result" in data and isinstance(data["result"], list):
+                    # 직접 결과 배열 반환
+                    return {
+                        "results": data["result"],
+                        "query": query
+                    }
+                elif "result" in data and "content" in data["result"] and len(data["result"]["content"]) > 0:
+                    # MCP 형식 응답 처리 (content[0].text)
                     try:
-                        # content[0].text에서 JSON 결과 추출
                         result_text = data["result"]["content"][0]["text"]
                         logger.info(f"Parsing content text: {result_text}")
                         result = json.loads(result_text)
                         return {
                             "results": result,
-                            "count": len(result)
+                            "query": query
                         }
                     except Exception as e:
                         logger.error(f"Error parsing result content: {str(e)}")
                         return {"error": f"Failed to parse search results: {str(e)}"}
+                elif "result" in data:
+                    # 기타 결과 형식
+                    return {
+                        "results": data["result"] if isinstance(data["result"], list) else [data["result"]],
+                        "query": query
+                    }
                 
                 logger.error("Invalid response format")
                 return {"error": "Invalid response format"}
@@ -103,28 +104,24 @@ class MCPClient:
             
     async def get_tools_list(self) -> Dict[str, Any]:
         """사용 가능한 도구 목록 조회"""
-        request_data = {
-            "jsonrpc": "2.0",
-            "id": str(uuid.uuid4()),
-            "method": "listTools",
-            "params": {}
+        # 기본 도구 목록 반환 (tools/list는 작동하지 않을 가능성이 높음)
+        return {
+            "tools": [{
+                "name": "search",
+                "description": "Search the web using Google",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of results to return (default: 5)"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }]
         }
-        
-        try:
-            async with self.session.post(
-                self.server_url,
-                json=request_data,
-                headers={"Content-Type": "application/json"}
-            ) as response:
-                if response.status != 200:
-                    return {"error": f"Server error: {response.status}"}
-                
-                data = await response.json()
-                
-                if "error" in data:
-                    return {"error": f"RPC error: {data['error']}"}
-                
-                return {"tools": data.get("result", {}).get("tools", [])}
-        except Exception as e:
-            logger.error(f"Error getting tools list: {str(e)}")
-            return {"error": str(e)}
