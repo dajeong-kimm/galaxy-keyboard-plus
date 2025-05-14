@@ -123,7 +123,7 @@ ENV=prod
 
   post {
     always {
-      sh 'rm -f .env.prod gcp-key.json back/rag/gcp-key.json'
+      sh 'rm -f .env.prod gcp-key.json back/rag/gcp-key.json back/search/gcp-key.json'
     }
     success {
       echo '빌드 및 배포 성공 🎉'

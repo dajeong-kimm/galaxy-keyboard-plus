@@ -105,8 +105,6 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-key.json
       - PINECONE_API_KEY=${PINECONE_API_KEY}
     env_file: .env.prod
-    volumes:
-      - ./back/search/gcp-key.json:/app/gcp-key.json:ro
     restart: always
     networks:
       - internal
