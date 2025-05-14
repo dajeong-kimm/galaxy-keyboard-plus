@@ -7,8 +7,9 @@ import android.net.Uri;
 import android.util.Log;
 
 import org.dslul.openboard.inputmethod.backup.model.GalleryImage;
+import org.dslul.openboard.inputmethod.latin.network.ApiClient;
+import org.dslul.openboard.inputmethod.latin.network.ImageUploadApi;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -35,12 +36,14 @@ public class ImageUploader {
             Context context,
             List<GalleryImage> images,
             String userId,
-            String accessToken,
             SuccessCallback onSuccess,
             FailureCallback onFailure,
             CompletionCallback onComplete
     ) {
-        ImageUploadApi api = RetrofitInstance.getUploadApi();
+        /* ▒▒ 1) 공통 Retrofit 초기화 & 서비스 획득 ▒▒ */
+        ApiClient.init(context);                       // 싱글턴 보증
+        ImageUploadApi api = ApiClient.getImageUploadApi();
+
         int total = images.size();
         final int[] completedCount = {0};
 
@@ -65,7 +68,6 @@ public class ImageUploader {
                 RequestBody imageTimeBody = RequestBody.create(MediaType.parse("text/plain"), formattedTime);
 
                 Call<Void> call = api.uploadImage(
-                        "Bearer " + accessToken,
                         userIdBody,
                         accessIdBody,
                         imageTimeBody,
@@ -145,10 +147,10 @@ public class ImageUploader {
         Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, decodeOptions);
         inputStream.close();
 
-        // 3. JPEG 압축 (최대 압축: 품질 50)
+        // 3. JPEG 압축 (최대 압축: 품질 90)
         File file = new File(context.getCacheDir(), "upload_" + System.currentTimeMillis() + ".jpg");
         FileOutputStream fos = new FileOutputStream(file);
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, fos);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
         bitmap.recycle();
         fos.close();
         return file;

@@ -3,6 +3,8 @@ package org.dslul.openboard.inputmethod.latin.settings;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.network.ApiClient;
@@ -36,6 +38,22 @@ public class SearchActivity extends Activity {
                     .replace(R.id.fragment_container, new SearchPageFragment())
                     .commit();
         }
+    }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // menu_search.xml 인플레이트
+        getMenuInflater().inflate(R.menu.menu_search, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            // 설정 화면으로 이동
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }

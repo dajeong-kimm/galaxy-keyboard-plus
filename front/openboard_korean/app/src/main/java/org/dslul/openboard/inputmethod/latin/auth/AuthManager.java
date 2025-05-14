@@ -33,6 +33,11 @@ public class AuthManager {
     private final ApiService apiService;
     private final SecureStorage secureStorage;
 
+    // **메모리 캐시용**
+    private String accessToken;
+    private String refreshToken;
+    private String userId;
+
     private Activity currentActivity; // 현재 액티비티 저장
 
     /**
@@ -42,13 +47,17 @@ public class AuthManager {
         if (context instanceof Activity) Log.d(TAG, "생성자 ctx=Activity");
 
         this.context = context.getApplicationContext();
+        this.secureStorage = SecureStorage.getInstance(this.context);
+
+        // 초기값을 storage에서 한 번만 로드
+        this.accessToken  = secureStorage.getAccessToken();
+        this.refreshToken = secureStorage.getRefreshToken();
+        this.userId       = secureStorage.getUserId();
 
         ApiClient.init(this.context);
 
         // ApiClient 사용하여 ApiService 초기화
         this.apiService = ApiClient.getApiService();
-        this.secureStorage = SecureStorage.getInstance(context);
-
         Log.d(TAG, "AuthManager 준비 완료");
     }
 
@@ -121,23 +130,6 @@ public class AuthManager {
             return;
         }
 
-        // 계정 로그인에서도 현재 액티비티 사용
-//        Context loginContext = (currentActivity != null) ? currentActivity : context;
-
-//        UserApiClient.getInstance().loginWithKakaoAccount(loginContext, new Function2<OAuthToken, Throwable, Unit>() {
-//            @Override
-//            public Unit invoke(OAuthToken token, Throwable error) {
-//                if (error != null) {
-//                    Log.e(TAG, "카카오 계정 로그인 실패", error);
-//                    callback.onLoginFailure("카카오 계정 로그인 실패: " + error.getMessage());
-//                } else if (token != null) {
-//                    Log.i(TAG, "카카오 계정 로그인 성공: " + token.getAccessToken());
-//                    // 서버에 토큰 전달 및 인증
-//                    authenticateWithServer(token.getAccessToken(), callback);
-//                }
-//                return Unit.INSTANCE;
-//            }
-//        });
         UserApiClient.getInstance().loginWithKakaoAccount(
                 /* 반드시 Activity */ currentActivity,
                 (OAuthToken token, Throwable error) -> {
@@ -177,6 +169,11 @@ public class AuthManager {
                             authResponse.getUserId()
                     );
 
+                    // 메모리 캐시 갱신
+                    accessToken  = authResponse.getAccessToken();
+                    refreshToken = authResponse.getRefreshToken();
+                    userId       = authResponse.getUserId();
+
                     Log.i(TAG, "서버 인증 성공: " + authResponse.getUserId());
                     callback.onLoginSuccess(authResponse.getUserId());
                 } else {
@@ -202,6 +199,19 @@ public class AuthManager {
         });
     }
 
+    // ============== 토큰 자동 재발급(Interceptor Authenticator) ==============
+    // (ApiClient 안의 Authenticator가 ReissueRequest로 동기 호출한 뒤
+    //  아래 메서드를 호출
+    public synchronized void updateTokens(String newAccess, String newRefresh, String newUserId) {
+        // storage
+        secureStorage.saveTokens(newAccess, newRefresh, newUserId);
+        // 메모리
+        this.accessToken  = newAccess;
+        this.refreshToken = newRefresh;
+        this.userId       = newUserId;
+        Log.d(TAG, "Tokens updated, user=" + userId);
+    }
+
     /**
      * 로그아웃 처리
      */
@@ -211,6 +221,11 @@ public class AuthManager {
             public Unit invoke(Throwable error) {
                 // 카카오 로그아웃 결과와 상관없이 로컬 토큰 삭제
                 secureStorage.clearTokens();
+
+                // 메모리도 제거
+                accessToken  = null;
+                refreshToken = null;
+                userId       = null;
 
                 if (error != null) {
                     Log.w(TAG, "카카오 로그아웃 에러 (무시됨)", error);
@@ -228,27 +243,27 @@ public class AuthManager {
      * 로그인 상태 확인
      */
     public boolean isLoggedIn() {
-        return secureStorage.hasTokens();
+        return accessToken != null && !accessToken.isEmpty();
     }
 
     /**
      * 저장된 사용자 ID 조회
      */
     public String getUserId() {
-        return secureStorage.getUserId();
+        return userId;
     }
 
     /**
      * 액세스 토큰 조회
      */
     public String getAccessToken() {
-        return secureStorage.getAccessToken();
+        return accessToken;
     }
 
     /**
      * 리프레시 토큰 조회
      */
     public String getRefreshToken() {
-        return secureStorage.getRefreshToken();
+        return refreshToken;
     }
 }

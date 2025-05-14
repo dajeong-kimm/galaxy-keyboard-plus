@@ -1,100 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground">
 
-    <!-- 1. 헤더 바 (플랫폼 Toolbar) -->
-    <android.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="?android:attr/actionBarSize"
-        android:background="#000000"
-        android:title="갤러리에서 이미지 검색"
-        android:titleTextColor="#FFFFFF"
-        android:theme="@android:style/ThemeOverlay.Material.Light"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <!-- archive 아이콘 -->
-        <ImageButton
-            android:id="@+id/btnArchive"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:src="@drawable/ic_archive_outline"
-            android:background="?android:attr/selectableItemBackground"
-            android:contentDescription="Archive"/>
-
-        <!-- settings 아이콘 -->
-        <ImageButton
-            android:id="@+id/btnSettings"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_marginStart="12dp"
-            android:src="@drawable/ic_cog_outline"
-            android:background="?android:attr/selectableItemBackground"
-            android:contentDescription="Settings"/>
-    </android.widget.Toolbar>
-
-    <!-- 2. 메시지 리스트 -->
+    <!-- 2. 메시지 리스트 (RecyclerView) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:padding="12dp"
         android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        android:padding="12dp"
         app:layout_constraintBottom_toTopOf="@+id/inputBar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- 3. 로딩 / 에러 텍스트 -->
+    <!-- 3. 로딩/에러 텍스트: 라이트 테마의 Secondary 텍스트 색 -->
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="응답을 기다리는 중..."
-        android:textColor="#777777"
-        android:visibility="gone"
         android:padding="4dp"
-        app:layout_constraintBottom_toTopOf="@+id/inputBar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:text="응답을 기다리는 중..."
+        android:textColor="?android:attr/textColorSecondary"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/inputBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- 4. 입력 바 -->
+    <!-- 4. 입력 바: 배경은 기본 윈도우 배경색, 구분선도 테마 속성으로 -->
     <LinearLayout
         android:id="@+id/inputBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="#FFFFFF"
-        android:padding="10dp"
+        android:background="?android:attr/colorBackground"
         android:divider="?android:attr/dividerHorizontal"
+        android:orientation="horizontal"
+        android:padding="10dp"
         android:showDividers="middle"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
+        <!-- EditText: 라이트 테마 기본 에디트 스타일 사용 -->
         <EditText
             android:id="@+id/etMessage"
+            style="?android:attr/editTextStyle"
             android:layout_width="0dp"
-            android:layout_height="42dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="#F9F9F9"
             android:hint="메시지를 입력하세요…"
             android:paddingLeft="14dp"
-            android:paddingRight="14dp"/>
+            android:paddingRight="14dp" />
 
+        <!-- 전송 버튼: 클릭 이펙트는 라이트 오버레이 경계형 -->
         <ImageButton
             android:id="@+id/btnSend"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:layout_marginStart="8dp"
-            android:src="@drawable/ic_send"
-            android:background="?android:attr/selectableItemBackground"
-            android:contentDescription="Send"/>
+            android:layout_width="?android:attr/actionBarSize"
+            android:layout_height="47dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Send"
+            android:src="@drawable/ic_send" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

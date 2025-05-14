@@ -12,6 +12,9 @@ import androidx.core.content.PermissionChecker;
 import org.dslul.openboard.inputmethod.backup.model.FilterImageResponse;
 import org.dslul.openboard.inputmethod.backup.model.FilterImageResult;
 import org.dslul.openboard.inputmethod.backup.model.GalleryImage;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
+import org.dslul.openboard.inputmethod.latin.network.ApiClient;
+import org.dslul.openboard.inputmethod.latin.network.ImageFilterApi;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,14 +59,12 @@ public class BackupManager {
         }
 
         // 2. 사용자 인증 정보 가져오기
-        String userId = "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258";
-        String accessToken = "";
-//        String userId = TokenStore.getUserId(context);
-//        String accessToken = TokenStore.getAccessToken(context);
-//        if (userId.isEmpty() || accessToken.isEmpty()) {
-//            Log.w(TAG, "⛔ 사용자 인증 정보 없음. 백업 중단");
-//            return;
-//        }
+        AuthManager auth = AuthManager.getInstance(context);
+        if (!auth.isLoggedIn()) {
+            Log.w(TAG, "⛔ 로그인 필요 → 백업 취소");
+            return;
+        }
+        String userId      = auth.getUserId();
 
         // 3. 이미지 불러오기
         List<GalleryImage> allImages = MediaStoreImageFetcher.getAllImages(context);
@@ -73,18 +74,22 @@ public class BackupManager {
         long filteringStart = System.currentTimeMillis();
 
         // 4. 필터링 : 서버 통신
-        filterNewImages(context, allImages, userId, accessToken, filteringStart);
+        filterNewImages(context, allImages, userId, filteringStart);
 
     }
 
-    private static void filterNewImages(Context context, List<GalleryImage> allImages, String userId, String accessToken, long filteringStart) {
+    private static void filterNewImages(Context context, List<GalleryImage> allImages, String userId, long filteringStart) {
+        /* ApiClient 초기화 보증 후 서비스 사용 */
+        ApiClient.init(context);
+        ImageFilterApi filterApi = ApiClient.getImageFilterApi();
+
         List<GalleryImage> newImages = Collections.synchronizedList(new ArrayList<>());
         AtomicInteger pending = new AtomicInteger(allImages.size());
 
         for (GalleryImage image : allImages) {
             String accessId = image.getContentId();
 
-            RetrofitInstance.getFilterApi().checkImage(userId, accessId).enqueue(new Callback<FilterImageResponse>() {
+            filterApi.checkImage(userId, accessId).enqueue(new Callback<FilterImageResponse>() {
                 @Override
                 public void onResponse(Call<FilterImageResponse> call, retrofit2.Response<FilterImageResponse> response) {
                     if (response.isSuccessful() && response.body() != null) {
@@ -106,7 +111,7 @@ public class BackupManager {
 
                 private void checkComplete() {
                     if (pending.decrementAndGet() == 0) {
-                        onAllChecksCompleted(context, newImages, userId, accessToken, filteringStart);
+                        onAllChecksCompleted(context, newImages, userId, filteringStart);
                     }
                 }
             });
@@ -115,7 +120,7 @@ public class BackupManager {
         }
     }
 
-    private static void onAllChecksCompleted(Context context, List<GalleryImage> newImages, String userId, String accessToken, long filteringStart) {
+    private static void onAllChecksCompleted(Context context, List<GalleryImage> newImages, String userId, long filteringStart) {
         Log.i(TAG, "\u2714\uFE0F 서버 필터링 완료, 존재하지 않는 이미지 수: " + newImages.size());
 
         Collections.sort(newImages, Comparator.comparingLong(GalleryImage::getTimestamp).reversed());
@@ -132,10 +137,10 @@ public class BackupManager {
         long filteringDuration = System.currentTimeMillis() - filteringStart;
         Log.i(TAG, "\u23F1 필터링 시간: " + filteringDuration + "ms");
 
-        uploadImages(context, newImages, userId, accessToken, filteringStart);
+        uploadImages(context, newImages, userId, filteringStart);
     }
 
-    private static void uploadImages(Context context, List<GalleryImage> newImages, String userId, String accessToken, long filteringStart) {
+    private static void uploadImages(Context context, List<GalleryImage> newImages, String userId, long filteringStart) {
 
         // 최대 업로드 사진 수 제한
         if (newImages.size() > MAX_IMAGES) {
@@ -174,7 +179,6 @@ public class BackupManager {
                         context,
                         Collections.singletonList(image),
                         userId,
-                        accessToken,
                         contentId -> uploadedIds.add(contentId),
                         (filename, throwable) -> {
                             // 실패 로그

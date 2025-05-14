@@ -16,4 +16,14 @@ public interface ApiService {
      */
     @POST("/auth/kakao/login")
     Call<AuthResponse> kakaoLogin(@Body KakaoLoginRequest request);
+
+    /**
+     * 액세스-토큰 재발급
+     * POST /auth/reissue
+     *
+     * body: { "refreshToken": "<리프레시-토큰>" }
+     * 응답: 기존 AuthResponse 형식(새 access / refresh / userId)
+     */
+    @POST("/auth/reissue")
+    Call<AuthResponse> reissue(@Body ReissueRequest  request);
 }

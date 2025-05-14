@@ -61,14 +61,6 @@ public class SearchPageFragment extends Fragment {
         etMessage  = view.findViewById(R.id.etMessage);
         btnSend    = view.findViewById(R.id.btnSend);
 
-        /* ▼ 1) 톱니 아이콘 참조 후 리스너 등록 -------------------- */
-        ImageButton btnSettings = view.findViewById(R.id.btnSettings);
-        btnSettings.setOnClickListener(v -> {
-            // 설정 화면으로 진입
-            startActivity(new Intent(getActivity(), SettingsActivity.class));
-        });
-        /* ▲------------------------------------------------------- */
-
         adapter = new MessageAdapter(messages);
         rvMessages.setLayoutManager(new LinearLayoutManager(getContext()));
         rvMessages.setAdapter(adapter);
