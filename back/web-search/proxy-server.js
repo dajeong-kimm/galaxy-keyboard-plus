@@ -43,21 +43,19 @@ app.post('/', async (req, res) => {
         // 메서드 이름 변환 로직 추가
         if (request.method === 'callTool') {
             // SDK 내부에서 사용하는 메서드 이름으로 변환
+            const toolName = request.params.name; // 예: "search"
             mcpRequest = {
                 jsonrpc: "2.0",
                 id: request.id,
-                method: "callTool", // 대문자로 시작하고 RequestSchema 붙임
-                params: {
-                    tool: request.params.name, // 키 이름 변경
-                    arguments: request.params.arguments
-                }
+                method: toolName, // 도구 이름을 직접 메서드로 사용
+                params: request.params.arguments // arguments 객체를 직접 전달
             };
         } else if (request.method === 'listTools') {
             // listTools를 ListToolsRequestSchema로 변환
             mcpRequest = {
                 jsonrpc: "2.0",
                 id: request.id,
-                method: "ListToolsRequestSchema", // 대문자로 시작하고 RequestSchema 붙임
+                method: "listTools", // 대문자 시작이나 RequestSchema 붙이지 않음
                 params: request.params || {}
             };
         } else if (request.method === 'search') {
@@ -65,14 +63,8 @@ app.post('/', async (req, res) => {
             mcpRequest = {
                 jsonrpc: "2.0",
                 id: request.id || Math.random().toString(36).substring(2, 9),
-                method: "CallToolRequestSchema", // 올바른 내부 메서드 이름
-                params: {
-                    name: "search",
-                    arguments: {
-                        query: request.params.query,
-                        limit: request.params.limit || 5
-                    }
-                }
+                method: "search", // 직접 search 호출
+                params: request.params
             };
         } else {
             // 다른 메서드는 그대로 전달

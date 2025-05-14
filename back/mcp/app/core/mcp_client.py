@@ -28,17 +28,14 @@ class MCPClient:
         """웹 검색 수행"""
         # JSON-RPC 2.0 요청 생성
         request_data = {
-            "jsonrpc": "2.0",
-            "id": str(uuid.uuid4()),
-            "method": "callTool",  # CallToolRequestSchema 메서드 사용
-            "params": {
-                "name": "search",   # 도구 이름으로 'search' 지정
-                "arguments": {      # 인수는 arguments 객체 내에 포함
-                    "query": query,
-                    "limit": num_results
-                }
-            }
+        "jsonrpc": "2.0",
+        "id": str(uuid.uuid4()),
+        "method": "search",  # 도구 이름을 직접 메서드로 사용
+        "params": {      # 인수를 직접 params에 포함
+            "query": query,
+            "limit": num_results
         }
+    }
         
         logger.info(f"Sending search request: {json.dumps(request_data)}")
         
