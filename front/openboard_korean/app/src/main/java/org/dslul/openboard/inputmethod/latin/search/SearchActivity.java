@@ -1,4 +1,4 @@
-package org.dslul.openboard.inputmethod.latin.settings;
+package org.dslul.openboard.inputmethod.latin.search;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -10,6 +10,7 @@ import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.network.ApiClient;
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity;
+import org.dslul.openboard.inputmethod.latin.settings.SettingsActivity;
 
 public class SearchActivity extends Activity {
     @Override

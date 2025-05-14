@@ -7,7 +7,8 @@ import retrofit2.http.POST;
 
 public interface ChatApiService {
     @FormUrlEncoded
-    @POST("rag/search/")
+    @POST("search/answer/")
+//    @POST("rag/search/")
     Call<MessageResponse> search(
             @Field("user_id") String userId,
             @Field("query") String query

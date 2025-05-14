@@ -18,7 +18,7 @@ import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.auth.AuthCallback;
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import org.dslul.openboard.inputmethod.latin.data.SecureStorage;
-import org.dslul.openboard.inputmethod.latin.settings.SearchActivity;
+import org.dslul.openboard.inputmethod.latin.search.SearchActivity;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

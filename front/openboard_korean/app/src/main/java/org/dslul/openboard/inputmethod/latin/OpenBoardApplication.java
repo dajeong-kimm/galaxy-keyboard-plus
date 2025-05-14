@@ -1,13 +1,11 @@
 package org.dslul.openboard.inputmethod.latin;
 
 import android.app.Application;
-import android.content.Intent;
 import android.util.Log;
 
 import com.kakao.sdk.common.KakaoSdk;
-import org.dslul.openboard.inputmethod.latin.BuildConfig;
+
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
-import org.dslul.openboard.inputmethod.latin.settings.SearchActivity;
 
 /**
  * 애플리케이션 클래스 - 앱 초기화 담당
