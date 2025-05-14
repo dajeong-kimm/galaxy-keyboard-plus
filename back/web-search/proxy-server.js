@@ -1,7 +1,7 @@
-// HTTP 프록시 서버와 필요한 모듈 가져오기
-const express = require('express');
-const { spawn } = require('child_process');
-const bodyParser = require('body-parser');
+// ES 모듈 가져오기
+import express from 'express';
+import { spawn } from 'child_process';
+import bodyParser from 'body-parser';
 
 // 서버 설정
 const app = express();
