@@ -68,6 +68,7 @@ async def search(
         )
         timings["query_expansion"] = time.time() - expand_start
         logger.info(f"⏱️ 쿼리 확장: {timings['query_expansion']:.3f}초")
+        logger.info(f"🔍 의미 기반 확장 쿼리 (전체): {expanded_queries}")
         logger.info(f"🔍 의미 기반 확장 쿼리 (Top 3): {expanded_queries[:3]}")
 
         # 3. 질문 의도 파악
