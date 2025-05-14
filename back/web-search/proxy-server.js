@@ -46,8 +46,11 @@ app.post('/', async (req, res) => {
             mcpRequest = {
                 jsonrpc: "2.0",
                 id: request.id,
-                method: "CallToolRequestSchema", // 대문자로 시작하고 RequestSchema 붙임
-                params: request.params
+                method: "callTool", // 대문자로 시작하고 RequestSchema 붙임
+                params: {
+                    tool: request.params.name, // 키 이름 변경
+                    arguments: request.params.arguments
+                }
             };
         } else if (request.method === 'listTools') {
             // listTools를 ListToolsRequestSchema로 변환
