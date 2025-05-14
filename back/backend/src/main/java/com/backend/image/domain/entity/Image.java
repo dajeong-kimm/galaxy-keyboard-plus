@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,7 +56,8 @@ public class Image {
 
     @PrePersist
     public void prePersist() {
-        this.uploadTime = LocalDateTime.now();
+
+        this.uploadTime = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).withNano(0).toLocalDateTime();
     }
 
     // 이미지 즐겨찾기 등록/해제

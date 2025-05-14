@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,7 +48,7 @@ public class Chat {
     @PrePersist
     public void prePersist() {
         // LocalDateTime에서 나노초 제거
-        this.chatTime = LocalDateTime.now().withNano(0);  // nano 값 0으로 설정;
+        this.chatTime = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).withNano(0).toLocalDateTime(); // nano 값 0으로 설정;
     }
     public void addResponse(Response response) {
         this.responses.add(response);
