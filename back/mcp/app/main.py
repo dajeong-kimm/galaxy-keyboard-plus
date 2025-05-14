@@ -36,9 +36,40 @@ app.include_router(api_router, prefix="/api")
 async def startup_event():
     logger.info("Starting MCP web search service...")
     app.state.mcp_manager = MCPManager()
-    await app.state.mcp_manager.start_server("web_search")
-    await asyncio.sleep(2)  # 서버 시작 대기
-    await app.state.mcp_manager.initialize_client("web_search")
+    
+    # Node.js 버전 확인
+    try:
+        version_cmd = "node --version"
+        node_process = await asyncio.create_subprocess_shell(
+            version_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await node_process.communicate()
+        logger.info(f"Node.js version: {stdout.decode().strip()}")
+    except Exception as e:
+        logger.error(f"Failed to check Node.js version: {str(e)}")
+    
+    # 서버 시작
+    logger.info("Attempting to start web_search server...")
+    success = await app.state.mcp_manager.start_server("web_search")
+    
+    if not success:
+        logger.error("Failed to start web_search server")
+        return
+    
+    logger.info("Waiting for server to stabilize...")
+    await asyncio.sleep(5)  # 서버 시작 대기 시간 증가
+    
+    # 클라이언트 초기화
+    try:
+        client = await app.state.mcp_manager.initialize_client("web_search")
+        if client:
+            logger.info("Web search client initialized successfully")
+        else:
+            logger.error("Failed to initialize web_search client")
+    except Exception as e:
+        logger.error(f"Error initializing client: {str(e)}")
 
 # 애플리케이션 종료 시 MCP 서버 종료
 @app.on_event("shutdown")

@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Request, HTTPException
 from typing import Dict, Any
 import asyncio
+import logging
+import os
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -12,22 +17,18 @@ router = APIRouter()
 async def get_server_status(request: Request) -> Dict[str, Any]:
     """MCP 서버 상태 정보 반환"""
     if not hasattr(request.app.state, "mcp_manager"):
+        logger.error("MCP manager not initialized")
         raise HTTPException(status_code=503, detail="MCP manager not initialized")
     
     mcp_manager = request.app.state.mcp_manager
-    server_status = {}
+    logger.info("Retrieving server status information")
     
-    # 서버 상태 수집
-    for name, server in mcp_manager.servers.items():
-        is_running = server is not None and server.returncode is None
-        client_connected = name in mcp_manager.clients
-        
-        server_status[name] = {
-            "name": name,
-            "status": "running" if is_running else "stopped",
-            "port": mcp_manager.web_search_port if name == "web_search" else None,
-            "client_connected": client_connected
-        }
+    # MCP 매니저에서 서버 상태 정보 가져오기
+    server_status = mcp_manager.get_server_status()
+    
+    # 서버 목록 및 상태 로깅
+    for name, info in server_status.items():
+        logger.info(f"Server {name} status: {info['status']}, client connected: {info['client_connected']}")
     
     return {
         "servers": server_status,
