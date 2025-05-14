@@ -35,6 +35,7 @@ pipeline {
           file(  credentialsId: 'moca-457801-bfa12690864b.json', variable: 'GCP_KEY_FILE'),
           string(credentialsId: 'CLAUDE_API_KEY',           variable: 'CLAUDE_API_KEY'),
           string(credentialsId: 'OPENAI_API_KEY',           variable: 'OPENAI'),
+          string(credentialsId: 'OPENAI_API_KEY_2',           variable: 'OPENAI2'),
           string(credentialsId: 'FIREBASE_CREDENTIALS_JSON_BASE64', variable: 'FIREBASE_CREDENTIALS_JSON_BASE64'),
           string(credentialsId: 'JWT_SECRET_KEY',           variable: 'JWT_SECRET_KEY'),
           string(credentialsId: 'KAKAO_CLIENT_ID',          variable: 'KAKAO_CLIENT_ID'),
@@ -57,6 +58,7 @@ POSTGRES_SCHED_PASSWORD=${SCHED_PW}
 POSTGRES_SCHED_DB_NAME=${SCHED_DB}
 
 OPENAI_API_KEY=${OPENAI}
+OPENAI_API_KEY_2=${OPENAI2}
 PINECONE_API_KEY=${PINECONE_API_KEY}
 PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
 CLAUDE_API_KEY=${CLAUDE_API_KEY}
