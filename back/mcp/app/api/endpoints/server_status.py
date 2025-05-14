@@ -1,60 +1,43 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from typing import Dict, Any
-import asyncio
 import logging
+from app.core.mcp_client import MCPClient
+from app.config import settings
 
-# 로거 설정
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
+
+async def get_web_search_client(request: Request) -> MCPClient:
+    """웹 검색 클라이언트 가져오기"""
+    if not hasattr(request.app.state, "web_search_client"):
+        logger.info("Initializing web search client")
+        client = MCPClient("web_search", settings.WEB_SEARCH_URL)
+        await client.initialize()
+        request.app.state.web_search_client = client
+    
+    return request.app.state.web_search_client
 
 @router.get(
     "/",
-    summary="MCP 서버 상태 확인",
-    description="모든 MCP 서버의 현재 상태 정보 반환"
+    summary="서비스 상태 확인",
+    description="모든 MCP 서비스의 현재 상태 정보 반환"
 )
-async def get_server_status(request: Request) -> Dict[str, Any]:
-    """MCP 서버 상태 정보 반환"""
-    if not hasattr(request.app.state, "mcp_manager"):
-        logger.error("MCP manager not initialized")
-        raise HTTPException(status_code=503, detail="MCP manager not initialized")
+async def get_service_status(
+    request: Request, 
+    client: MCPClient = Depends(get_web_search_client)
+) -> Dict[str, Any]:
+    """서비스 상태 정보 반환"""
+    # 건강 상태 확인
+    is_healthy = await client.health_check()
     
-    mcp_manager = request.app.state.mcp_manager
-    server_status = {}
-    
-    # 서버 상태 수집
-    for name, server in mcp_manager.servers.items():
-        is_running = server is not None and server.returncode is None
-        client_connected = name in mcp_manager.clients
-        
-        # 서버가 stdio 모드로 실행 중인 경우 확인 (로그 기반)
-        is_stdio_mode = False
-        # 여기서 로그를 분석하거나 다른 방법으로 stdio 모드 확인 가능
-        
-        status = "running"
-        if not is_running:
-            status = "stopped"
-        elif is_stdio_mode:
-            status = "running (stdio mode)"  # 추가 정보 제공
-        
-        server_status[name] = {
-            "name": name,
-            "status": status,
-            "port": mcp_manager.web_search_port if name == "web_search" else None,
-            "client_connected": client_connected
-        }
-        
-        logger.info(f"Server {name} status: {status}, client connected: {client_connected}")
-    
-    # 현재 서버 목록이 비어있다면 web_search 서버를 강제로 등록
-    if len(server_status) == 0:
-        logger.warning("No servers found, registering web_search server explicitly")
-        server_status["web_search"] = {
+    server_status = {
+        "web_search": {
             "name": "web_search",
-            "status": "stopped",
-            "port": mcp_manager.web_search_port,
-            "client_connected": False
+            "status": "running" if is_healthy else "stopped",
+            "url": settings.WEB_SEARCH_URL,
+            "client_connected": is_healthy
         }
+    }
     
     return {
         "servers": server_status,
