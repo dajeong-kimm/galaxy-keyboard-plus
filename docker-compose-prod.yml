@@ -166,6 +166,22 @@ services:
     networks:
       - internal
 
+  postgres_rag:
+    container_name: postgres-rag
+    image: postgres:15
+    env_file: .env.prod
+    environment:
+      POSTGRES_USER:     ${POSTGRES_RAG_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_RAG_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_RAG_DB_NAME}
+    ports:
+      - "5434:5432"
+    restart: always
+    volumes:
+      - pg_rag:/var/lib/postgresql/data
+    networks:
+      - internal
+
 volumes:
   pg_auth:
   pg_sched:

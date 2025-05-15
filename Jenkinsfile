@@ -41,6 +41,9 @@ pipeline {
           string(credentialsId: 'KAKAO_CLIENT_ID',          variable: 'KAKAO_CLIENT_ID'),
           string(credentialsId: 'JWT_AT_VALIDITY',          variable: 'JWT_AT_VALIDITY'),
           string(credentialsId: 'JWT_RT_VALIDITY',          variable: 'JWT_RT_VALIDITY'),
+          string(credentialsId: 'POSTGRES_RAG_USER',          variable: 'RAG_USER'),
+          string(credentialsId: 'POSTGRES_RAG_PASSWORD',          variable: 'RAG_PW'),
+          string(credentialsId: 'POSTGRES_RAG_DB_NAME',          variable: 'RAG_DB')
         ]) {
           sh '''
             cp "$GCP_KEY_FILE" gcp-key.json
@@ -58,6 +61,10 @@ POSTGRES_AUTH_DB_NAME=${AUTH_DB}
 POSTGRES_SCHED_USER=${SCHED_USER}
 POSTGRES_SCHED_PASSWORD=${SCHED_PW}
 POSTGRES_SCHED_DB_NAME=${SCHED_DB}
+
+POSTGRES_RAG_USER=${RAG_USER}
+POSTGRES_RAG_PASSWORD=${RAG_PW}
+POSTGRES_RAG_DB_NAME=${RAG_DB}
 
 OPENAI_API_KEY=${OPENAI}
 OPENAI_API_KEY_2=${OPENAI2}
