@@ -17,12 +17,14 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,9 +33,9 @@ public class ChatService {
     private final ChatRepository chatRepository;
     private final UserRepository userRepository;
 
-
     @Transactional
-    public void saveChat(SaveChatInDto inDto){
+    @Async
+    public CompletableFuture<Void> saveChat(SaveChatInDto inDto) {
         User user = userRepository.findById(inDto.getUserId())
                 .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_USER));
 
@@ -42,6 +44,7 @@ public class ChatService {
                 .user(user)
                 .sender(inDto.getSender())
                 .message(inDto.getMessage())
+                .chatTime(LocalDateTime.now())
                 .build();
 
         if (inDto.getItems() != null) {
@@ -55,13 +58,15 @@ public class ChatService {
             }
         }
 
-        chatRepository.save(chat); // cascade 로 인해 responses 도 저장됨
+        chatRepository.save(chat); // cascade로 인해 responses도 저장됨
+        return CompletableFuture.completedFuture(null); // 비동기 작업이 끝났음을 반환
     }
 
-    public Page<ChatOutDto> getRecentChats(UUID userId, Pageable pageable){
+    @Async
+    public CompletableFuture<Page<ChatOutDto>> getRecentChats(UUID userId, Pageable pageable) {
         Page<Chat> chats = chatRepository.findByUser_UserIdOrderByChatTimeDesc(userId, pageable);
 
-        return chats.map(chat -> {
+        Page<ChatOutDto> result = chats.map(chat -> {
             List<ResponseOutDto> responseItems = chat.getResponses().stream()
                     .map(res -> new ResponseOutDto(res.getResponseId(), res.getAccessId(), res.getText()))
                     .collect(Collectors.toList());
@@ -74,5 +79,7 @@ public class ChatService {
                     responseItems
             );
         });
+
+        return CompletableFuture.completedFuture(result);
     }
 }

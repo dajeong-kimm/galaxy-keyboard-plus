@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.lang.reflect.Type;
@@ -29,6 +30,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -41,15 +43,18 @@ public class ImageService {
     private static final Logger log = LoggerFactory.getLogger(ImageService.class);
 
     @Transactional
-    public SaveImageOutDto saveImage(SaveImageInDto inDto) {
+    @Async
+    public CompletableFuture<SaveImageOutDto> saveImage(SaveImageInDto inDto) {
         try {
+            // 사용자 조회 및 예외 처리
             User user = userRepository.findByIdForUpdate(inDto.getUserId())
                     .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_USER));
 
-            // imageTime이 String 형태로 넘어왔으므로 LocalDateTime으로 변환
+            // String -> LocalDateTime 변환
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
             LocalDateTime imageTime = LocalDateTime.parse(inDto.getImageTime(), formatter);
 
+            // 이미지 객체 생성 및 저장
             Image image = Image.builder()
                     .imageId(UUID.randomUUID())
                     .user(user)
@@ -59,14 +64,57 @@ public class ImageService {
                     .content(inDto.getContent())
                     .build();
 
+            // 사용자 정보 업데이트
             user.updateInfoCount(user.getInfoCount() + 1);
 
-            return modelMapper.map(imageRepository.save(image), SaveImageOutDto.class);
+            // 이미지 저장 후 반환
+            return CompletableFuture.completedFuture(modelMapper.map(imageRepository.save(image), SaveImageOutDto.class));
 
         } catch (Exception e) {
             log.error("❌ 이미지 저장 중 예외 발생 - userId: {}, accessId: {}, message: {}",
                     inDto.getUserId(), inDto.getAccessId(), e.getMessage(), e);
-            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR); // 예외 던짐
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Async
+    public CompletableFuture<Page<ImageThumbnailOutDto>> getAllImages(UUID userId, Pageable pageable) {
+        try {
+            // 이미지 조회
+            Page<Image> images = imageRepository.findByUser_UserIdAndStarFalseOrderByImageTimeDesc(userId, pageable);
+
+            // 반환 값 처리
+            return CompletableFuture.completedFuture(images.map(image -> modelMapper.map(image, ImageThumbnailOutDto.class)));
+        } catch (Exception e) {
+            log.error("❌ 이미지 목록 조회 중 예외 발생 - userId: {}, message: {}", userId, e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Async
+    public CompletableFuture<ImageOutDto> getImageById(UUID imageId) {
+        try {
+            // 이미지 조회
+            Image image = imageRepository.findById(imageId)
+                    .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_IMAGE));
+
+            // 반환 값 처리
+            return CompletableFuture.completedFuture(modelMapper.map(image, ImageOutDto.class));
+        } catch (Exception e) {
+            log.error("❌ 이미지 조회 중 예외 발생 - imageId: {}, message: {}", imageId, e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Async
+    public CompletableFuture<ImageCheckOutDto> imageExist(UUID userId, String accessId) {
+        try {
+            // 이미지 존재 여부 조회
+            boolean exist = imageRepository.existsByUser_UserIdAndAccessId(userId, accessId);
+            return CompletableFuture.completedFuture(new ImageCheckOutDto(exist));
+        } catch (Exception e) {
+            log.error("❌ 이미지 존재 여부 조회 중 예외 발생 - userId: {}, accessId: {}, message: {}", userId, accessId, e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -81,25 +129,6 @@ public class ImageService {
         Page<Image> images = imageRepository.findByUser_UserIdAndStarTrueOrderByImageTimeDesc(userId, pageable);
 
         return images.map(image -> modelMapper.map(image, ImageThumbnailOutDto.class));
-    }
-
-    public Page<ImageThumbnailOutDto> getAllImages(UUID userId, Pageable pageable) {
-        Page<Image> images = imageRepository.findByUser_UserIdAndStarFalseOrderByImageTimeDesc(userId, pageable);
-
-        return images.map(image -> modelMapper.map(image, ImageThumbnailOutDto.class));
-    }
-
-    public ImageOutDto getImageById(UUID imageId) {
-        try {
-            Image image = imageRepository.findById(imageId)
-                    .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_IMAGE));
-
-            return modelMapper.map(image, ImageOutDto.class);
-
-        } catch (Exception e) {
-            log.error("❌ 이미지 조회 중 예외 발생 - imageId: {}, message: {}", imageId, e.getMessage(), e);
-            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR); // 그대로 예외를 다시 던짐
-        }
     }
 
     public void deleteImage(UUID imageId){
@@ -146,10 +175,5 @@ public class ImageService {
                 .orElseThrow(() -> new BaseException(BaseResponseStatus.NO_EXIST_IMAGE));
 
         image.setStar(true);
-    }
-
-    public ImageCheckOutDto imageExist(UUID userId, String accessId) {
-        boolean exist = imageRepository.existsByUser_UserIdAndAccessId(userId, accessId);
-        return new ImageCheckOutDto(exist);
     }
 }
