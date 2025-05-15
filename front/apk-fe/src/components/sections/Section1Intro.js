@@ -26,6 +26,16 @@ export default function Section1Intro() {
         opacity: 1,
         duration: 1,
         ease: "power2.out",
+        onComplete: () => {
+          // ✅ 등장 이후 떠있는 효과 시작
+          gsap.to(mockup1Ref.current, {
+            y: "+=10",
+            duration: 2,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
+          });
+        },
       });
 
       gsap.to(mockup2Ref.current, {
@@ -34,15 +44,24 @@ export default function Section1Intro() {
         duration: 1,
         delay: 0.2,
         ease: "power2.out",
+        onComplete: () => {
+          gsap.to(mockup2Ref.current, {
+            y: "+=10",
+            duration: 2,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
+          });
+        },
       });
 
-      // ✅ 스크롤 트리거 설정
+      // 스크롤 트리거
       ScrollTrigger.create({
         trigger: sectionRef.current,
-        start: "bottom 90%", // section 1의 하단이 뷰포트에 거의 닿을 때
+        start: "bottom 90%",
         onEnter: () => {
           gsap.to(window, {
-            scrollTo: "#experience", // Section12 id
+            scrollTo: "#experience",
             duration: 1,
             ease: "power2.inOut",
           });
@@ -56,7 +75,7 @@ export default function Section1Intro() {
   const handleDownloadClick = () => {
     setShowQR(true);
     gsap.to(".title", { scale: 0.7, x: -30, y: 20 });
-    gsap.to(".qr-container", { opacity: 1, scale: 1, duration: 0.8, delay: 0.2 });
+    gsap.to(".qr-container", { opacity: 1, scale: 1, duration: 0.8, delay: 0.2, y: -10 });
   };
 
   const scrollToExperience = () => {
@@ -94,16 +113,18 @@ export default function Section1Intro() {
           </div>
         </div>
 
-        <div className="flex flex-col items-start justify-start ml-8 mr-32 gap-y-6">
+        <div className="flex flex-col items-start justify-start ml-2 mr-32 gap-y-8">
           <div className="relative w-full h-[100px]">
             <h1 className="absolute top-0 left-0 text-6xl font-bold title">Phokey</h1>
+            {!showQR && <p className="absolute text-xl font-semibold text-gray-600 top-16">서비스 한 줄 설명</p>}
           </div>
-
-          {!showQR && <p className="text-xl font-semibold text-gray-600">서비스 한 줄 설명</p>}
 
           <button
             onClick={handleDownloadClick}
-            className="px-6 py-3 text-center transition rounded-lg min-w-[300px] bg-gradient-to-r from-cyan-300 via-white to-green-300 hover:scale-105"
+            className="px-6 py-3 text-center transition rounded-lg min-w-[300px] hover:scale-105 qr-container"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #67e8f9, #fff, #86efac)",
+            }}
           >
             {showQR ? (
               <div className="flex flex-col items-center justify-center">
@@ -116,7 +137,7 @@ export default function Section1Intro() {
                 <p className="mt-2 text-sm text-center text-gray-500">QR코드를 촬영하여 설치 페이지로 이동합니다</p>
               </div>
             ) : (
-              <p>앱 다운로드</p>
+              <p className="font-semisbold">앱 다운로드</p>
             )}
           </button>
         </div>
