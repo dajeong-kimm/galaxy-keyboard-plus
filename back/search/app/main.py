@@ -1,6 +1,7 @@
 ## RAG 관련 진입점
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.search_image_info import router as search_image_info_router
 from app.api.search_endpoints import router as search_endpoints_router
 from app.api.db_connection_test import router as db_connection_test_router
@@ -8,6 +9,15 @@ from app.api.get_image import router as get_image_router
 import logging
 
 app = FastAPI()
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://k12e201.p.ssafy.io", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 로깅 기본 설정
 logging.basicConfig(
