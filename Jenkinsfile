@@ -10,7 +10,7 @@ pipeline {
     string(
       name: 'FORCE_SERVICES',
       defaultValue: '',
-      description: '콤마(,)로 지정 시 해당 서비스만 빌드·배포 (예: gateway,auth,backend,rag)'
+      description: '콤마(,)로 지정 시 해당 서비스만 빌드·배포 (예: gateway,auth,backend,rag,frontend)'
     )
   }
 
@@ -43,7 +43,8 @@ pipeline {
           string(credentialsId: 'JWT_RT_VALIDITY',          variable: 'JWT_RT_VALIDITY'),
           string(credentialsId: 'POSTGRES_RAG_USER',          variable: 'RAG_USER'),
           string(credentialsId: 'POSTGRES_RAG_PASSWORD',          variable: 'RAG_PW'),
-          string(credentialsId: 'POSTGRES_RAG_DB_NAME',          variable: 'RAG_DB')
+          string(credentialsId: 'POSTGRES_RAG_DB_NAME',          variable: 'RAG_DB'),
+          string(credentialsId: 'FRONTEND_API_URL',         variable: 'FRONTEND_API_URL')
         ]) {
           sh '''
             cp "$GCP_KEY_FILE" gcp-key.json
@@ -76,6 +77,7 @@ JWT_SECRET_KEY=${JWT_SECRET_KEY}
 KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
 JWT_AT_VALIDITY=${JWT_AT_VALIDITY}
 JWT_RT_VALIDITY=${JWT_RT_VALIDITY}
+FRONTEND_API_URL=${FRONTEND_API_URL}
 
 ENV=prod
 """.trim()
@@ -92,8 +94,12 @@ ENV=prod
           ).trim()
           def changed = diff.split('\n')
                             .findAll{ it }
-                            .findAll{ it.startsWith('back/') || it.startsWith('front/frontend/') }
-                            .collect{ p -> p.startsWith('front/frontend/') ? 'frontend' : p.tokenize('/')[1] }
+                            .findAll{ it.startsWith('back/') || it.startsWith('front/') }
+                            .collect{ p -> 
+                              if (p.startsWith('front/apk-fe/')) return 'frontend'
+                              else if (p.startsWith('front/') && !p.startsWith('front/apk-fe/')) return p.tokenize('/')[1]
+                              else return p.tokenize('/')[1]
+                            }
                             .unique()
           def forced = params.FORCE_SERVICES?.trim() ? params.FORCE_SERVICES.split(',').collect{ it.trim() } : []
           env.CHANGED_SERVICES = (forced ?: changed).toSet().join(',')
@@ -124,6 +130,20 @@ ENV=prod
             }
           }
         }
+      }
+    }
+
+    stage('Build & Deploy Frontend') {
+      when {
+        expression { env.CHANGED_SERVICES.split(',').contains('frontend') }
+      }
+      steps {
+        echo "▶ Building & deploying frontend"
+        sh """
+          docker rm -f frontend-service || true
+          docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --no-cache frontend
+          docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps --force-recreate frontend
+        """
       }
     }
   }
