@@ -5,12 +5,14 @@ class SearchRequest(BaseModel):
     """웹 검색 요청 모델"""
     query: str = Field(..., description="검색 쿼리")
     num_results: int = Field(5, ge=1, le=10, description="반환할 결과 개수")
+    offset: int = Field(0, ge=0, description="페이지네이션 오프셋")
     
     class Config:
         schema_extra = {
             "example": {
                 "query": "인공지능 기술",
-                "num_results": 5
+                "num_results": 5,
+                "offset": 0
             }
         }
 
@@ -22,5 +24,5 @@ class SearchResultItem(BaseModel):
 
 class SearchResponse(BaseModel):
     """웹 검색 응답 모델"""
-    results: List[SearchResultItem] = Field(..., description="검색 결과")
+    results: List[SearchResultItem] = Field(default=[], description="검색 결과")
     query: str = Field(..., description="검색된 쿼리")
