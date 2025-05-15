@@ -2,4 +2,17 @@
 <resources>
     <style name="platformActivityTheme" parent="@android:style/Theme.Material.Light" />
     <style name="platformDialogTheme" parent="@android:style/Theme.Material.Light.Dialog"/>
+
+    <!-- 토글 버튼 스타일 -->
+    <style name="ToggleButtonStyle" parent="@android:style/Widget.Material.Button.Borderless.Colored">
+        <!-- 누를 때 리플 이펙트(플랫폼 기본) 자동 적용 -->
+        <item name="android:textAllCaps">false</item>
+        <item name="android:paddingLeft">16dp</item>
+        <item name="android:paddingRight">16dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <!-- 텍스트 색은 메인 텍스트 색을 따릅니다 -->
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
+
 </resources>

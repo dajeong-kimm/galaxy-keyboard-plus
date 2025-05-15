@@ -12,165 +12,154 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.GridLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.bumptech.glide.Glide;
-
 import org.dslul.openboard.inputmethod.keyboard.MainKeyboardView;
 import org.dslul.openboard.inputmethod.keyboard.MoreKeysPanel;
+import org.dslul.openboard.inputmethod.keyboard.MoreKeysPanel.Controller;
 import org.dslul.openboard.inputmethod.keyboard.KeyboardActionListener;
 import org.dslul.openboard.inputmethod.keyboard.emoji.OnKeyEventListener;
-import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.network.InfoResult;
 import org.dslul.openboard.inputmethod.latin.network.MessageResponse;
 import org.dslul.openboard.inputmethod.latin.network.PhotoResult;
+import org.dslul.openboard.inputmethod.latin.R;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public class SearchResultView extends LinearLayout implements MoreKeysPanel {
+public class SearchResultView extends FrameLayout implements MoreKeysPanel {
 
-    private View mKeyboardView;       // 숨겼던 키보드 뷰 복원용
+    // 채팅 말풍선 전체를 스크롤할 뷰
+    private final ScrollView mChatScroll;
+    // 말풍선들을 순서대로 추가할 컨테이너
+    private final LinearLayout mChatContainer;
+
+    private MainKeyboardView mKeyboardView;
     private Controller mController;
-    private boolean mShowing = false;
-
-    private final TextView mAnswer;
-    private final LinearLayout mInfos;
-
-    private HorizontalScrollView mPhotoScroll;
-    private LinearLayout mPhotoStrip;
-    private ScrollView mScroll;
-
-    private final View   mLoadingBox;
+    private boolean mShowing;
 
     public SearchResultView(Context context) {
         super(context);
-        LayoutInflater.from(context).inflate(R.layout.search_result_view, this, true);
-        mAnswer = findViewById(R.id.search_result_answer);
-        mInfos = findViewById(R.id.search_result_infos);
-        mLoadingBox  = findViewById(R.id.loading_box);
-        mScroll = findViewById(R.id.search_scroll);
-        mPhotoScroll = findViewById(R.id.photo_scroll);
-        mPhotoStrip = findViewById(R.id.search_result_photos);
-        setOrientation(VERTICAL);
+        LayoutInflater.from(context)
+                .inflate(R.layout.search_result_view, this, true);
+        mChatScroll = findViewById(R.id.chat_scroll);
+        mChatContainer = findViewById(R.id.chat_container);
+        mShowing = false;
     }
 
-    /* ------------------------------------------------------------------
-     * public helper : API 응답 바인딩
-     * ------------------------------------------------------------------ */
-    public void bind(MessageResponse resp) {
-        hideLoading();
-        // 스크롤 최상단으로 초기화
-        mScroll.scrollTo(0, 0);
+    /** 사용자 질문 말풍선 추가 */
+    public void bindUserQuery(String query) {
+        TextView bubble = new TextView(getContext());
+        bubble.setText(query);
+        bubble.setBackgroundResource(R.drawable.bg_bubble_user);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.gravity = Gravity.END;
+        lp.setMargins(0, dpToPx(4), 0, dpToPx(4));
+        bubble.setLayoutParams(lp);
+        mChatContainer.addView(bubble);
+        scrollToBottom();
+    }
 
-        /* ─ 1. 로딩 → 본문 전환 ──────────────────────────────────────── */
-        mScroll.setVisibility(VISIBLE);
+    /** 서버 응답 말풍선 + 사진 포함 바인딩 */
+    public void bindResponseAndDetails(MessageResponse resp) {
+        // 1) 전체 말풍선 컨테이너 생성
+        LinearLayout bubble = new LinearLayout(getContext());
+        bubble.setOrientation(LinearLayout.VERTICAL);
+        bubble.setBackgroundResource(R.drawable.bg_bubble_bot);
+        LinearLayout.LayoutParams bubbleLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        bubbleLp.gravity = Gravity.START;
+        bubbleLp.setMargins(0, dpToPx(4), 0, dpToPx(4));
+        bubble.setLayoutParams(bubbleLp);
 
-        /* ─ 2. 텍스트 결과 ──────────────────────────────────────────── */
+        // 2) 응답 텍스트 추가
+        TextView tv = new TextView(getContext());
         String ans = resp.getAnswer() != null ? resp.getAnswer() : "결과 없음";
-        mAnswer.setText(ans);
+        tv.setText(ans);
+        tv.setTextSize(14);
+        tv.setLineSpacing(0, 1.2f);
+        tv.setTextColor(0xFF202020);
+        tv.setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6));
+        bubble.addView(tv);
 
-        /* ─ 3. 사진 썸네일 처리 ─────────────────────────────────────── */
-        mPhotoStrip.removeAllViews();
-        List<Uri> uris = new ArrayList<>();
-        addUrisFromPhotos(resp.getPhotoResults(), uris);
-        addUrisFromInfos (resp.getInfoResults(),  uris);
-
-        if (!uris.isEmpty()) {
-            mPhotoScroll.setVisibility(VISIBLE);
-
-            final int size = dpToPx(120);          // 120dp 정사각형
-            for (Uri u : uris) {
-                long mediaId = ContentUris.parseId(u);
-                Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
-                        getContext().getContentResolver(),
-                        mediaId,
-                        MediaStore.Images.Thumbnails.MINI_KIND,
-                        null);
-
-                ImageView iv = new ImageView(getContext());
-                GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-                lp.width  = size;
-                lp.height = size;
-                lp.setMargins(0, 0, dpToPx(4), dpToPx(4));
-                iv.setLayoutParams(lp);
-                iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                iv.setImageBitmap(thumb);
-
-                iv.setOnClickListener(v -> {
-                    // 클립보드에 이미지 URI 복사
-                    ClipboardManager cm = (ClipboardManager)
-                            getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    ClipData clip = ClipData.newUri(
+        // 3) 사진들 추가 (없으면 건너뜀)
+        if (resp.getPhotoResults() != null && !resp.getPhotoResults().isEmpty()) {
+            // 가로 스크롤이 아니라, 말풍선 내에서 세로로 나열하거나,
+            // 필요시 가로 스크롤뷰 wrapping 가능
+            LinearLayout photosContainer = new LinearLayout(getContext());
+            photosContainer.setOrientation(LinearLayout.HORIZONTAL);
+            photosContainer.setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4));
+            for (PhotoResult p : resp.getPhotoResults()) {
+                try {
+                    long id = Long.parseLong(p.getId());
+                    Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
                             getContext().getContentResolver(),
-                            "Image",
-                            u);
-                    cm.setPrimaryClip(clip);
-                    Toast.makeText(getContext(),
-                            "이미지가 클립보드에 복사되었습니다",
-                            Toast.LENGTH_SHORT).show();
-                });
+                            id,
+                            MediaStore.Images.Thumbnails.MINI_KIND,
+                            null);
+                    ImageView iv = new ImageView(getContext());
+                    LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(
+                            dpToPx(80), dpToPx(80));
+                    ivLp.setMargins(0, 0, dpToPx(4), 0);
+                    iv.setLayoutParams(ivLp);
+                    iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    iv.setImageBitmap(thumb);
+                    photosContainer.addView(iv);
 
-                mPhotoStrip.addView(iv);
+                    // 클릭 시 클립보드 복사
+                    Uri uri = ContentUris.withAppendedId(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                    iv.setOnClickListener(v -> {
+                        ClipboardManager cm = (ClipboardManager)
+                                getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                        cm.setPrimaryClip(ClipData.newUri(
+                                getContext().getContentResolver(),
+                                "Image", uri));
+                        Toast.makeText(getContext(),
+                                "이미지가 클립보드에 복사되었습니다",
+                                Toast.LENGTH_SHORT).show();
+                    });
+                } catch (NumberFormatException ignored) { }
             }
-        } else {
-            mPhotoScroll.setVisibility(GONE);
+            bubble.addView(photosContainer);
         }
 
-        /* ─ 4. 추가 정보 텍스트 ─────────────────────────────────────── */
-//        mInfos.removeAllViews();
-//        List<InfoResult> infos = resp.getInfoResults();
-//        if (infos != null) {
-//            for (InfoResult info : infos) {
-//                TextView tv = new TextView(getContext());
-//                tv.setText("• " + info.getText());
-//                tv.setTextColor(0xFFDDDDDD);
-//                tv.setTextSize(13);
-//                tv.setLineSpacing(0, 1.1f);
-//                mInfos.addView(tv);
-//            }
-//        }
+        // 4) 최종적으로 chat_container 에 말풍선 추가
+        mChatContainer.addView(bubble);
 
-        /* ─ 5. 스크롤 최상단으로 ────────────────────────────────────── */
-        mScroll.scrollTo(0, 0);
+        // 5) 마지막으로 스크롤 맨 아래로
+        mChatScroll.post(() -> mChatScroll.fullScroll(ScrollView.FOCUS_DOWN));
     }
 
 
-    /* ------------------------------------------------------------------
-     * MoreKeysPanel 구현부
-     * ------------------------------------------------------------------ */
-    // SearchResultView.java
+    private void scrollToBottom() {
+        mChatScroll.post(() -> mChatScroll.fullScroll(ScrollView.FOCUS_DOWN));
+    }
+
+    private int dpToPx(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    // -------- MoreKeysPanel 구현 --------
 
     private void attachToParent(MainKeyboardView kbView) {
-        ViewGroup root = (ViewGroup) kbView.getParent();   // FrameLayout
-
-        // ① 이미 붙어 있던 패널 제거
+        ViewGroup root = (ViewGroup) kbView.getParent();
         if (getParent() != null) ((ViewGroup) getParent()).removeView(this);
-
-        /* ② 키보드 뷰 가리기
-         *    - GONE  → 레이아웃에서 제외 ⇒ 높이 0
-         *    - INVISIBLE → 레이아웃 크기는 유지, 렌더만 안 함 ✅
-         */
-        kbView.setVisibility(View.INVISIBLE);   // ← 여기만 GONE → INVISIBLE 로!
-
-        // ③ 나를 같은 FrameLayout에 덮어쓰기
+        kbView.setVisibility(View.INVISIBLE);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT,
-                kbView.getHeight()               // 키보드 원본 높이
-        );
+                kbView.getHeight());
         lp.gravity = Gravity.BOTTOM;
         root.addView(this, lp);
-
         mKeyboardView = kbView;
         mShowing = true;
     }
-
 
     @Override
     public boolean isShowingInParent() {
@@ -181,14 +170,10 @@ public class SearchResultView extends LinearLayout implements MoreKeysPanel {
     public void dismissMoreKeysPanel() {
         if (!mShowing) return;
         if (getParent() != null) ((ViewGroup) getParent()).removeView(this);
-
-        /* INVISIBLE → VISIBLE 로 되돌려 원래 높이를 살립니다 */
         if (mKeyboardView != null) mKeyboardView.setVisibility(View.VISIBLE);
-
         if (mController != null) mController.onDismissMoreKeysPanel();
         mShowing = false;
     }
-
 
     @Override
     public void onMoveEvent(int x, int y, int pointerId, long eventTime) {
@@ -205,12 +190,11 @@ public class SearchResultView extends LinearLayout implements MoreKeysPanel {
 
     }
 
-    // ----- showMoreKeysPanel : AOSP 13 / 14 두 가지 시그니처를 모두 구현 -----
     @Override
     public void showMoreKeysPanel(View parent, Controller ctr,
                                   int x, int y, KeyboardActionListener l) {
         mController = ctr;
-        attachToParent((MainKeyboardView) parent);          // parent == MainKeyboardView
+        attachToParent((MainKeyboardView) parent);
         ctr.onShowMoreKeysPanel(this);
     }
 
@@ -222,68 +206,25 @@ public class SearchResultView extends LinearLayout implements MoreKeysPanel {
         ctr.onShowMoreKeysPanel(this);
     }
 
-    // 좌표 변환 : 키보드 뷰 기준 그대로 사용
     @Override
-    public int translateX(int x) {
-        return x;
-    }
-
+    public int translateX(int x) { return x; }
     @Override
-    public int translateY(int y) {
-        return y;
-    }
-
+    public int translateY(int y) { return y; }
     @Override
-    public void showInParent(ViewGroup parentView) {
-
-    }
-
+    public void showInParent(ViewGroup parentView) {}
     @Override
-    public void removeFromParent() {
-
-    }
-
-    private void addUrisFromPhotos(List<PhotoResult> list, List<Uri> out) {
-        if (list == null) return;
-        for (PhotoResult r : list) {
-            try {
-                long id = Long.parseLong(r.getId());   // "2455" 같은 숫자 ID
-                out.add(ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-            } catch (NumberFormatException ignored) { }
-        }
-    }
-
-    private void addUrisFromInfos(List<InfoResult> list, List<Uri> out) {
-        if (list == null) return;
-        for (InfoResult r : list) {
-            try {
-                long id = Long.parseLong(r.getId());
-                out.add(ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-            } catch (NumberFormatException ignored) { }
-        }
-    }
-
-    private int dpToPx(int dp) {
-        return Math.round(dp * getResources().getDisplayMetrics().density);
-    }
-
-    /* ---- Loading helpers -------------------------------------------- */
-    public void showLoading() {
-        mLoadingBox.setVisibility(VISIBLE);
-        mScroll.setVisibility(GONE);        // 본문·썸네일 숨김
-        mPhotoScroll.setVisibility(GONE);
-    }
-
-    private void hideLoading() {
-        mLoadingBox.setVisibility(GONE);
-        mScroll.setVisibility(VISIBLE);     // 본문 표시
-    }
-
+    public void removeFromParent() {}
     public String getAnswerText() {
-        return mAnswer.getText().toString();
+        // 채팅 말풍선 컨테이너의 자식 수를 확인
+        int count = mChatContainer.getChildCount();
+        if (count == 0) {
+            return "";
+        }
+        // 마지막 자식을 가져와서 TextView이면 텍스트 리턴
+        View last = mChatContainer.getChildAt(count - 1);
+        if (last instanceof TextView) {
+            return ((TextView) last).getText().toString();
+        }
+        return "";
     }
-
-
 }

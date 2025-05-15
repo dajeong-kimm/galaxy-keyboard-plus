@@ -33,6 +33,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputConnection;
 
 import org.dslul.openboard.inputmethod.accessibility.AccessibilityUtils;
 import org.dslul.openboard.inputmethod.accessibility.MainKeyboardAccessibilityDelegate;
@@ -113,6 +114,8 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
 
     /** Listener for {@link KeyboardActionListener}. */
     private KeyboardActionListener mKeyboardActionListener;
+
+    private InputConnection mInputConnection;
 
     /* Space key and its icon and background. */
     private Key mSpaceKey;
@@ -886,4 +889,13 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         super.deallocateMemory();
         mDrawingPreviewPlacerView.deallocateMemory();
     }
+
+    public void setInputConnection(InputConnection ic) {
+        this.mInputConnection = ic;
+    }
+
+    public InputConnection getInputConnection() {
+        return mInputConnection;
+    }
+
 }

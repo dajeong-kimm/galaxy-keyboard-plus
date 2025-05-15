@@ -1,87 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/search_result_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#e8eaed">
 
-    <ProgressBar
-        android:id="@+id/loading_box"
-        style="?android:attr/progressBarStyleLarge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"/>
-
-    <!--    <LinearLayout-->
-<!--        android:id="@+id/loading_box"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:orientation="horizontal"-->
-<!--        android:gravity="center"-->
-<!--        android:padding="12dp">-->
-
-<!--        <ProgressBar-->
-<!--            android:id="@+id/loading_spinner"-->
-<!--            android:layout_width="32dp"-->
-<!--            android:layout_height="32dp"-->
-<!--            android:indeterminate="true" />-->
-
-<!--        <TextView-->
-<!--            android:id="@+id/loading_text"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:layout_marginStart="10dp"-->
-<!--            android:text="응답 대기중 ..."-->
-<!--            android:textColor="@android:color/white"-->
-<!--            android:textSize="14sp" />-->
-<!--    </LinearLayout>-->
-
-    <!-- ① 스크롤 가능하도록 ScrollView 추가 -->
+    <!-- 질문·응답 말풍선 전체를 스크롤할 영역 -->
     <ScrollView
-        android:id="@+id/search_scroll"
+        android:id="@+id/chat_scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:padding="16dp">
+        android:scrollbars="vertical"
+        android:padding="8dp">
 
-        <!-- ② 안쪽 컨테이너 -->
         <LinearLayout
+            android:id="@+id/chat_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <!-- (1) 제목/요약 -->
-            <TextView
-                android:id="@+id/search_result_answer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@android:color/black"
-                android:textSize="14sp"
-                android:lineSpacingExtra="2dp"
-                android:paddingBottom="8dp" />
-
-            <!-- 2) 사진 리스트 (가로 스크롤)  ──────── -->
-            <HorizontalScrollView
-                android:id="@+id/photo_scroll"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="8dp"
-                android:visibility="gone"
-                android:scrollbars="none">
-
-                <LinearLayout
-                    android:id="@+id/search_result_photos"
-                    android:orientation="horizontal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-            </HorizontalScrollView>
-
-
-            <!-- (3) InfoResult 들이 동적으로 addView 될 자리 -->
-            <LinearLayout
-                android:id="@+id/search_result_infos"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-        </LinearLayout>
+            android:orientation="vertical"/>
     </ScrollView>
+
 </FrameLayout>

@@ -27,16 +27,26 @@ class MCPClient:
     async def search(self, query: str, num_results: int = 5) -> Dict[str, Any]:
         """웹 검색 수행"""
         # JSON-RPC 2.0 요청 생성
+        # request_data = {
+        #     "jsonrpc": "2.0",
+        #     "id": str(uuid.uuid4()),
+        #     "method": "search",  # 도구 이름을 직접 메서드로 사용
+        #     "params": {      # 인수를 직접 params에 포함
+        #         "query": query,
+        #         "limit": num_results
+        #     }
+        # }
         request_data = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
-            "method": "callTool",  # CallToolRequestSchema 메서드 사용
+            "method": "call_tool",  # call_tool을 사용하여 메서드 호출
             "params": {
-                "name": "search",   # 도구 이름으로 'search' 지정
-                "arguments": {      # 인수는 arguments 객체 내에 포함
+                "name": "search",  # 호출할 도구 이름
+                "arguments": {  # 도구에 전달할 인수들
                     "query": query,
                     "limit": num_results
                 }
+
             }
         }
         
@@ -79,6 +89,7 @@ class MCPClient:
         except Exception as e:
             logger.error(f"Error with search request: {str(e)}")
             return {"error": str(e)}
+
     
     async def health_check(self) -> bool:
         """서비스 상태 확인"""

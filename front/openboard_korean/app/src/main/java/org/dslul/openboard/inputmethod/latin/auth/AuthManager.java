@@ -202,14 +202,13 @@ public class AuthManager {
     // ============== 토큰 자동 재발급(Interceptor Authenticator) ==============
     // (ApiClient 안의 Authenticator가 ReissueRequest로 동기 호출한 뒤
     //  아래 메서드를 호출
-    public synchronized void updateTokens(String newAccess, String newRefresh, String newUserId) {
+    public synchronized void updateTokens(String newAccess, String newRefresh) {
         // storage
-        secureStorage.saveTokens(newAccess, newRefresh, newUserId);
+        secureStorage.saveTokens(newAccess, newRefresh, this.userId);
         // 메모리
         this.accessToken  = newAccess;
         this.refreshToken = newRefresh;
-        this.userId       = newUserId;
-        Log.d(TAG, "Tokens updated, user=" + userId);
+        Log.d(TAG, "Tokens updated, user=" + this.userId);
     }
 
     /**

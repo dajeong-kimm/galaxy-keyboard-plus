@@ -34,6 +34,8 @@ public final class ApiClient {
     private static ChatApiService   chatApiService;      // ② 서비스 캐시
     private static ApiService       apiService;
 
+    private static ChatStorageApi chatStorageApi;
+
     private static ImageUploadApi imageUploadApi;
     private static ImageFilterApi imageFilterApi;
 
@@ -86,7 +88,7 @@ public final class ApiClient {
 
                 // AuthManager 메모리 캐시 및 SecureStorage 동시 갱신(updateTokens 메서드에서 둘 다 처리)
                 AuthManager.getInstance(ctx)
-                        .updateTokens(ar.getAccessToken(), ar.getRefreshToken(), ar.getUserId());
+                        .updateTokens(ar.getAccessToken(), ar.getRefreshToken());
                 Log.i("ApiClient", "🔄 액세스 토큰 갱신 성공");
 
                 // ④ 새 토큰으로 원 요청 재시도 (무한루프 방지 헤더 추가)
@@ -121,6 +123,7 @@ public final class ApiClient {
         // ── ⑤ 서비스 캐싱 ────────────────────────────────
         chatApiService = retrofit.create(ChatApiService.class);
         apiService     = retrofit.create(ApiService.class);
+        chatStorageApi = retrofit.create(ChatStorageApi.class);
 
         Log.d("ApiClient", "★ Retrofit 초기화 완료");
     }
@@ -128,6 +131,8 @@ public final class ApiClient {
     /** 어디서든 호출 가능한 getter */
     public static ChatApiService getChatApiService() { return chatApiService; }
     public static ApiService   getApiService()      { return apiService;   }
+
+    public static ChatStorageApi getChatStorageApi() { return chatStorageApi; }
 
     /* 업로드용 */
     public static synchronized ImageUploadApi getImageUploadApi() {

@@ -1,36 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="12dp"
-    android:layout_margin="4dp"
-    android:background="@drawable/btn_keyboard_key_ics"
-    >
+    android:padding="4dp">
 
-    <!-- 1) 답변 텍스트 -->
-    <TextView
-        android:id="@+id/tvBotMessage"
+    <!-- 90% 지점 가이드라인: 최대 너비 제한 -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_90"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#000"
-        android:textSize="15sp" />
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.9" />
 
-    <!-- 2) 토글 버튼을 텍스트 바로 아래에 -->
-    <Button
-        android:id="@+id/btnToggleImages"
+    <!-- ▶ CardView 로 교체 -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardBot"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:text="사진 보기"
-        android:textSize="12sp" />
+        android:layout_margin="4dp"
+        app:cardBackgroundColor="@android:color/white"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:cardUseCompatPadding="true"
 
-    <!-- 2열 썸네일 그리드 -->
-    <GridLayout
-        android:id="@+id/glBotImages"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:columnCount="2"
-        android:visibility="gone"/>
-</LinearLayout>
+        app:layout_constrainedWidth="true"
+        app:layout_constraintEnd_toStartOf="@id/guideline_90"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- 내부는 기존 LinearLayout 과 동일 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <!-- 1) 답변 텍스트 -->
+            <TextView
+                android:id="@+id/tvBotMessage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#000"
+                android:textSize="15sp" />
+
+            <!-- 2) 토글 버튼 (가운데 정렬 유지) -->
+            <Button
+                android:id="@+id/btnToggleImages"
+                style="@style/ToggleButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:text="사진 보기" />
+
+            <!-- 3) 썸네일 그리드 -->
+            <GridLayout
+                android:id="@+id/glBotImages"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:columnCount="2"
+                android:visibility="gone" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
