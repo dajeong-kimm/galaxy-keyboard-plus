@@ -5,11 +5,11 @@ FROM node:22.13.0-alpine AS builder
 WORKDIR /app
 
 # 3. 의존성 파일 복사 및 설치
-COPY nano-fe/package.json nano-fe/package-lock.json ./
+COPY apk-fe/package.json apk-fe/package-lock.json ./
 RUN npm install
 
 # 4. 소스 코드 복사 및 Next.js 앱 빌드
-COPY nano-fe/ ./
+COPY apk-fe/ ./
 RUN npm run build
 
 # 5. 실행을 위한 경량 Node.js 이미지 사용
