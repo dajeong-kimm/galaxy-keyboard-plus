@@ -185,6 +185,7 @@ services:
 volumes:
   pg_auth:
   pg_sched:
+  pg_rag:
   redis_ratelimiter_data:
 
 networks:
