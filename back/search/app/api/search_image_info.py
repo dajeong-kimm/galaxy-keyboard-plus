@@ -28,38 +28,41 @@ cache: Dict[str, Dict] = {}
 CACHE_TTL_SECONDS = 3600  # 1시간
 MAX_CACHE_SIZE = 1000  # 최대 캐시 크기
 
+
 def get_cache_key(user_id: str, query: str, top_k_photo: int, top_k_info: int) -> str:
     """캐시 키 생성"""
     cache_data = f"answer:{user_id}:{query}:{top_k_photo}:{top_k_info}"
     return hashlib.md5(cache_data.encode()).hexdigest()
+
 
 def get_from_cache(key: str) -> Optional[Dict]:
     """캐시에서 데이터 가져오기"""
     if key in cache:
         cached_data = cache[key]
         # TTL 확인
-        if datetime.now() < cached_data['expires_at']:
+        if datetime.now() < cached_data["expires_at"]:
             logger.info(f"✅ 캐시 히트: {key}")
-            return cached_data['data']
+            return cached_data["data"]
         else:
             # 만료된 캐시 삭제
             del cache[key]
             logger.info(f"🗑️ 만료된 캐시 삭제: {key}")
     return None
 
+
 def set_cache(key: str, data: Dict):
     """캐시에 데이터 저장"""
     # 캐시 크기 제한 - LRU 방식으로 오래된 항목 제거
     if len(cache) >= MAX_CACHE_SIZE:
         # 가장 오래된 항목 찾아서 제거
-        oldest_key = min(cache.keys(), key=lambda k: cache[k]['created_at'])
+        oldest_key = min(cache.keys(), key=lambda k: cache[k]["created_at"])
         del cache[oldest_key]
         logger.info(f"🗑️ 캐시 크기 초과로 오래된 항목 제거: {oldest_key}")
-    
+
     cache[key] = {
-        'data': data,
-        'created_at': datetime.now(),
-        'expires_at': datetime.now() + timedelta(seconds=CACHE_TTL_SECONDS)
+        "data": data,
+        "created_at": datetime.now(),
+        "expires_at": datetime.now() + timedelta(seconds=CACHE_TTL_SECONDS),
     }
     logger.info(f"💾 캐시 저장: {key}")
 
@@ -94,15 +97,15 @@ async def search(
 ):
     # 전체 시작 시간
     total_start = time.time()
-    
+
     # 캐시 확인
     cache_key = get_cache_key(user_id, query, top_k_photo, top_k_info)
     cached_result = get_from_cache(cache_key)
     if cached_result:
-        cached_result['_timings']['total'] = time.time() - total_start
-        cached_result['_from_cache'] = True
+        cached_result["_timings"]["total"] = time.time() - total_start
+        cached_result["_from_cache"] = True
         return cached_result
-    
+
     timestamp = int(time.time())
     loop = asyncio.get_event_loop()
 
@@ -201,7 +204,7 @@ async def search(
         # 결과에 타이밍 정보 포함 (디버깅용)
         result["_timings"] = timings
         result["_from_cache"] = False
-        
+
         # 캐시에 저장
         set_cache(cache_key, result)
 
@@ -257,21 +260,23 @@ async def get_cache_status():
     valid_count = 0
     expired_count = 0
     current_time = datetime.now()
-    
+
     for key, data in cache.items():
-        if current_time < data['expires_at']:
+        if current_time < data["expires_at"]:
             valid_count += 1
         else:
             expired_count += 1
-    
+
     return {
         "total_items": len(cache),
         "valid_items": valid_count,
         "expired_items": expired_count,
         "max_size": MAX_CACHE_SIZE,
         "ttl_seconds": CACHE_TTL_SECONDS,
-        "memory_usage_mb": sum(len(str(v).encode('utf-8')) for v in cache.values()) / (1024 * 1024)
+        "memory_usage_mb": sum(len(str(v).encode("utf-8")) for v in cache.values())
+        / (1024 * 1024),
     }
+
 
 @router.delete("/cache/clear")
 async def clear_cache():
@@ -281,21 +286,26 @@ async def clear_cache():
     logger.info(f"🗑️ 캐시 초기화됨: {old_size}개 항목 삭제")
     return {"cleared_items": old_size, "message": "캐시가 초기화되었습니다."}
 
+
 @router.delete("/cache/expired")
 async def clear_expired_cache():
     """만료된 캐시 항목만 삭제"""
     current_time = datetime.now()
     expired_keys = []
-    
+
     for key, data in cache.items():
-        if current_time >= data['expires_at']:
+        if current_time >= data["expires_at"]:
             expired_keys.append(key)
-    
+
     for key in expired_keys:
         del cache[key]
-    
+
     logger.info(f"🗑️ 만료된 캐시 {len(expired_keys)}개 항목 삭제")
-    return {"deleted_items": len(expired_keys), "message": f"{len(expired_keys)}개의 만료된 항목이 삭제되었습니다."}
+    return {
+        "deleted_items": len(expired_keys),
+        "message": f"{len(expired_keys)}개의 만료된 항목이 삭제되었습니다.",
+    }
+
 
 # 애플리케이션 종료 시에만 정리
 @router.on_event("shutdown")
