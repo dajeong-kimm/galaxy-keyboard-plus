@@ -13,6 +13,18 @@ export default function Section12Experience() {
   const [response, setResponse] = useState(null);
 
   useEffect(() => {
+    // 브라우저 스크롤 위치 복원 막기
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    // 직접 강제 초기화
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+    });
+  }, []);
+
+  useEffect(() => {
     gsap.fromTo(".grid", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1, ease: "power2.out" });
 
     gsap.fromTo(".chat", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1, ease: "power2.out", delay: 0.3 });

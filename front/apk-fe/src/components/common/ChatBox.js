@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import Image from "next/image";
+import axiosInstance from "@/lib/axiosInstance";
 
 // 전체 프롬프트 리스트
 const ALL_PROMPTS = [
-  "네일아트",
-  "강아지",
-  "지난주 여행지",
-  "서면 음식점",
+  "별 그려진 연두색 네일아트 사진 찾아줘",
+  "투썸 와이파이 비밀번호 알려줘",
+  "서면 타코 얼마였지?",
+  "키티가 들판 위에 있는 사진 찾아줘",
   "영수증 사진",
   "카페 인테리어",
   "프레젠테이션 슬라이드",
@@ -23,6 +24,7 @@ export default function ChatBox() {
   const [availablePrompts, setAvailablePrompts] = useState(ALL_PROMPTS);
   const [visiblePrompts, setVisiblePrompts] = useState([]);
   const chatEndRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   // 2개만 랜덤으로 표시
   useEffect(() => {
@@ -31,14 +33,50 @@ export default function ChatBox() {
     );
   }, [availablePrompts]);
 
-  const sendMessage = (text) => {
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async (text) => {
     const userMessage = { role: "user", text };
-    const botMessage = {
-      role: "bot",
-      text: `"${text}"에 대한 응답입니다.`,
-      image: "/images/grid-images/2.jpg",
-    };
-    setMessages((prev) => [...prev, userMessage, botMessage]);
+    setMessages((prev) => [...prev, userMessage]);
+    setIsTyping(true);
+
+    try {
+      const params = new URLSearchParams();
+      params.append("user_id", "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258"); // 테스트 유저로 바꾸어야 함
+      params.append("query", text);
+      params.append("top_k_photo", "5");
+      params.append("top_k_info", "5");
+
+      // 🍧 log 확인용
+      console.log("📤 요청 보냄:", Object.fromEntries(params.entries()));
+
+      // 🍧 로딩 스피너 보려고 일부러 지연
+      await new Promise((res) => setTimeout(res, 2000));
+
+      const res = await axiosInstance.post("/search/answer", params);
+      const { answer, photo_results } = res.data;
+
+      const imageIds = (photo_results || []).map((item) => `/images/${item.id}.jpg`);
+
+      const botMessage = {
+        role: "bot",
+        text: answer,
+        images: imageIds,
+      };
+
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (e) {
+      const botMessage = {
+        role: "bot",
+        text: "응답을 불러오는 데 실패했습니다.",
+        images: [],
+      };
+      setMessages((prev) => [...prev, botMessage]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleSend = () => {
@@ -55,16 +93,13 @@ export default function ChatBox() {
     setAvailablePrompts((prev) => prev.filter((p) => p !== prompt));
   };
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   return (
     <div className="chat w-[448px] h-[448px] flex flex-col justify-between p-4 bg-white rounded-xl">
       {/* 메시지 출력 */}
       <div className="flex flex-col gap-3 mb-2 overflow-y-auto">
         {messages.map((msg, idx) => (
           <div
+            key={idx}
             className={`max-w-[80%] w-fit text-sm px-4 py-2 rounded-xl ${
               msg.role === "user"
                 ? "self-end bg-black text-white rounded-tr-none mr-1"
@@ -72,12 +107,12 @@ export default function ChatBox() {
             }`}
           >
             <p className="mb-1">{msg.text}</p>
-            {msg.image && (
+            {msg.images && msg.images.length > 0 && (
               <div className="inline-flex flex-wrap gap-2 mt-2">
-                {[msg.image, msg.image, msg.image].map((src, i) => (
+                {msg.images.map((src, i) => (
                   <div
                     key={i}
-                    className="overflow-hidden border rounded-lg aspect-square w-[88px] aspect-square h-[88px]"
+                    className="overflow-hidden border rounded-lg aspect-square w-[88px] h-[88px]"
                   >
                     <Image
                       src={src}
@@ -92,6 +127,11 @@ export default function ChatBox() {
             )}
           </div>
         ))}
+        {isTyping && (
+          <div className="self-start bg-white border border-gray-200 text-gray-400 rounded-xl px-4 py-2 text-sm w-fit max-w-[80%] shadow-sm rounded-tl-none">
+            포키가 타이핑 중<span className="typing" />
+          </div>
+        )}
         <div ref={chatEndRef} />
       </div>
 

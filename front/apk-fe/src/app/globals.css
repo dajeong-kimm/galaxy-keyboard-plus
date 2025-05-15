@@ -14,6 +14,10 @@
   }
 }
 
+html {
+  scroll-behavior: auto;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
@@ -26,6 +30,7 @@ body {
   }
 }
 
+/* 커스텀 스크롤바 */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -41,4 +46,26 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: #a1a1aa;
+}
+
+/* 로딩 중 */
+@keyframes dots {
+  0% {
+    content: "";
+  }
+  33% {
+    content: ".";
+  }
+  66% {
+    content: "..";
+  }
+  100% {
+    content: "...";
+  }
+}
+.typing::after {
+  display: inline-block;
+  content: "";
+  animation: dots 1s steps(3, end) infinite;
+  white-space: pre;
 }
