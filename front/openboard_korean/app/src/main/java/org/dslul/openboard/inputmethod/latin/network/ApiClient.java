@@ -42,7 +42,8 @@ public final class ApiClient {
     /* ─────────────────────────── 업로드 전용 인스턴스 ─────────────────────────── */
     private static Retrofit        uploadRetrofit;
     private static ImageUploadApi  uploadApi;
-    /* ──────────────────────────────────────────────────────────────────────── */
+    // ─────────────────── 업로드 필터용 인스턴스 ───────────────────
+    private static ImageFilterApi dedicatedFilterApi;
 
     /** 최초 한 번 앱 전체를 초기화 */
     public static void init(Context ctx) {
@@ -143,10 +144,10 @@ public final class ApiClient {
     public static synchronized ImageUploadApi getDedicatedImageUploadApi(Context ctx) {
         if (uploadApi != null) return uploadApi;
 
-        /* ① 전용 Dispatcher (호스트 128, 전체 128) */
+        /* ① 전용 Dispatcher */
         Dispatcher dispatcher = new Dispatcher();
-        dispatcher.setMaxRequests(128);
-        dispatcher.setMaxRequestsPerHost(32);
+        dispatcher.setMaxRequests(64);
+        dispatcher.setMaxRequestsPerHost(16);
 
         /* ② 공통 토큰·로깅 인터셉터 재사용 ----------------------------- */
         Interceptor authInterceptor = chain -> {
@@ -229,11 +230,14 @@ public final class ApiClient {
 
 
     /* 필터(존재 여부 확인)용 */
-    public static synchronized ImageFilterApi getImageFilterApi() {
-        if (imageFilterApi == null) {
-            imageFilterApi = retrofit.create(ImageFilterApi.class);
+    public static synchronized ImageFilterApi getDedicatedImageFilterApi(Context ctx) {
+        if (dedicatedFilterApi != null) return dedicatedFilterApi;
+        // uploadRetrofit이 아직 생성되지 않았다면 생성
+        if (uploadRetrofit == null) {
+            getDedicatedImageUploadApi(ctx);
         }
-        return imageFilterApi;
+        dedicatedFilterApi = uploadRetrofit.create(ImageFilterApi.class);
+        return dedicatedFilterApi;
     }
 
 }

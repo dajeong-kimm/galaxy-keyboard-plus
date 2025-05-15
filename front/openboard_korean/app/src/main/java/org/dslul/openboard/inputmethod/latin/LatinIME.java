@@ -966,18 +966,18 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         }
 
         // 키보드가 정상 표시되는 경우에만 백업 실행
-        new Thread(() -> {
-            try {
-                Context appContext = getApplicationContext();
-                Log.d("Backup", "✅ startBackup: 앱 컨텍스트 전달됨");
-
-                org.dslul.openboard.inputmethod.backup.BackupManager.startBackup(appContext);
-
-                Log.d("Backup", "✅ startBackup: 백업 실행 완료");
-            } catch (Exception e) {
-                Log.e("Backup", "✅ startBackup: 예외 발생", e);
-            }
-        }).start();
+//        new Thread(() -> {
+//            try {
+//                Context appContext = getApplicationContext();
+//                Log.d("Backup", "✅ startBackup: 앱 컨텍스트 전달됨");
+//
+//                org.dslul.openboard.inputmethod.backup.BackupManager.startBackup(appContext);
+//
+//                Log.d("Backup", "✅ startBackup: 백업 실행 완료");
+//            } catch (Exception e) {
+//                Log.e("Backup", "✅ startBackup: 예외 발생", e);
+//            }
+//        }).start();
 
 
         // Update to a gesture consumer with the current editor and IME state.

@@ -19,6 +19,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--  알림 권한  -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- ────────── 미디어 읽기 권한 ────────── -->
     <!-- Android 13 (API 33)+ : 모든 이미지(사진) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />

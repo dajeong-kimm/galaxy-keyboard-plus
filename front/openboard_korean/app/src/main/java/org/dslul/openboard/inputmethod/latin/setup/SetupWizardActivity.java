@@ -19,6 +19,7 @@ package org.dslul.openboard.inputmethod.latin.setup;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -34,12 +35,19 @@ import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.VideoView;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 
+import org.dslul.openboard.inputmethod.backup.BackupManager;
+import org.dslul.openboard.inputmethod.backup.BackupWorker;
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.search.SearchActivity;
 import org.dslul.openboard.inputmethod.latin.utils.LeakGuardHandlerWrapper;
@@ -54,6 +62,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
 
     // ────────── 퍼미션 관련 상수 ──────────
     private static final int REQ_MEDIA_PERMS = 0x31;
+    private static final int REQ_NOTIF_PERMS = 0x32;
 
     /** 버전에 맞게 요청할 미디어 읽기 권한 목록 반환 */
     private static String[] getMediaPermissions() {
@@ -74,12 +83,37 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 return;   // 요청했으니 결과 콜백 기다림
             }
         }
-        onMediaPermissionGranted();  // 모두 허가 상태
+        ensureNotificationPermission();
     }
 
-    /** 퍼미션 OK 이후 실행할 로직(필요 시 수정) */
-    private void onMediaPermissionGranted() {
-        // 예) SharedPreferences에 플래그 저장, 안내 배너 숨김 등
+    private void ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            String[] perms = new String[]{ Manifest.permission.POST_NOTIFICATIONS };
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, perms, REQ_NOTIF_PERMS);
+                return;
+            }
+        }
+        // 권한이 이미 있거나 API < 33
+        onNotificationPermissionGranted();
+    }
+
+    private void onNotificationPermissionGranted() {
+        // 1) WorkManager 제약 설정: 네트워크가 연결된 상태에서만 실행
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+
+        // 2) 백업용 Worker를 OneTimeWorkRequest로 생성
+        OneTimeWorkRequest backupRequest = new OneTimeWorkRequest.Builder(BackupWorker.class)
+                .setConstraints(constraints)
+                .build();
+
+        // 3) WorkManager에 enqueue
+        WorkManager
+                .getInstance(getApplicationContext())
+                .enqueue(backupRequest);
     }
 
     @Override
@@ -95,10 +129,25 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 }
             }
             if (granted) {
-                onMediaPermissionGranted();
+                // 사진 권한 → 알림 권한 체크
+                ensureNotificationPermission();
             } else {
-                // 거절 시 안내 다이얼로그·토스트 등 표시 가능
+                Toast.makeText(this,
+                        "사진 권한이 없으면 백업 기능을 사용할 수 없습니다.",
+                        Toast.LENGTH_LONG).show();
             }
+            return;
+        }
+        if (requestCode == REQ_NOTIF_PERMS) {
+            boolean granted = grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (!granted) {
+                Toast.makeText(this,
+                        "알림 권한이 없으면 진행 상황을 볼 수 없습니다.",
+                        Toast.LENGTH_LONG).show();
+            }
+            // 권한 유무와 상관없이 백업 시작
+            onNotificationPermissionGranted();
             return;
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -429,6 +478,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         }
 
         if (mStepNumber == STEP_2) {   // Step 2 화면에서만 퍼미션 체크
+            Log.d("STEP_2", "STEP_2 진입 확인");
             ensureMediaPermission();
         }
 
