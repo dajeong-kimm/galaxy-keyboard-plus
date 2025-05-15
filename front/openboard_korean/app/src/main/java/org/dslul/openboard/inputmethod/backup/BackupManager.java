@@ -33,9 +33,9 @@ import retrofit2.Callback;
 public class BackupManager {
     private static final String TAG = "Backup - BackupManager";
 
-    private static final int MAX_IMAGES = 30;
+    private static final int MAX_IMAGES = 100;
     private static final int MAX_REQUESTS_PER_MINUTE = 1000;
-    private static final int REQUEST_INTERVAL_MS = 120; // 60ms 간격 = 1000개/분
+    private static final int REQUEST_INTERVAL_MS = 60; // 60ms 간격 = 1000개/분
 
     private static volatile boolean isBackupRunning = false;
 

@@ -42,7 +42,7 @@ public class ImageUploader {
     ) {
         /* ▒▒ 1) 공통 Retrofit 초기화 & 서비스 획득 ▒▒ */
         ApiClient.init(context);                       // 싱글턴 보증
-        ImageUploadApi api = ApiClient.getImageUploadApi();
+        ImageUploadApi api = ApiClient.getDedicatedImageUploadApi(context);
 
         int total = images.size();
         final int[] completedCount = {0};

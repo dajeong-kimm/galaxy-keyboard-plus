@@ -50,6 +50,22 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <!-- 맨 아래로 이동 버튼 -->
+    <ImageButton
+        android:id="@+id/btnScrollBottom"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:visibility="gone"
+        android:background="@drawable/your_circle_bg"
+        android:src="@drawable/ic_arrow_down"
+        app:tint="@android:color/white"
+        app:layout_constraintBottom_toTopOf="@id/inputBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="8dp"
+        android:alpha="0.5"
+        />
+
     <!-- 4. 입력 바: 배경은 기본 윈도우 배경색, 구분선도 테마 속성으로 -->
     <LinearLayout
         android:id="@+id/inputBar"

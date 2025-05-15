@@ -15,6 +15,7 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -26,6 +27,7 @@ import org.dslul.openboard.inputmethod.latin.network.ChatApiService;
 import org.dslul.openboard.inputmethod.latin.network.ChatHistoryResponse;
 import org.dslul.openboard.inputmethod.latin.network.ChatPage;
 import org.dslul.openboard.inputmethod.latin.network.ChatSaveRequest;
+import org.dslul.openboard.inputmethod.latin.network.ChatSaveService;
 import org.dslul.openboard.inputmethod.latin.network.ChatStorageApi;
 import org.dslul.openboard.inputmethod.latin.network.InfoResult;
 import org.dslul.openboard.inputmethod.latin.network.MessageRequest;
@@ -46,6 +48,7 @@ import retrofit2.Response;
 
 public class SearchPageFragment extends Fragment {
     private RecyclerView rvMessages;
+    private ImageButton btnScrollBottom;
     private TextView tvStatus;
     private LottieAnimationView avLoading;
     private EditText etMessage;
@@ -83,6 +86,7 @@ public class SearchPageFragment extends Fragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         Log.d(TAG_UI, "onViewCreated()");
         rvMessages = view.findViewById(R.id.rvMessages);
+        btnScrollBottom = view.findViewById(R.id.btnScrollBottom);
         tvStatus = view.findViewById(R.id.tvStatus);
         avLoading = view.findViewById(R.id.avLoading);
         etMessage = view.findViewById(R.id.etMessage);
@@ -92,6 +96,30 @@ public class SearchPageFragment extends Fragment {
         rvMessages.setLayoutManager(new LinearLayoutManager(getContext()));
         rvMessages.setAdapter(adapter);
 
+        // 스크롤 리스너: 맨 아래 아닐 때만 버튼 보이기
+        rvMessages.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
+                int lastVisible = lm.findLastVisibleItemPosition();
+                int total = adapter.getItemCount() - 1;
+                // 맨 아래가 아니면 보이기
+                if (lastVisible < total) {
+                    btnScrollBottom.setVisibility(View.VISIBLE);
+                } else {
+                    btnScrollBottom.setVisibility(View.GONE);
+                }
+            }
+        });
+
+        // 버튼 클릭 시 맨 아래로 스크롤
+        btnScrollBottom.setOnClickListener(v -> {
+            int lastPos = adapter.getItemCount() - 1;
+            if (lastPos >= 0) {
+                rvMessages.smoothScrollToPosition(lastPos);
+            }
+        });
+
         /* ── 스크롤 리스너 등록 ───────────────────────── */
         rvMessages.addOnScrollListener(new RecyclerView.OnScrollListener() {
             public void onScrolled(RecyclerView rv, int dx, int dy) {
@@ -99,7 +127,7 @@ public class SearchPageFragment extends Fragment {
                 int firstPos = lm.findFirstVisibleItemPosition();
                 Log.v(TAG_SCROLL, "onScrolled dx=" + dx + " dy=" + dy
                         + " firstVisible=" + firstPos);            // 🔍
-                if (firstPos <= 3) {
+                if (firstPos <= 10) {
                     Log.d(TAG_SCROLL, "Top reached → loadPage(" + page + ")"); // 🔍
                     loadPage(page);
                 }
@@ -247,20 +275,28 @@ public class SearchPageFragment extends Fragment {
         if (loading || last) return;
         loading = true;
 
+        // ── (1) 현재 보고 있는 첫 번째 아이템 위치와 오프셋을 저장 ─────────
+        LinearLayoutManager lm = (LinearLayoutManager) rvMessages.getLayoutManager();
+        int firstVisiblePos = lm.findFirstVisibleItemPosition();
+        View firstVisibleView = lm.findViewByPosition(firstVisiblePos);
+        int offset = (firstVisibleView == null) ? 0 : firstVisibleView.getTop();
+
         String userId = AuthManager.getInstance(getContext()).getUserId();
         storageApi.getChats(userId, p).enqueue(new Callback<ChatHistoryResponse>() {
-            public void onResponse(Call<ChatHistoryResponse> c, Response<ChatHistoryResponse> r) {
+            @Override
+            public void onResponse(Call<ChatHistoryResponse> call, Response<ChatHistoryResponse> resp) {
+
                 loading = false;
 
-                Log.d(TAG_LOAD, "← /chat page=" + p + " code=" + r.code()
-                        + " success=" + r.isSuccessful());
+                Log.d(TAG_LOAD, "← /chat page=" + p + " code=" + resp.code()
+                        + " success=" + resp.isSuccessful());
 
-                if (!r.isSuccessful() || r.body() == null) {
+                if (!resp.isSuccessful() || resp.body() == null) {
                     Log.w(TAG_LOAD, "page " + p + " load failed");
                     return;
                 }
 
-                ChatPage cp = r.body().getResult();
+                ChatPage cp = resp.body().getResult();
                 List<Chat> list = cp.getChats();
                 int newCount = list.size();
 
@@ -268,29 +304,23 @@ public class SearchPageFragment extends Fragment {
                         + " totalPages=" + cp.getTotalPages()
                         + " last=" + cp.isLast());
 
-                // 오래된 것 → 앞으로 붙이기
-                for (int i = 0; i <= newCount - 1; i++) {
-//                for (int i = newCount - 1; i >= 0; i--) {
+                // ── (2) 새로 불러온 메시지를 리스트 앞에 붙인다 ─────────
+                for (int i = 0; i < newCount; i++) {
                     messages.add(0, toMessage(list.get(i)));
                 }
-
-                // 화면 갱신: 0번부터 newCount 개 아이템이 들어왔다고 알림
                 adapter.notifyItemRangeInserted(0, newCount);
 
-                // 스크롤 위치 보정
-                LinearLayoutManager lm = (LinearLayoutManager) rvMessages.getLayoutManager();
-                lm.scrollToPositionWithOffset(newCount, 0);
+                // ── (3) 삽입 전과 동일한 스크롤 위치로 복원 ─────────
+                lm.scrollToPositionWithOffset(firstVisiblePos + newCount, offset);
 
-                // 화면 맨 하단(최신)으로 스크롤
-                if (p == 0) rvMessages.scrollToPosition(messages.size() - 1);
-
+                // ── (4) 다음 페이지 인덱스 갱신 ─────────
                 page = cp.getCurrentPage() + 1;
                 last = cp.isLast();
             }
 
-            public void onFailure(Call<ChatHistoryResponse> c, Throwable t) {
+            @Override
+            public void onFailure(Call<ChatHistoryResponse> call, Throwable t) {
                 loading = false;
-                Log.e(TAG_LOAD, "❌ page " + p + " error: " + t);
             }
         });
     }
@@ -316,25 +346,21 @@ public class SearchPageFragment extends Fragment {
             }
         }
 
-        List<ChatItem> payloadItems = items.isEmpty() ? null : items;
+        // Gson 으로 JSON 문자열로 변환
+        String itemsJson = null;
+        if (!items.isEmpty()) {
+            itemsJson = new Gson().toJson(items);
+        }
 
-        ChatSaveRequest body = new ChatSaveRequest(
+        // 서비스에 enqueue 할 때 JSON 문자열 넘기기
+        ChatSaveService.enqueue(
+                getContext(),
                 AuthManager.getInstance(getContext()).getUserId(),
                 m.getSender() == Message.Sender.USER ? "user" : "bot",
                 m.getText(),
-                payloadItems
+                itemsJson     // List<ChatItem> 대신 JSON 문자열
         );
-
-        storageApi.saveChat(body).enqueue(new Callback<BaseResponse<Void>>() {
-            public void onResponse(Call<BaseResponse<Void>> c, Response<BaseResponse<Void>> r) {
-                Log.d(TAG_SAVE, "→ /chats code=" + r.code()
-                        + " success=" + r.isSuccessful());
-            }
-
-            public void onFailure(Call<BaseResponse<Void>> c, Throwable t) {
-                Log.e(TAG_SAVE, "❌ /chats FAILED: " + t);
-            }
-        });
+        Log.d(TAG_SAVE, "→ ChatSaveService enqueued (async)");
     }
 
     // Chat → Message 변환

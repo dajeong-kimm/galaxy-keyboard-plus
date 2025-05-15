@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:padding="4dp">
 
-    <!-- 90% 지점 가이드라인: 최대 너비 제한 -->
+    <!-- 90% 가이드라인 (최대 너비) -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_90"
         android:layout_width="wrap_content"
@@ -13,56 +13,91 @@
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.9" />
 
-    <!-- ▶ CardView 로 교체 -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardBot"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="4dp"
         app:cardBackgroundColor="@android:color/white"
         app:cardCornerRadius="12dp"
         app:cardElevation="4dp"
         app:cardUseCompatPadding="true"
-
         app:layout_constrainedWidth="true"
         app:layout_constraintEnd_toStartOf="@id/guideline_90"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- 내부는 기존 LinearLayout 과 동일 -->
-        <LinearLayout
+        <!-- 카드 내부 ConstraintLayout -->
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="8dp">
 
-            <!-- 1) 답변 텍스트 -->
-            <TextView
-                android:id="@+id/tvBotMessage"
-                android:layout_width="wrap_content"
+            <!-- 1) 빈 헤더 영역: 복사 버튼만 여기 담김 -->
+            <FrameLayout
+                android:id="@+id/headerCopyZone"
+                android:layout_width="0dp"
+                android:layout_height="15dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <!-- 우측 상단 고정 복사 버튼 -->
+                <ImageButton
+                    android:id="@+id/btnCopy"
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:adjustViewBounds="true"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="답변 복사"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_copy"
+                    app:tint="?android:attr/textColorSecondary" />
+            </FrameLayout>
+
+            <!-- 2) 스크롤 가능한 텍스트 영역 -->
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollText"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textColor="#000"
-                android:textSize="15sp" />
+                android:fillViewport="true"
+                app:layout_constraintBottom_toTopOf="@+id/btnToggleImages"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/headerCopyZone">
 
-            <!-- 2) 토글 버튼 (가운데 정렬 유지) -->
+                <TextView
+                    android:id="@+id/tvBotMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="4dp"
+                    android:textColor="#000"
+                    android:textIsSelectable="true"
+                    android:textSize="15sp" />
+            </androidx.core.widget.NestedScrollView>
+
+            <!-- 3) 토글 버튼 (사진 보기/숨기기) -->
             <Button
                 android:id="@+id/btnToggleImages"
                 style="@style/ToggleButtonStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
                 android:layout_marginTop="8dp"
-                android:text="사진 보기" />
+                android:text="사진 보기"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/scrollText" />
 
-            <!-- 3) 썸네일 그리드 -->
+            <!-- 4) 썸네일 그리드 -->
             <GridLayout
                 android:id="@+id/glBotImages"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
                 android:columnCount="2"
-                android:visibility="gone" />
-        </LinearLayout>
+                android:visibility="gone"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/btnToggleImages" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.cardview.widget.CardView>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
