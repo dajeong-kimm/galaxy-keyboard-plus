@@ -35,9 +35,12 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -67,6 +70,7 @@ import org.dslul.openboard.inputmethod.latin.suggestions.MoreSuggestionsView.Mor
 
 import java.util.ArrayList;
 
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
 
 import retrofit2.Call;
@@ -85,14 +89,16 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     /* ▼ 새로 추가할 필드들 --------------------------------------------------- */
     private ImageButton mSearchKey;      // 돋보기(검색 모드 진입)
-    private ImageButton mSendKey;        // 전송
     private ImageButton mVoiceKey;       // 마이크(= 클립보드 키 자리에 있던 버튼)
     private LinearLayout mInputContainer;// EditText+Send 래퍼
     private EditText mSearchInput;       // 검색어 입력창
+    private Button mSearchStatus;
     private boolean mInSearchMode = false;
+    private String mLastQuery;
 
     // 기존 필드 바로 아래
     private Drawable mIconSearch;   // 돋보기
+    private Drawable mIconSearchActive;  // 응답 완료 후 사용할 컬러 채워진 아이콘
     private Drawable mIconClose;    // X 아이콘
     private ImageButton mCopyKey;
 
@@ -107,6 +113,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private final ImageButton mClipboardKey;
     //    private final ImageButton mOtherKey;
     MainKeyboardView mMainKeyboardView;
+
+    // ── ① LONG_TEXT 상황 구분용
+    private enum ResponseType {LONG_TEXT, PHOTO_ONLY, SHORT_TEXT }
+
+    private ResponseType mResponseType;
+    private MessageResponse mLastResponse;       // ◀ 수정
+    private boolean mKeyHighlighted = false; // 깜빡임→강조 상태 구분  ◀ 수정
+    private boolean mAnswerShown = false;    // 답변(말풍선) 이미 그렸는지  ◀ 수정
+    private Animation mBlinkAnim;            // 깜빡임 애니메이션  ◀ 수정
 
     private final View mMoreSuggestionsContainer;
     private final MoreSuggestionsView mMoreSuggestionsView;
@@ -167,9 +182,12 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         mSuggestionsStrip = findViewById(R.id.suggestions_strip);
         mVoiceKey = findViewById(R.id.suggestions_strip_voice_key);
         mClipboardKey = findViewById(R.id.suggestions_strip_clipboard_key);
-//        mOtherKey = findViewById(R.id.suggestions_strip_other_key);
         mStripVisibilityGroup = new StripVisibilityGroup(this, mSuggestionsStrip);
 
+        // blink 애니메이션 리소스 로드  ◀ 수정
+        mBlinkAnim = AnimationUtils.loadAnimation(context, R.anim.blink);
+        mKeyHighlighted = false;
+        mAnswerShown = false;
 
         for (int pos = 0; pos < SuggestedWords.MAX_SUGGESTIONS; pos++) {
             final TextView word = new TextView(context, null, R.attr.suggestionWordStyle);
@@ -209,16 +227,18 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         mVoiceKey.setImageDrawable(iconVoice);
 
         mSearchKey = findViewById(R.id.suggestions_strip_search_key);
+        mSearchStatus = findViewById(R.id.suggestions_strip_search_status);
         if (mSearchKey == null) {
             throw new IllegalStateException(
                     "suggestions_strip_search_key not found in current layout variant");
         }
         // 🔍, ❌ 아이콘 준비
         mIconSearch = getResources().getDrawable(R.drawable.ic_search, null);
+        mIconSearchActive = AppCompatResources.getDrawable(context, R.drawable.ic_search_active);
         mIconClose = getResources().getDrawable(R.drawable.ic_close, null);
 
         mSearchKey.setImageDrawable(mIconSearch);   // 기본은 🔍
-        mSendKey = findViewById(R.id.suggestions_strip_send_key);
+//        mSendKey = findViewById(R.id.suggestions_strip_send_key);
         mInputContainer = findViewById(R.id.suggestions_strip_input_container);
         mSearchInput = findViewById(R.id.suggestions_strip_search_input);
         mCopyKey = findViewById(R.id.suggestions_strip_copy_key);
@@ -230,7 +250,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
 
         mSearchKey.setOnClickListener(this);
-        mSendKey.setOnClickListener(this);
+        mSearchStatus.setOnClickListener(this);
+//        mSendKey.setOnClickListener(this);
 
         mVoiceKey.setOnClickListener(this);
         mClipboardKey.setImageDrawable(iconClipboard);
@@ -245,33 +266,49 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (mInSearchMode) return;
         mInSearchMode = true;
 
-        // ── 여기에만 한 번! ──
-        if (mListener instanceof LatinIME) {
-            ((LatinIME) mListener).resetSearchCombiner();
-        }
+        // 1) 기존 검색 키 숨기고
+        mSearchKey.setVisibility(View.GONE);
+        // 2) '검색중' 버튼 보이고 비활성화
+        mSearchStatus.setText("검색중");
+        mSearchStatus.setEnabled(false);
+        mSearchStatus.setVisibility(View.VISIBLE);
 
-        // ▼ 추가 : Listener(=LatinIME) 에 버퍼 초기화 요청
-        if (mListener instanceof LatinIME) {
-            ((LatinIME) mListener).resetSearchBuffers();
-        }
-
-        // ▼ 대신 UI를 숨기고 검색으로 바로 이동하도록 설정
-        mInputContainer.setVisibility(GONE);
-
-        // 아이콘 ❌로 교체
-        mSearchKey.setImageDrawable(mIconClose);
-
-        // UI 전환
-        mSearchKey.setImageDrawable(mIconClose); // X 아이콘으로 변경
-        mSuggestionsStrip.setVisibility(GONE);
-        mVoiceKey.setVisibility(GONE);
-        mClipboardKey.setVisibility(GONE);
-//        mOtherKey.setVisibility(GONE);
-//        mInputContainer.setVisibility(VISIBLE);
-        mCopyKey.setVisibility(GONE);
-
-        // ▼ 검색 시작
+        // 3) 실제 API 호출
         dispatchSearchQuery();
+
+        // 3) 깜빡임 시작
+        mSearchKey.startAnimation(mBlinkAnim);
+//        if (mInSearchMode) return;
+//        mInSearchMode = true;
+//
+//        // ── 여기에만 한 번! ──
+//        if (mListener instanceof LatinIME) {
+//            ((LatinIME) mListener).resetSearchCombiner();
+//        }
+//
+//        // ▼ 추가 : Listener(=LatinIME) 에 버퍼 초기화 요청
+//        if (mListener instanceof LatinIME) {
+//            ((LatinIME) mListener).resetSearchBuffers();
+//        }
+//
+//        // ▼ 대신 UI를 숨기고 검색으로 바로 이동하도록 설정
+//        mInputContainer.setVisibility(GONE);
+//
+//        // 아이콘 ❌로 교체
+//        mSearchKey.setImageDrawable(mIconClose);
+//
+//        // UI 전환
+//        mSearchKey.setImageDrawable(mIconClose); // X 아이콘으로 변경
+//        mSuggestionsStrip.setVisibility(GONE);
+//        mVoiceKey.setVisibility(GONE);
+//        mClipboardKey.setVisibility(GONE);
+////        mOtherKey.setVisibility(GONE);
+////        mInputContainer.setVisibility(VISIBLE);
+//        mCopyKey.setVisibility(GONE);
+//
+//        // ▼ 검색 시작
+//        dispatchSearchQuery();
+//        mSearchKey.startAnimation(mBlinkAnim);
 
 //        mSearchInput.setText("");
 //        mSearchInput.requestFocus();
@@ -301,8 +338,14 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     private void dispatchSearchQuery() {
 //        final String query = mSearchInput.getText().toString().trim();
-        String query;
+        // 0) panel이 없으면 새로 만들고 리스너 바인드`
+        if (mSearchPanel == null) {
+            mSearchPanel = new SearchResultView(getContext());
+            // SuggestionStripView의 mListener와 키보드 뷰를 넘겨 줍니다
+            setListener(mListener, getRootView());
+        }
 
+        String query;
         // 내부 입력창이 아니라 외부 입력창에서 텍스트 가져오기
         InputConnection ic = mMainKeyboardView.getInputConnection();
         if (ic != null) {
@@ -313,57 +356,35 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         }
         if (query.isEmpty()) return;
 
+        mLastQuery = query;  // ◀ 사용자가 입력한 원본 질문 보관
+        Log.d("SugStrip", "dispatchSearchQuery: mLastQuery = \"" + mLastQuery + "\"");
         // ✅ 로그 출력 추가
         Log.d(TAG_NET, "🔍 전송된 query: " + query);
 
         // 2) SearchResultView 준비
-        if (mSearchPanel == null) {
-            mSearchPanel = new SearchResultView(getContext());
-            // 리스너와 키보드 뷰 바인딩
-            setListener(mListener, getRootView());
-        }
+//        if (mSearchPanel == null) {
+//            mSearchPanel = new SearchResultView(getContext());
+//            // 리스너와 키보드 뷰 바인딩
+//            setListener(mListener, getRootView());
+//        }
 
-        // 3) 사용자 질문 말풍선만 그리기
-        mSearchPanel.bindUserQuery(query);
+        // 3) 로딩 스피너만 붙이기
+        mSearchPanel.clearLoadingBubble();  // 혹시 이전 로딩이 남아 있으면 지우고
+        mSearchPanel.bindLoading();
 
-        // 4) 반드시 MainKeyboardView 타입의 뷰를 넘겨서 띄우기
-        if (mMainKeyboardView == null) {
-            View root = getRootView();
-            mMainKeyboardView = root.findViewById(R.id.keyboard_view);
-        }
-        if (mMainKeyboardView == null) {
-            Log.e(TAG_NET, "MainKeyboardView를 찾을 수 없어 패널을 띄우지 않습니다.");
-            return;
-        }
+//        // 3) 사용자 질문 말풍선만 그리기
+//        mSearchPanel.bindUserQuery(query);
+//        mSearchPanel.bindLoading();
+
         // ⬅ 스피너 ON
 
         Log.d(TAG_NET, "▶ REQUEST\n" +
-                "URL   : http://k12e201.p.ssafy.io:8090/rag/search/\n" +
+//                "URL   : http://k12e201.p.ssafy.io:8090/rag/search/\n" +
                 "user_id = " + DEFAULT_USER_ID + "\n" +
                 "query   = " + query);
 
         // Controller → MainKeyboardView 로 위임
-        MoreKeysPanel.Controller c = new MoreKeysPanel.Controller() {
-            @Override
-            public void onDismissMoreKeysPanel() {
-                mMainKeyboardView.onDismissMoreKeysPanel();
-            }
 
-            @Override
-            public void onShowMoreKeysPanel(MoreKeysPanel p) {
-                mMainKeyboardView.onShowMoreKeysPanel(p);
-            }
-
-            @Override
-            public void onCancelMoreKeysPanel() {
-                mMainKeyboardView.onDismissMoreKeysPanel();
-            }
-        };
-
-        int x = mMainKeyboardView.getWidth() / 2;
-        int y = 0;
-        mSearchPanel.showMoreKeysPanel(
-                mMainKeyboardView, c, x, y, (KeyboardActionListener) null);
 
         // ① Retrofit 호출
         ApiClient.getChatApiService()
@@ -377,10 +398,56 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             return;
                         }
                         MessageResponse body = res.body();
+                        if (body == null) return;
+
                         post(() -> {
-//                            mSearchPanel.bind(body);
-                            post(() -> mSearchPanel.bindResponseAndDetails(body));
-                        });   // 내용 채우기 + 스피너 OFF
+                            if ((body.getAnswer() == null || body.getAnswer().trim().isEmpty())
+                                    && body.getPhotoResults() != null
+                                    && !body.getPhotoResults().isEmpty()) {
+                                mResponseType = ResponseType.PHOTO_ONLY;
+                            } else if (body.getAnswer() != null
+                                    && body.getAnswer().length() >= 50) {
+                                mResponseType = ResponseType.LONG_TEXT;
+                            } else {
+                                mResponseType = ResponseType.SHORT_TEXT;
+                            }
+                            mLastResponse = body;
+
+                            // 2) 분기별 행동
+                            switch (mResponseType) {
+                                case LONG_TEXT:
+                                    // ── 50자 이상: 버튼 강조 후 대기 ──
+                                    mSearchPanel.clearLoadingBubble();
+                                    mSearchStatus.setVisibility(View.GONE);
+                                    mSearchKey.setVisibility(View.VISIBLE);
+                                    mSearchKey.clearAnimation();
+                                    mSearchKey.setImageDrawable(mIconSearchActive);
+                                    mKeyHighlighted = true;
+                                    break;
+
+                                case SHORT_TEXT:
+                                    // 50자 미만: 즉시 텍스트 전용 패널
+                                    mSearchPanel.clearLoadingBubble();
+                                    showSearchPanel();
+                                    mSearchPanel.bindShortTextOnly(mLastResponse);
+                                    // 검색창/제안줄 숨기기
+                                    updateVisibility(false, false);
+                                    break;
+
+                                case PHOTO_ONLY:
+                                    // ── 사진 전용: 바로 사진만 표시 ──
+                                    mSearchPanel.clearLoadingBubble();
+                                    showSearchPanel();
+                                    mSearchPanel.bindPhotosOnly(body);
+                                    updateVisibility(false, false);  // 제안줄 감추기
+                                    break;
+                            }
+                            // 버튼 강조
+//                            mSearchKey.setImageDrawable(mIconSearchActive);
+//                            mSearchKey.clearAnimation();
+//                            mSearchKey.setAlpha(1f);
+//                            mKeyHighlighted = true;
+                        });
                         Log.d(TAG_NET, "✅ 결과 수신");
 
                     }
@@ -388,8 +455,13 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                     @Override
                     public void onFailure(Call<MessageResponse> call, Throwable t) {
                         post(() -> {
-                            // 에러 뷰를 보여주거나 패널 닫기 용도
-                            mSearchPanel.dismissMoreKeysPanel();
+                            mSearchPanel.clearLoadingBubble();
+                            // 에러 시에도 버튼 복원
+                            mSearchStatus.setVisibility(View.GONE);
+                            mSearchKey.setVisibility(View.VISIBLE);
+                            mSearchKey.clearAnimation();
+                            mKeyHighlighted = false;
+                            mInSearchMode = false;
                         });
                         Log.e(TAG_NET, "❌ onFailure", t);
                     }
@@ -683,12 +755,40 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             return;
         }
 
+        // “검색중” 상태 버튼은 무시
+        if (view == mSearchStatus) return;
+
         if (view == mSearchKey) {
-//            dispatchSearchQuery();// 🔍 또는 ❌
-            if (mInSearchMode) {
-                exitSearchMode();          // ❌ 눌림
+            if (mResponseType == ResponseType.PHOTO_ONLY
+                    || mResponseType == ResponseType.SHORT_TEXT) {
+                // 이미 dispatchSearchQuery()에서 바로 띄워줬으므로
+                // 검색 키 클릭은 아무 동작도 하지 않음
+                return;
+            }
+            // 1) 검색 모드가 아니면 진입
+            if (!mInSearchMode) {
+                mSearchKey.setImageDrawable(mIconSearch);
+                enterSearchMode();
+                return;
+            }
+            // 2) 아직 응답 안 왔으면 무시(깜빡임 계속)
+            if (!mKeyHighlighted) {
+                return;
+            }
+            // 3) LONG_TEXT 응답이 왔을 때, 첫 클릭은 말풍선 표시 + X 버튼으로 변환
+            // 이제: 두 번째 클릭 때만 패널 띄우고 카드 UI
+            if (!mAnswerShown) {
+                showSearchPanel();
+                mSearchPanel.bindLongTextCard(mLastQuery, mLastResponse);
+                mSearchKey.setImageDrawable(mIconClose);
+                mAnswerShown = true;
             } else {
-                enterSearchMode();         // 🔍 눌림
+                // 세 번째 클릭(❌): 패널 닫고 키보드 복귀
+                mSearchPanel.dismissMoreKeysPanel();
+                mSearchKey.setImageDrawable(mIconSearch);     // ❌ → 🔍
+                mKeyHighlighted = false;
+                mAnswerShown = false;
+                mInSearchMode = false;
             }
             return;
         }
@@ -745,6 +845,33 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         return mSearchInput;
     }
 
+    // SuggestionStripView 내부
+    private void showSearchPanel() {
+        if (mMainKeyboardView == null) {
+            View root = getRootView();
+            mMainKeyboardView = root.findViewById(R.id.keyboard_view);
+        }
+        if (mMainKeyboardView == null) return;
+
+        MoreKeysPanel.Controller c = new MoreKeysPanel.Controller() {
+            @Override
+            public void onDismissMoreKeysPanel() {
+                mMainKeyboardView.onDismissMoreKeysPanel();
+            }
+
+            @Override
+            public void onShowMoreKeysPanel(MoreKeysPanel p) {
+                mMainKeyboardView.onShowMoreKeysPanel(p);
+            }
+
+            @Override
+            public void onCancelMoreKeysPanel() {
+                mMainKeyboardView.onDismissMoreKeysPanel();
+            }
+        };
+        int x = mMainKeyboardView.getWidth() / 2, y = 0;
+        mSearchPanel.showMoreKeysPanel(mMainKeyboardView, c, x, y, (KeyboardActionListener) null);
+    }
 
 
 }
