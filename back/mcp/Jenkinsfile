@@ -12,6 +12,9 @@ pipeline {
         
         // 네트워크 이름 설정 - 기존 네트워크 사용
         NETWORK_NAME = "moca-pipeline_internal"
+
+        // 환경 변수수
+        ENV_FILE = '.env.prod'
     }
     
     stages {
@@ -20,6 +23,23 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Create .env.prod') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'OPENAI_API_KEY',           variable: 'OPENAI'),
+          string(credentialsId: 'OPENAI_API_KEY_2',           variable: 'OPENAI2'),
+          string(credentialsId: 'BRAVE_API_KEY',           variable: 'BRAVE_API_KEY'),
+        ]) {
+          writeFile file: '.env.prod', text: """
+OPENAI_API_KEY=${OPENAI}
+OPENAI_API_KEY_2=${OPENAI2}
+BRAVE_API_KEY=${BRAVE_API_KEY}
+
+ENV=prod
+""".trim()
+        }
+      }
+    }
         
         stage('Build Images') {
             parallel {
@@ -33,7 +53,7 @@ pipeline {
                 
                 stage('Build Web Search') {
                     steps {
-                        dir('back/web-search') {
+                        dir('back/brave-search') {
                             sh 'docker build -t ${WEB_SEARCH_IMAGE} -f Dockerfile .'
                         }
                     }
@@ -84,6 +104,7 @@ pipeline {
                         --network ${NETWORK_NAME} \\
                         --restart unless-stopped \\
                         -e "WEB_SEARCH_URL=http://${WEB_SEARCH_CONTAINER}:8100" \\
+                        --env-file ${ENV_FILE} \\
                         -p 8050:8050 \\
                         ${MCP_API_IMAGE}
                 '''

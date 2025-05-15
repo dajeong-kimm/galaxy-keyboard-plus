@@ -8,7 +8,7 @@ import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 
-// ✅ ScrollTrigger, ScrollToPlugin 등록
+// gsap ScrollTrigger, ScrollToPlugin 등록
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
 export default function Section1Intro() {
@@ -17,15 +17,36 @@ export default function Section1Intro() {
   const mockup2Ref = useRef(null);
   const [showQR, setShowQR] = useState(false);
 
-  // ✅ 진입 애니메이션 + 스크롤 트리거
   useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    let hasUserScrolled = false;
+
+    const handleUserInteraction = () => {
+      hasUserScrolled = true;
+    };
+
+    window.addEventListener("wheel", handleUserInteraction, { once: true, passive: true });
+    window.addEventListener("touchstart", handleUserInteraction, { once: true, passive: true });
+
     const ctx = gsap.context(() => {
-      // mockup 등장 애니메이션
+      // 모션
       gsap.to(mockup1Ref.current, {
         y: 0,
         opacity: 1,
         duration: 1,
         ease: "power2.out",
+        onComplete: () => {
+          gsap.to(mockup1Ref.current, {
+            y: "+=10",
+            duration: 2,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
+          });
+        },
       });
 
       gsap.to(mockup2Ref.current, {
@@ -34,23 +55,43 @@ export default function Section1Intro() {
         duration: 1,
         delay: 0.2,
         ease: "power2.out",
-      });
-
-      // ✅ 스크롤 트리거 설정
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "bottom 90%", // section 1의 하단이 뷰포트에 거의 닿을 때
-        onEnter: () => {
-          gsap.to(window, {
-            scrollTo: "#experience", // Section12 id
-            duration: 1,
-            ease: "power2.inOut",
+        onComplete: () => {
+          gsap.to(mockup2Ref.current, {
+            y: "+=10",
+            duration: 2,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
           });
         },
       });
+
+      // 스크롤 트리거
+      const trigger = ScrollTrigger.create({
+        trigger: sectionRef.current,
+        start: "bottom 90%",
+        // once: true,
+        onEnter: () => {
+          if (hasUserScrolled) {
+            requestAnimationFrame(() => {
+              gsap.to(window, {
+                scrollTo: "#experience",
+                duration: 1,
+                ease: "power2.inOut",
+              });
+            });
+          }
+        },
+      });
+
+      return () => trigger.kill();
     }, sectionRef);
 
-    return () => ctx.revert();
+    return () => {
+      ctx.revert();
+      window.removeEventListener("wheel", handleUserInteraction);
+      window.removeEventListener("touchstart", handleUserInteraction);
+    };
   }, []);
 
   const handleDownloadClick = () => {
@@ -72,38 +113,40 @@ export default function Section1Intro() {
         <div className="absolute top-0 left-0 z-0 w-8 h-full bg-black" />
 
         <div className="intro-mockup">
-          <div className="relative w-[560px] h-[750px]">
+          <div className="relative w-[560px] h-[850px]">
             <Image
               ref={mockup1Ref}
               src="/images/intro-mockup-1.png"
               alt="1"
-              width={300}
-              height={400}
-              className="absolute left-0 z-0 translate-y-16 opacity-0 top-12"
+              width={350}
+              height={450}
+              className="absolute left-0 z-0 translate-y-16 opacity-0 top-10"
               loading="eager"
             />
             <Image
               ref={mockup2Ref}
               src="/images/intro-mockup-2.png"
               alt="2"
-              width={300}
-              height={400}
-              className="absolute z-10 translate-y-16 opacity-0 top-40 left-40"
+              width={350}
+              height={450}
+              className="absolute z-10 translate-y-16 opacity-0 top-36 left-40"
               loading="eager"
             />
           </div>
         </div>
 
-        <div className="flex flex-col items-start justify-start ml-8 mr-32 gap-y-6">
+        <div className="flex flex-col items-start justify-start mr-32 gap-y-8">
           <div className="relative w-full h-[100px]">
             <h1 className="absolute top-0 left-0 text-6xl font-bold title">Phokey</h1>
+            {!showQR && <p className="absolute text-xl font-semibold text-gray-600 top-16">서비스 한 줄 설명</p>}
           </div>
-
-          {!showQR && <p className="text-xl font-semibold text-gray-600">서비스 한 줄 설명</p>}
 
           <button
             onClick={handleDownloadClick}
-            className="px-6 py-3 text-center transition rounded-lg min-w-[300px] bg-gradient-to-r from-cyan-300 via-white to-green-300 hover:scale-105"
+            className="px-6 py-3 text-center transition rounded-lg min-w-[350px] hover:scale-105 qr-container"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #67e8f9, #fff, #86efac)",
+            }}
           >
             {showQR ? (
               <div className="flex flex-col items-center justify-center">
@@ -116,7 +159,7 @@ export default function Section1Intro() {
                 <p className="mt-2 text-sm text-center text-gray-500">QR코드를 촬영하여 설치 페이지로 이동합니다</p>
               </div>
             ) : (
-              <p>앱 다운로드</p>
+              <p className="font-semibold">앱 다운로드</p>
             )}
           </button>
         </div>
@@ -124,7 +167,7 @@ export default function Section1Intro() {
 
       <button
         onClick={scrollToExperience}
-        className="absolute bottom-8"
+        className="absolute bottom-12 right-8"
       >
         <ArrowDown className="w-6 h-6 animate-bounce" />
       </button>
