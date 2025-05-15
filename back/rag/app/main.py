@@ -11,6 +11,8 @@ from app.api.save_text import router as save_text_router
 from app.api.image_upload import router as image_upload_router
 from app.api.search_image_info import router as search_image_info_router
 from app.api.test_image_upload import router as test_image_upload_router
+from app.api.db_connection_test import router as db_connection_test_router
+from app.api.image_upload_keyword import router as image_upload_keyword_router
 import logging
 
 app = FastAPI()
@@ -35,6 +37,8 @@ app.include_router(save_text_router, prefix="/rag")
 app.include_router(image_upload_router, prefix="/rag")
 app.include_router(search_image_info_router, prefix="/rag")
 app.include_router(test_image_upload_router, prefix="/test")
+app.include_router(db_connection_test_router, prefix="/rag")
+app.include_router(image_upload_keyword_router, prefix="/rag")
 
 if __name__ == "__main__":
     import uvicorn

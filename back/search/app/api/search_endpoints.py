@@ -17,11 +17,13 @@ logger = logging.getLogger(__name__)
 # ThreadPoolExecutor 워커 수
 executor = ThreadPoolExecutor(max_workers=10)
 
+
 # Response models
 class PhotoSearchResult(BaseModel):
     id: str
     text: str
     score: float
+
 
 class InfoSearchResult(BaseModel):
     id: str
@@ -29,16 +31,18 @@ class InfoSearchResult(BaseModel):
     score: float
     related_photos: List[PhotoSearchResult] = []
 
+
 class PhotoSearchResponse(BaseModel):
     photos: List[PhotoSearchResult]
     query: str
     expanded_queries: List[str]
     total_time: float
 
+
 class InfoSearchResponse(BaseModel):
     info: List[InfoSearchResult]
     query: str
-    expanded_queries: List[str] 
+    expanded_queries: List[str]
     total_time: float
 
 
@@ -55,7 +59,7 @@ async def search_photos(
     """
     start_time = time.time()
     loop = asyncio.get_event_loop()
-    
+
     try:
         # 1. 쿼리 확장 (색상 및 객체 분석 포함)
         expand_start = time.time()
@@ -64,7 +68,7 @@ async def search_photos(
         )
         logger.info(f"⏱️ 쿼리 확장: {time.time() - expand_start:.3f}초")
         logger.info(f"🔍 확장된 쿼리: {expanded_queries[:3]}")
-        
+
         # 2. 사진 벡터에서 검색
         search_start = time.time()
         raw_photo_results = await loop.run_in_executor(
@@ -77,7 +81,7 @@ async def search_photos(
         )
         logger.info(f"⏱️ 벡터 검색: {time.time() - search_start:.3f}초")
         logger.info(f"📷 검색된 사진 수: {len(raw_photo_results)}")
-        
+
         # 3. 결과 필터링 및 정렬
         filter_start = time.time()
         filtered_results = await loop.run_in_executor(
@@ -89,7 +93,7 @@ async def search_photos(
             "사진",
         )
         logger.info(f"⏱️ 결과 필터링: {time.time() - filter_start:.3f}초")
-        
+
         # 4. 결과 정리
         photo_results = []
         for item in filtered_results[:top_k]:
@@ -97,20 +101,20 @@ async def search_photos(
                 PhotoSearchResult(
                     id=item.get("id", "unknown"),
                     text=item.get("text", ""),
-                    score=item.get("adjusted_score", item.get("score", 0))
+                    score=item.get("adjusted_score", item.get("score", 0)),
                 )
             )
-        
+
         total_time = time.time() - start_time
         logger.info(f"⏱️ 전체 검색 시간: {total_time:.3f}초")
-        
+
         return PhotoSearchResponse(
             photos=photo_results,
             query=query,
             expanded_queries=expanded_queries[:5],
-            total_time=total_time
+            total_time=total_time,
         )
-        
+
     except Exception as e:
         logger.error(f"Photo search error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -130,7 +134,7 @@ async def search_info(
     """
     start_time = time.time()
     loop = asyncio.get_event_loop()
-    
+
     try:
         # 1. 쿼리 확장
         expand_start = time.time()
@@ -139,7 +143,7 @@ async def search_info(
         )
         logger.info(f"⏱️ 쿼리 확장: {time.time() - expand_start:.3f}초")
         logger.info(f"🔍 확장된 쿼리: {expanded_queries[:3]}")
-        
+
         # 2. 정보 벡터에서 검색
         search_start = time.time()
         raw_info_results = await loop.run_in_executor(
@@ -152,7 +156,7 @@ async def search_info(
         )
         logger.info(f"⏱️ 정보 검색: {time.time() - search_start:.3f}초")
         logger.info(f"📄 검색된 정보 수: {len(raw_info_results)}")
-        
+
         # 3. 결과 필터링
         filter_start = time.time()
         filtered_info = await loop.run_in_executor(
@@ -164,10 +168,10 @@ async def search_info(
             "정보",
         )
         logger.info(f"⏱️ 정보 필터링: {time.time() - filter_start:.3f}초")
-        
+
         # 4. 각 정보에 대한 관련 사진 찾기 (옵션)
         info_results = []
-        
+
         if include_related_photos:
             # 병렬로 각 정보에 대한 관련 사진 검색
             photo_search_tasks = []
@@ -182,13 +186,13 @@ async def search_info(
                     3,  # 각 정보당 3개의 관련 사진
                 )
                 photo_search_tasks.append(task)
-            
+
             # 모든 사진 검색 결과 수집
             if photo_search_tasks:
                 related_photos_results = await asyncio.gather(*photo_search_tasks)
             else:
                 related_photos_results = []
-            
+
             # 결과 정리
             for i, info_item in enumerate(filtered_info[:top_k]):
                 related_photos = []
@@ -198,16 +202,18 @@ async def search_info(
                             PhotoSearchResult(
                                 id=photo.get("id", "unknown"),
                                 text=photo.get("text", ""),
-                                score=photo.get("score", 0)
+                                score=photo.get("score", 0),
                             )
                         )
-                
+
                 info_results.append(
                     InfoSearchResult(
                         id=info_item.get("id", "unknown"),
                         text=info_item.get("text", ""),
-                        score=info_item.get("adjusted_score", info_item.get("score", 0)),
-                        related_photos=related_photos
+                        score=info_item.get(
+                            "adjusted_score", info_item.get("score", 0)
+                        ),
+                        related_photos=related_photos,
                     )
                 )
         else:
@@ -217,21 +223,23 @@ async def search_info(
                     InfoSearchResult(
                         id=info_item.get("id", "unknown"),
                         text=info_item.get("text", ""),
-                        score=info_item.get("adjusted_score", info_item.get("score", 0)),
-                        related_photos=[]
+                        score=info_item.get(
+                            "adjusted_score", info_item.get("score", 0)
+                        ),
+                        related_photos=[],
                     )
                 )
-        
+
         total_time = time.time() - start_time
         logger.info(f"⏱️ 전체 검색 시간: {total_time:.3f}초")
-        
+
         return InfoSearchResponse(
             info=info_results,
             query=query,
             expanded_queries=expanded_queries[:5],
-            total_time=total_time
+            total_time=total_time,
         )
-        
+
     except Exception as e:
         logger.error(f"Info search error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
