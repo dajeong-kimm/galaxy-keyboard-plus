@@ -27,15 +27,6 @@ class MCPClient:
     async def search(self, query: str, num_results: int = 5) -> Dict[str, Any]:
         """웹 검색 수행"""
         # JSON-RPC 2.0 요청 생성
-        # request_data = {
-        #     "jsonrpc": "2.0",
-        #     "id": str(uuid.uuid4()),
-        #     "method": "search",  # 도구 이름을 직접 메서드로 사용
-        #     "params": {      # 인수를 직접 params에 포함
-        #         "query": query,
-        #         "limit": num_results
-        #     }
-        # }
         request_data = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
@@ -46,7 +37,6 @@ class MCPClient:
                     "query": query,
                     "limit": num_results
                 }
-
             }
         }
         
@@ -127,4 +117,183 @@ class MCPClient:
                 return {"tools": data.get("result", {}).get("tools", [])}
         except Exception as e:
             logger.error(f"Error getting tools list: {str(e)}")
+            return {"error": str(e)}
+        
+
+    async def brave_web_search(self, query: str, count: int = 10, offset: int = 0) -> Dict[str, Any]:
+        """Brave 웹 검색 기능"""
+        request_data = {
+            "jsonrpc": "2.0",
+            "id": str(uuid.uuid4()),
+            "method": "call_tool",
+            "params": {
+                "name": "brave_web_search",
+                "arguments": {
+                    "query": query,
+                    "count": count,
+                    "offset": offset
+                }
+            }
+        }
+        
+        logger.info(f"Brave 웹 검색 요청 전송: {json.dumps(request_data)}")
+        
+        try:
+            async with self.session.post(
+                self.server_url,
+                json=request_data,
+                headers={"Content-Type": "application/json"}
+            ) as response:
+                if response.status != 200:
+                    logger.error(f"서버 오류: {response.status}")
+                    return {"error": f"서버 오류: {response.status}"}
+                
+                data = await response.json()
+                logger.info(f"응답 수신: {json.dumps(data)}")
+                
+                # Rate Limit 오류 처리
+                if "result" in data and "content" in data["result"] and data["result"].get("isError", False):
+                    error_message = data["result"]["content"][0]["text"]
+                    if "Rate limit exceeded" in error_message or "RATE_LIMITED" in error_message:
+                        logger.warning(f"Brave API 요청 제한에 도달했습니다: {error_message}")
+                        return {
+                            "results": [],
+                            "error": "API 요청 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
+                        }
+                    return {"error": error_message}
+                
+                if "error" in data:
+                    logger.error(f"RPC 오류: {data['error']}")
+                    return {"error": f"RPC 오류: {data['error']}"}
+                
+                # 검색 결과 파싱
+                if "result" in data and "content" in data["result"]:
+                    content = data["result"]["content"]
+                    results = []
+                    
+                    # content[0].text에는 검색 결과가 일반 텍스트로 포함되어 있음
+                    if content and len(content) > 0 and "text" in content[0]:
+                        text = content[0]["text"]
+                        
+                        # 텍스트에서 검색 결과 파싱
+                        entries = text.split("\n\n")
+                        for entry in entries:
+                            if entry.strip():
+                                lines = entry.split("\n")
+                                if len(lines) >= 3:
+                                    title = lines[0].replace("Title: ", "")
+                                    description = lines[1].replace("Description: ", "")
+                                    url = lines[2].replace("URL: ", "")
+                                    
+                                    results.append({
+                                        "title": title,
+                                        "url": url,
+                                        "description": description
+                                    })
+                        
+                        return {
+                            "results": results,
+                            "query": query
+                        }
+                
+                # 검색 결과가 없거나 오류인 경우
+                return {
+                    "results": [],
+                    "query": query
+                }
+                
+        except Exception as e:
+            logger.error(f"Brave 웹 검색 요청 오류: {str(e)}")
+            return {"error": str(e)}
+
+    async def brave_local_search(self, query: str, count: int = 10) -> Dict[str, Any]:
+        """Brave 지역 검색 기능"""
+        request_data = {
+            "jsonrpc": "2.0",
+            "id": str(uuid.uuid4()),
+            "method": "call_tool",
+            "params": {
+                "name": "brave_local_search",
+                "arguments": {
+                    "query": query,
+                    "count": count
+                }
+            }
+        }
+        
+        logger.info(f"Brave 지역 검색 요청 전송: {json.dumps(request_data)}")
+        
+        try:
+            async with self.session.post(
+                self.server_url,
+                json=request_data,
+                headers={"Content-Type": "application/json"}
+            ) as response:
+                if response.status != 200:
+                    logger.error(f"서버 오류: {response.status}")
+                    return {"error": f"서버 오류: {response.status}"}
+                
+                data = await response.json()
+                logger.info(f"응답 수신: {json.dumps(data)}")
+                
+                # Rate Limit 오류 처리
+                if "result" in data and "content" in data["result"] and data["result"].get("isError", False):
+                    error_message = data["result"]["content"][0]["text"]
+                    if "Rate limit exceeded" in error_message or "RATE_LIMITED" in error_message:
+                        logger.warning(f"Brave API 요청 제한에 도달했습니다: {error_message}")
+                        return {
+                            "results": [],
+                            "error": "API 요청 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
+                        }
+                    return {"error": error_message}
+                
+                if "error" in data:
+                    logger.error(f"RPC 오류: {data['error']}")
+                    return {"error": f"RPC 오류: {data['error']}"}
+                
+                # 지역 검색 결과 파싱
+                if "result" in data and "content" in data["result"]:
+                    content = data["result"]["content"]
+                    results = []
+                    
+                    # content[0].text에는 검색 결과가 일반 텍스트로 포함되어 있음
+                    if content and len(content) > 0 and "text" in content[0]:
+                        text = content[0]["text"]
+                        
+                        # 텍스트에서 검색 결과 파싱
+                        entries = text.split("\n\n")
+                        for entry in entries:
+                            if entry.strip():
+                                lines = entry.split("\n")
+                                if len(lines) >= 3:
+                                    title = lines[0].replace("Name: ", "")
+                                    address = lines[1].replace("Address: ", "")
+                                    rating = ""
+                                    phone = ""
+                                    
+                                    for line in lines[2:]:
+                                        if line.startswith("Rating:"):
+                                            rating = line.replace("Rating: ", "")
+                                        elif line.startswith("Phone:"):
+                                            phone = line.replace("Phone: ", "")
+                                    
+                                    results.append({
+                                        "title": title,
+                                        "description": f"{address} • {rating} • {phone}".strip(" • "),
+                                        "url": ""
+                                    })
+                        
+                        return {
+                            "results": results,
+                            "query": query
+                        }
+                
+                # 검색 결과가 없거나 오류인 경우
+                return {
+                    "results": [],
+                    "query": query
+                }
+                
+        except Exception as e:
+            logger.error(f"Brave 지역 검색 요청 오류: {str(e)}")
             return {"error": str(e)}

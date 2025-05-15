@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app app/
 
 # 환경 변수 설정 (대신 .env 파일 복사는 제거)
-ENV WEB_SEARCH_URL="http://web-search:8100"
+ENV BRAVE_SEARCH_URL="http://brave-search-mcp:8100"
 
 # 포트 노출
 EXPOSE 8050
