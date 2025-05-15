@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Authenticator;
+import okhttp3.Dispatcher;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -36,8 +37,12 @@ public final class ApiClient {
 
     private static ChatStorageApi chatStorageApi;
 
-    private static ImageUploadApi imageUploadApi;
     private static ImageFilterApi imageFilterApi;
+
+    /* ─────────────────────────── 업로드 전용 인스턴스 ─────────────────────────── */
+    private static Retrofit        uploadRetrofit;
+    private static ImageUploadApi  uploadApi;
+    /* ──────────────────────────────────────────────────────────────────────── */
 
     /** 최초 한 번 앱 전체를 초기화 */
     public static void init(Context ctx) {
@@ -103,8 +108,14 @@ public final class ApiClient {
         HttpLoggingInterceptor logger = new HttpLoggingInterceptor();
         logger.setLevel(HttpLoggingInterceptor.Level.BODY);
 
+        /* ✨ 기본 클라이언트용 Dispatcher 추가 */
+        Dispatcher defaultDispatcher = new Dispatcher();
+        defaultDispatcher.setMaxRequestsPerHost(10); // ← 호스트당 동시 요청 5 → 10 으로 상향
+        // defaultDispatcher.setMaxRequests(64);     // (원래 값 64 그대로라 굳이 지정 안 해도 됨)
+
         // ── ③ OkHttp 클라이언트 ───────────────────────────
         OkHttpClient ok = new OkHttpClient.Builder()
+                .dispatcher(defaultDispatcher)
                 .addInterceptor(authInterceptor)
                 .addInterceptor(logger)
                 .authenticator(tokenAuthenticator)
@@ -128,19 +139,94 @@ public final class ApiClient {
         Log.d("ApiClient", "★ Retrofit 초기화 완료");
     }
 
+    /**  이미지 업로드 전용 Retrofit 서비스 */
+    public static synchronized ImageUploadApi getDedicatedImageUploadApi(Context ctx) {
+        if (uploadApi != null) return uploadApi;
+
+        /* ① 전용 Dispatcher (호스트 128, 전체 128) */
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(128);
+        dispatcher.setMaxRequestsPerHost(32);
+
+        /* ② 공통 토큰·로깅 인터셉터 재사용 ----------------------------- */
+        Interceptor authInterceptor = chain -> {
+            String access = AuthManager.getInstance(ctx).getAccessToken();
+            Request req = chain.request().newBuilder()
+                    .header("Authorization", access == null ? "" : "Bearer " + access)
+                    .build();
+            return chain.proceed(req);
+        };
+
+        /* 401 처리용 Authenticator */
+        Authenticator tokenAuthenticator = new Authenticator() {
+            @Override public Request authenticate(Route route, okhttp3.Response resp) throws IOException {
+                // 401이지만 이미 리트라이한 요청이면 null → 최종 실패
+                if (resp.request().header("Authorization-Retry") != null) return null;
+
+                String refresh = AuthManager.getInstance(ctx).getRefreshToken();
+                if (refresh == null || refresh.isEmpty()) return null;
+
+                // ── 토큰 리프레시 동기 호출 ──
+                Retrofit bare = new Retrofit.Builder()
+                        .baseUrl(BASE_URL)
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build();
+                ApiService bareApi = bare.create(ApiService.class);
+
+                retrofit2.Response<AuthResponse> r = bareApi.reissue(
+                        new ReissueRequest(refresh)).execute();
+
+                if (!r.isSuccessful() || r.body() == null) {
+                    Log.e("ApiClient", "❌ 토큰 갱신 실패 code=" + r.code());
+                    return null;
+                }
+
+                AuthResponse ar = r.body();
+
+                // AuthManager 메모리 캐시 및 SecureStorage 동시 갱신(updateTokens 메서드에서 둘 다 처리)
+                AuthManager.getInstance(ctx)
+                        .updateTokens(ar.getAccessToken(), ar.getRefreshToken());
+                Log.i("ApiClient", "🔄 액세스 토큰 갱신 성공");
+
+                // ④ 새 토큰으로 원 요청 재시도 (무한루프 방지 헤더 추가)
+                return resp.request().newBuilder()
+                        .header("Authorization", "Bearer " + ar.getAccessToken())
+                        .header("Authorization-Retry", "true")
+                        .build();
+            }
+        };
+
+        HttpLoggingInterceptor logger = new HttpLoggingInterceptor()
+                .setLevel(HttpLoggingInterceptor.Level.BODY);
+
+        /* ③ 업로드 전용 OkHttpClient */
+        OkHttpClient uploadClient = new OkHttpClient.Builder()
+                .dispatcher(dispatcher)
+                .addInterceptor(authInterceptor)
+                .addInterceptor(logger)
+                .authenticator(tokenAuthenticator)
+                .connectTimeout(TIMEOUT, TimeUnit.SECONDS)
+                .readTimeout   (TIMEOUT, TimeUnit.SECONDS)
+                .writeTimeout  (TIMEOUT, TimeUnit.SECONDS)
+                .build();
+
+        /* ④ 업로드 전용 Retrofit */
+        uploadRetrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(uploadClient)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        uploadApi = uploadRetrofit.create(ImageUploadApi.class);
+        return uploadApi;
+    }
+
     /** 어디서든 호출 가능한 getter */
     public static ChatApiService getChatApiService() { return chatApiService; }
     public static ApiService   getApiService()      { return apiService;   }
 
     public static ChatStorageApi getChatStorageApi() { return chatStorageApi; }
 
-    /* 업로드용 */
-    public static synchronized ImageUploadApi getImageUploadApi() {
-        if (imageUploadApi == null) {
-            imageUploadApi = retrofit.create(ImageUploadApi.class);
-        }
-        return imageUploadApi;
-    }
 
     /* 필터(존재 여부 확인)용 */
     public static synchronized ImageFilterApi getImageFilterApi() {

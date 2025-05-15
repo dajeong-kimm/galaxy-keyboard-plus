@@ -195,5 +195,10 @@
             android:multiprocess="false"
             android:label="@string/dictionary_provider_name">
         </provider>
+
+        <service
+            android:name=".network.ChatSaveService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE"/>
     </application>
 </manifest>

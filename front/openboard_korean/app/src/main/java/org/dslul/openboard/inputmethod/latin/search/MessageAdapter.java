@@ -1,9 +1,17 @@
 // File: app/src/main/java/org/dslul/openboard/inputmethod/latin/settings/MessageAdapter.java
 package org.dslul.openboard.inputmethod.latin.search;
 
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentUris;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
@@ -12,8 +20,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.GridLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -22,10 +32,8 @@ import org.dslul.openboard.inputmethod.latin.network.InfoResult;
 import org.dslul.openboard.inputmethod.latin.network.PhotoResult;
 import org.dslul.openboard.inputmethod.latin.network.dto.ChatItem;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import io.noties.markwon.Markwon;
 
@@ -61,11 +69,29 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
         Message msg = messages.get(position);
+
         if (holder instanceof UserViewHolder) {
             ((UserViewHolder) holder).tvMessage
                     .setText(msg.getText());
+
         } else if (holder instanceof BotViewHolder) {
-            ((BotViewHolder) holder).bind(msg);
+            BotViewHolder botHolder = (BotViewHolder) holder;
+
+            // 1) 메시지 텍스트 설정
+            botHolder.tvMessage.setText(msg.getText());
+            // 2) 텍스트 선택 가능하게
+            botHolder.tvMessage.setTextIsSelectable(true);
+
+            // 3) 복사 버튼 보이기/동작 설정
+            botHolder.btnCopy.setVisibility(View.VISIBLE);
+            botHolder.btnCopy.setOnClickListener(v -> {
+                ClipboardManager cm =
+                        (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText("bot message", msg.getText());
+                cm.setPrimaryClip(clip);
+            });
+
+            botHolder.bind(msg);
         }
     }
 
@@ -85,6 +111,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     static class BotViewHolder extends RecyclerView.ViewHolder {
         private final TextView tvMessage;
+        private final ImageButton btnCopy;
         private final Button btnToggle;
         private final GridLayout glImages;
         private final Markwon markwon;
@@ -92,6 +119,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         BotViewHolder(View v) {
             super(v);
             tvMessage = v.findViewById(R.id.tvBotMessage);
+            btnCopy   = v.findViewById(R.id.btnCopy);
             btnToggle = v.findViewById(R.id.btnToggleImages);
             glImages = v.findViewById(R.id.glBotImages);
 
@@ -139,12 +167,51 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
                     ImageView iv = new ImageView(glImages.getContext());
                     GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-                    lp.width = size;
+                    lp.width  = size;
                     lp.height = size;
                     lp.setMargins(0, 0, dpToPx(4, glImages), dpToPx(4, glImages));
                     iv.setLayoutParams(lp);
                     iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                     iv.setImageBitmap(thumb);
+
+                    /* ── (1) 썸네일 클릭 → 갤러리(뷰어) 열기 ────────────────── */
+                    iv.setOnClickListener(v -> {
+                        Context ctx = v.getContext();
+                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                        intent.setDataAndType(u, "image/*");
+                        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        try {
+                            ctx.startActivity(intent);
+                        } catch (ActivityNotFoundException e) {
+                            Toast.makeText(ctx, "이미지 뷰어를 열 수 없습니다", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                    /* ── (2) 썸네일 길게 터치 → 클립보드 복사 ───────────────── */
+                    iv.setOnLongClickListener(v -> {
+                        Context ctx = v.getContext();
+
+                        // 1) 클립보드에 URI 복사
+                        ClipboardManager cm =
+                                (ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE);
+                        ClipData clip = ClipData.newUri(
+                                ctx.getContentResolver(), "image", u);
+                        cm.setPrimaryClip(clip);
+
+                        // 2) 진동 (50ms) 발생
+                        Vibrator vibrator = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
+                        if (vibrator != null) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator.vibrate(
+                                        VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
+                                );
+                            } else {
+                                vibrator.vibrate(50);
+                            }
+                        }
+                        return true;   // 롱클릭 이벤트 소비
+                    });
+
                     glImages.addView(iv);
                 }
             }
