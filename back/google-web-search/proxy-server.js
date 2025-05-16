@@ -96,7 +96,7 @@ app.post("/", async (req, res) => {
         console.error("[Google MCP] MCP 요청 시간 초과");
         removeResponseHandler();
         reject(new Error("Request timed out"));
-      }, 30000);
+      }, 50000);
 
       let responseBuffer = "";
 
@@ -113,7 +113,7 @@ app.post("/", async (req, res) => {
           } catch (err) {
             // 아직 완전한 JSON이 아님, 더 많은 데이터 기다리기
           }
-          if (alidJsonFound && response.id === requestId) {
+          if (validJsonFound && response.id === requestId) {
             clearTimeout(timeout);
             removeResponseHandler();
             console.log(
