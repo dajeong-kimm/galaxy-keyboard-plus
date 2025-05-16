@@ -3,7 +3,9 @@ package org.dslul.openboard.inputmethod.backup;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.net.Uri;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.exifinterface.media.ExifInterface;
@@ -155,46 +157,52 @@ public class ImageUploader {
      * ✅ Bitmap을 압축하여 임시 파일로 저장하는 메서드 (메모리 효율적)
      */
     private static File compressAndSaveToFile(Context context, Uri uri) throws IOException {
-        InputStream inputStream = context.getContentResolver().openInputStream(uri);
-        if (inputStream == null) throw new IOException("Failed to open InputStream");
+        // 1) 이미지 크기 확인을 위한 Options을 미리 선언
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        // 1) 원본 크기 확인
+        try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+            if (is == null) throw new IOException("Failed to open InputStream");
+            BitmapFactory.decodeStream(is, null, bounds);
+        }
 
-        // 1. 이미지 크기 확인용 decode
-        BitmapFactory.Options boundsOptions = new BitmapFactory.Options();
-        boundsOptions.inJustDecodeBounds = true;
-        BitmapFactory.decodeStream(inputStream, null, boundsOptions);
-        inputStream.close();
-
-        int originalWidth = boundsOptions.outWidth;
-        int targetWidth = 720;  // 최대 너비 720px
+        // 2) 샘플링 크기 계산
+        int originalWidth = bounds.outWidth;
+        int targetWidth = 720;
         int scale = 1;
         while ((originalWidth / scale) > targetWidth) {
             scale *= 2;
         }
+        final int sampleSize = scale;
 
-        // 2. 샘플링 비율로 다시 decode
-        BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
-        decodeOptions.inSampleSize = scale;
-        inputStream = context.getContentResolver().openInputStream(uri);
-        Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, decodeOptions);
-        inputStream.close();
+        // 2) 하드웨어 가속 디코딩(API 28+), 그 외는 BitmapFactory
+        final Bitmap bitmap;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            ImageDecoder.Source src = ImageDecoder.createSource(
+                    context.getContentResolver(), uri
+            );
+            bitmap = ImageDecoder.decodeBitmap(src, (decoder, info, out) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_HARDWARE);
+                decoder.setTargetSampleSize(sampleSize);
+            });
+        } else {
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = scale;
+            // 속도/메모리 절약을 위해 RGB_565로도 설정 가능
+            opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            try (InputStream is2 = context.getContentResolver().openInputStream(uri)) {
+                bitmap = BitmapFactory.decodeStream(is2, null, opts);
+            }
+        }
 
-        // 3. JPEG 압축 (최대 압축: 품질 90)
-        File file = new File(context.getCacheDir(), "upload_" + System.currentTimeMillis() + ".jpg");
-        try (FileOutputStream fos = new FileOutputStream(file)) {
+        // 3) JPEG 압축
+        File out = new File(context.getCacheDir(),
+                "upload_" + System.currentTimeMillis() + ".jpg");
+        try (FileOutputStream fos = new FileOutputStream(out)) {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
         }
         bitmap.recycle();
-        return file;
-    }
-
-    // Exif에서 위도/경도 읽어오는 헬퍼 메서드 추가
-    private static String extractLatitude(Context ctx, Uri uri) {
-        try (InputStream is = ctx.getContentResolver().openInputStream(uri)) {
-            ExifInterface exif = new ExifInterface(is);
-            float[] latLong = new float[2];
-            if (exif.getLatLong(latLong)) return String.valueOf(latLong[0]);
-        } catch (Exception ignored) { }
-        return "0.0";
+        return out;
     }
 
     // 성공 콜백 인터페이스
