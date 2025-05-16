@@ -151,6 +151,19 @@ services:
     networks:
       - internal
 
+
+  google-web-search:
+    container_name: google-web-search
+    build: ./back/google-web-search
+    ports:
+      - "0.0.0.0:8150:8150"
+    environment:
+      - GOOGLE_SEARCH_API_KEY=${GOOGLE_SEARCH_API_KEY}
+      - GOOGLE_SEARCH_ENGINE_ID=${GOOGLE_SEARCH_ENGINE_ID}
+    restart: always
+    networks:
+      - internal
+
   # Redis 서비스 (Rate Limiter 전용)
   redis-ratelimiter:
     container_name: moca-redis-ratelimiter
