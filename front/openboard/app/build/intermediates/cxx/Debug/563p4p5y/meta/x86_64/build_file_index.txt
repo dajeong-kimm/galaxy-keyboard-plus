@@ -1,2 +1,0 @@
-C:\Users\SSAFY\Desktop\pjt3\S12P31E201\front\openboard\app\src\main\jni\Android.mk
-C:\Users\SSAFY\Desktop\pjt3\S12P31E201\front\openboard\app\src\main\jni\Application.mk

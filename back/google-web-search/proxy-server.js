@@ -137,7 +137,7 @@ app.post("/", async (req, res) => {
         childProcess.stdout.removeListener("data", responseHandler);
       };
 
-      childProcess.stdout.once("data", listener);
+      childProcess.stdout.on("data", responseHandler);
     });
     const response = await responsePromise;
     console.log(
@@ -160,6 +160,7 @@ app.post("/", async (req, res) => {
 
 // 헬스 체크 엔드포인트
 app.get("/health", (req, res) => {
+  console.log(`[${new Date().toISOString()}] /health 요청 옴`);
   res.status(200).json({ status: "OK" });
 });
 
