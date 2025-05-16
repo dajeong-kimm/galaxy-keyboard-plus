@@ -97,19 +97,30 @@ ENV=prod
             script: "git diff --name-only ${env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: 'HEAD~1'} ${env.GIT_COMMIT}",
             returnStdout: true
           ).trim()
+          
+          // 변경된 파일 경로에서 서비스 이름 매핑
           def changed = diff.split('\n')
                             .findAll{ it }
                             .findAll{ it.startsWith('back/') || it.startsWith('front/') }
                             .collect{ p ->
-                              if (p.startsWith('front/apk-fe/'))         return 'frontend'
-                              else if (p.startsWith('front/') )         return p.tokenize('/')[1]
+                              if (p.startsWith('front/apk-fe/'))        return 'frontend'
+                              else if (p.startsWith('front/') )         return 'frontend'  // 모든 front/ 경로는 frontend 서비스로 매핑
+                              else if (p.startsWith('back/search/'))    return 'search-service'  // search 디렉토리는 search-service로 매핑
                               else /* back/... */                       return p.tokenize('/')[1]
                             }
                             .unique()
+          
           def forced = params.FORCE_SERVICES?.trim()
                         ? params.FORCE_SERVICES.split(',').collect{ it.trim() }
                         : []
-          env.CHANGED_SERVICES = (forced ?: changed).toSet().join(',')
+          
+          // 강제 서비스 이름 매핑 (사용자 입력을 docker-compose 서비스 이름과 일치시키기)
+          def mappedForced = forced.collect { svc ->
+            if (svc == 'search') return 'search-service'
+            return svc
+          }
+          
+          env.CHANGED_SERVICES = (mappedForced ?: changed).toSet().join(',')
           
           // Compose 파일에 정의된 서비스 목록 조회
           def available = sh(
@@ -129,11 +140,14 @@ ENV=prod
             echo "⚠️ 다음 서비스는 docker-compose에 정의되어 있지 않아 무시됩니다: ${invalidServices.join(', ')}"
           }
           
-          if (!validServices) {
-            echo '유효한 서비스 변경사항이 없습니다. 빌드를 건너뜁니다.'
-            currentBuild.result = 'SUCCESS'
-            // 이후 스테이지 실행 차단
-            error('No valid services to build')
+          // 변경된 서비스가 있으나 유효한 서비스가 없는 경우 성공으로 처리
+          if (env.CHANGED_SERVICES && !validServices) {
+            echo '변경된 서비스가 있지만 모두 docker-compose에 정의되지 않은 서비스입니다. 빌드를 건너뜁니다.'
+            env.SKIP_BUILD = 'true'
+            // 이후 단계는 진행하되 실제 빌드는 수행하지 않음
+          } else if (!validServices) {
+            echo '변경된 서비스가 없습니다. 빌드를 건너뜁니다.'
+            env.SKIP_BUILD = 'true'
           } else {
             env.VALID_SERVICES = validServices.join(',')
             echo "빌드 대상 서비스: ${env.VALID_SERVICES}"
@@ -145,7 +159,10 @@ ENV=prod
     // 4) Build & Deploy Backend
     stage('Build & Deploy Backend') {
       when {
-        expression { env.VALID_SERVICES.split(',').any { it != 'frontend' } }
+        allOf {
+          expression { env.SKIP_BUILD != 'true' }
+          expression { env.VALID_SERVICES.split(',').any { it != 'frontend' } }
+        }
       }
       steps {
         script {
@@ -156,8 +173,16 @@ ENV=prod
           // 실제 빌드·배포
           backendServices.each { svc ->
             echo "▶ Building & deploying ${svc}"
+            // 서비스명에서 컨테이너 이름 추출
+            def containerName = "${svc}"
+            if (svc == 'search-service') {
+              containerName = 'search-service'
+            } else if (svc != 'nginx' && svc != 'redis-ratelimiter' && !svc.startsWith('postgres_')) {
+              containerName = "${svc}-service"
+            }
+            
             sh """
-              docker rm -f ${svc}-service || true
+              docker rm -f ${containerName} || true
               docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --no-cache ${svc}
               docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps --force-recreate ${svc}
             """
@@ -169,7 +194,10 @@ ENV=prod
     // 5) Build & Deploy Frontend
     stage('Build & Deploy Frontend') {
       when {
-        expression { env.VALID_SERVICES.split(',').contains('frontend') }
+        allOf {
+          expression { env.SKIP_BUILD != 'true' }
+          expression { env.VALID_SERVICES.split(',').contains('frontend') }
+        }
       }
       steps {
         script {
