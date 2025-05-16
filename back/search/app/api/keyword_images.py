@@ -1,5 +1,3 @@
-# app/api/keyword_images.py
-
 from fastapi import APIRouter, Query
 import psycopg2
 import os
@@ -19,12 +17,13 @@ DB_PARAMS = {
 
 @router.get("/keyword/images/")
 def get_images_by_keyword(
+    user_id: str = Query(...),
     keyword: str = Query(...),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
     """
-    특정 키워드에 해당하는 image_id (access_id) 리스트 반환
+    특정 user_id가 등록한 이미지 중, keyword에 해당하는 image_id (access_id) 리스트 반환
     """
     try:
         offset = (page - 1) * page_size
@@ -32,13 +31,14 @@ def get_images_by_keyword(
         cursor = conn.cursor()
 
         query = """
-        SELECT image_id
-        FROM image_keywords
-        WHERE keyword = %s
-        ORDER BY created_at DESC
+        SELECT ik.image_id
+        FROM image_keywords ik
+        JOIN images i ON ik.image_id = i.access_id
+        WHERE i.user_id = %s AND ik.keyword = %s
+        ORDER BY ik.created_at DESC
         LIMIT %s OFFSET %s;
         """
-        cursor.execute(query, (keyword, page_size, offset))
+        cursor.execute(query, (user_id, keyword, page_size, offset))
         results = cursor.fetchall()
         image_ids = [row[0] for row in results]
 
@@ -46,6 +46,7 @@ def get_images_by_keyword(
         conn.close()
 
         return {
+            "user_id": user_id,
             "keyword": keyword,
             "page": page,
             "page_size": page_size,
