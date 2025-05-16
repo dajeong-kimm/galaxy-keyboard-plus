@@ -243,7 +243,8 @@ public class SearchPageFragment extends Fragment {
                                 body.getAnswer(),         // answer 필드 (null 허용)
                                 /* photoResults */        convertToPhotoResults(body.getPhotoIds()),
                                 /* infoResults */         null,
-                                /* chatItems */           null
+                                /* chatItems */           null,
+                                true
                         );
                         messages.add(botMsg);
                         adapter.notifyItemInserted(messages.size() - 1);
@@ -402,11 +403,11 @@ public class SearchPageFragment extends Fragment {
 
         if ("user".equals(c.getSender())) {
             return new Message(Message.Sender.USER, c.getMessage(), when,
-                    null, null, null, c.getItems());
+                    null, null, null, c.getItems(), false);
         } else { // bot
             // accessId → PhotoResult/InfoResult 매핑은 필요 시 변환
             return new Message(Message.Sender.BOT, c.getMessage(), when,
-                    c.getMessage(), null, null, c.getItems());
+                    c.getMessage(), null, null, c.getItems(), false);
         }
     }
 }
