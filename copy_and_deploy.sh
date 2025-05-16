@@ -13,6 +13,7 @@ VERSION=$1
 : "${ANDROID_SDK_ROOT:?Environment variable ANDROID_SDK_ROOT must be set}"
 : "${KAKAO_NATIVE_APP_KEY:?Environment variable KAKAO_NATIVE_APP_KEY must be set}"
 : "${SERVER_BASE_URL:?Environment variable SERVER_BASE_URL must be set}"
+: "${FIREBASE_APP_ID:?Environment variable FIREBASE_APP_ID must be set}"
 
 # Determine directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

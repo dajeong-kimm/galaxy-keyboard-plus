@@ -11,16 +11,21 @@
 #
 # Uncomment the line if you want fastlane to automatically update itself
 # update_fastlane
-
 default_platform(:android)
 
 platform :android do
   lane :release do |options|
-    gradle(task: "clean assembleRelease")
+    gradle(
+      task: "clean assembleRelease",
+      project_dir: ".",  # openboard_korean 디렉토리 (fastlane의 상위 디렉토리)
+      gradle_path: "./gradlew"  # openboard_korean 디렉토리의 gradlew
+    )
+
     firebase_app_distribution(
-      app:      ENV["FIREBASE_APP_ID"],
-      groups:   options[:groups]   || "testers",
-      release_notes: options[:notes] || "자동 배포"
+      app: ENV["FIREBASE_APP_ID"],
+      groups: options[:groups],
+      release_notes: options[:notes],
+      apk_path: lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]
     )
   end
 end

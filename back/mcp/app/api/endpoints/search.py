@@ -46,10 +46,20 @@ async def search_endpoint(
         logger.info(f"[search_endpoint] MCP 호출: {llm_response}")
 
         # mcp 서버의 툴 호출
+        params = llm_response.get("params", {})
+
+        # count 값 강제 제한
+        if "count" in params:
+            try:
+                params["count"] = max(1, min(int(params["count"]), 3))
+            except Exception:
+                params["count"] = 3  # 파싱 에러시 fallback
+
+        # MCP 서버 툴 호출
         mcp_result = await mcp_manager.call_tool(
             llm_response["srvId"],
             llm_response["method"],
-            llm_response.get("params", {})
+            params
         )
         logger.info(f"[search_endpoint] MCP 호출 결과: {str(mcp_result)[:200]}")
 
