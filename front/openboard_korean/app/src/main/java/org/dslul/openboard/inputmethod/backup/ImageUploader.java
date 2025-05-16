@@ -6,7 +6,10 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Log;
 
+import androidx.exifinterface.media.ExifInterface;
+
 import org.dslul.openboard.inputmethod.backup.model.GalleryImage;
+import org.dslul.openboard.inputmethod.backup.model.UploadImageKeywordResponse;
 import org.dslul.openboard.inputmethod.latin.network.ApiClient;
 import org.dslul.openboard.inputmethod.latin.network.ImageUploadApi;
 
@@ -22,6 +25,7 @@ import java.util.Locale;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -67,38 +71,65 @@ public class ImageUploader {
                 RequestBody accessIdBody = RequestBody.create(MediaType.parse("text/plain"), image.getContentId());
                 RequestBody imageTimeBody = RequestBody.create(MediaType.parse("text/plain"), formattedTime);
 
-                Call<Void> call = api.uploadImage(
+                // GalleryImage에 담긴 위도/경도 사용
+                RequestBody latBody = RequestBody.create(
+                        MediaType.parse("text/plain"),
+                        String.valueOf(image.getLatitude())
+                );
+                RequestBody lonBody = RequestBody.create(
+                        MediaType.parse("text/plain"),
+                        String.valueOf(image.getLongitude())
+                );
+
+                Call<UploadImageKeywordResponse> call = api.uploadImageWithKeywords(
                         userIdBody,
                         accessIdBody,
                         imageTimeBody,
+                        latBody,
+                        lonBody,
                         filePart
                 );
 
-                call.enqueue(new Callback<Void>() {
-                    // 업로드 성공
+                call.enqueue(new Callback<UploadImageKeywordResponse>() {
                     @Override
-                    public void onResponse(Call<Void> call, Response<Void> response) {
-                        if (response.isSuccessful()) {
-                            Log.i(TAG, "✅ 업로드한 이미지: " + image.getFilename());
-                            if (onSuccess != null) {
+                    public void onResponse(Call<UploadImageKeywordResponse> call,
+                                           Response<UploadImageKeywordResponse> resp) {
+                        if (resp.isSuccessful() && resp.body() != null) {
+                            UploadImageKeywordResponse body = resp.body();
+                            String msg = body.getMessage();
+
+                            // ① 메시지 없으면 정상 업로드
+                            if (msg == null) {
                                 onSuccess.onSuccess(image.getContentId());
+                                Log.i(TAG, "업로드 성공: " + image.getFilename());
+
+                                // ② '이미 등록된 이미지입니다.' 스킵
+                            } else if ("이미 등록된 이미지입니다.".equals(msg)) {
+                                onSuccess.onSuccess(image.getContentId());
+                                Log.i(TAG, "스킵(이미 등록): " + image.getFilename());
+
+                                // ③ 그 외 오류는 실패 처리(세트에 추가하지 않음)
+                            } else {
+                                onFailure.onFailure(image.getFilename(), new Exception(msg));
+                                Log.w(TAG, "처리 오류: " + msg);
                             }
+
                         } else {
-                            Log.w(TAG, "⚠️ 업로드 실패한 이미지: " + response.code() + " - " + image.getFilename());
+                            // HTTP 에러
+                            onFailure.onFailure(image.getFilename(),
+                                    new Exception("HTTP " + resp.code()));
+                            Log.w(TAG, "⚠ HTTP 오류: " + resp.code());
                         }
+
                         imageFile.delete();
                         if (++completedCount[0] == total && onComplete != null) {
                             onComplete.onComplete();
                         }
                     }
 
-                    // 업로드 실행 중 에러
                     @Override
-                    public void onFailure(Call<Void> call, Throwable t) {
-                        Log.e(TAG, "Upload failed: " + image.getFilename(), t);
-                        if (onFailure != null) {
-                            onFailure.onFailure(image.getFilename(), t);
-                        }
+                    public void onFailure(Call<UploadImageKeywordResponse> call, Throwable t) {
+                        onFailure.onFailure(image.getFilename(), t);
                         imageFile.delete();
                         if (++completedCount[0] == total && onComplete != null) {
                             onComplete.onComplete();
@@ -149,11 +180,21 @@ public class ImageUploader {
 
         // 3. JPEG 압축 (최대 압축: 품질 90)
         File file = new File(context.getCacheDir(), "upload_" + System.currentTimeMillis() + ".jpg");
-        FileOutputStream fos = new FileOutputStream(file);
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+        }
         bitmap.recycle();
-        fos.close();
         return file;
+    }
+
+    // Exif에서 위도/경도 읽어오는 헬퍼 메서드 추가
+    private static String extractLatitude(Context ctx, Uri uri) {
+        try (InputStream is = ctx.getContentResolver().openInputStream(uri)) {
+            ExifInterface exif = new ExifInterface(is);
+            float[] latLong = new float[2];
+            if (exif.getLatLong(latLong)) return String.valueOf(latLong[0]);
+        } catch (Exception ignored) { }
+        return "0.0";
     }
 
     // 성공 콜백 인터페이스

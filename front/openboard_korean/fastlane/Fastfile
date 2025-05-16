@@ -23,6 +23,7 @@ platform :android do
 
     firebase_app_distribution(
       app: ENV["FIREBASE_APP_ID"],
+  firebase_cli_token: ENV["FIREBASE_TOKEN"],
       groups: options[:groups],
       release_notes: options[:notes],
       apk_path: lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]

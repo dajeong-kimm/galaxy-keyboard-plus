@@ -37,13 +37,9 @@ public final class ApiClient {
 
     private static ChatStorageApi chatStorageApi;
 
-    private static ImageFilterApi imageFilterApi;
-
     /* ─────────────────────────── 업로드 전용 인스턴스 ─────────────────────────── */
     private static Retrofit        uploadRetrofit;
     private static ImageUploadApi  uploadApi;
-    // ─────────────────── 업로드 필터용 인스턴스 ───────────────────
-    private static ImageFilterApi dedicatedFilterApi;
 
     /** 최초 한 번 앱 전체를 초기화 */
     public static void init(Context ctx) {
@@ -227,17 +223,4 @@ public final class ApiClient {
     public static ApiService   getApiService()      { return apiService;   }
 
     public static ChatStorageApi getChatStorageApi() { return chatStorageApi; }
-
-
-    /* 필터(존재 여부 확인)용 */
-    public static synchronized ImageFilterApi getDedicatedImageFilterApi(Context ctx) {
-        if (dedicatedFilterApi != null) return dedicatedFilterApi;
-        // uploadRetrofit이 아직 생성되지 않았다면 생성
-        if (uploadRetrofit == null) {
-            getDedicatedImageUploadApi(ctx);
-        }
-        dedicatedFilterApi = uploadRetrofit.create(ImageFilterApi.class);
-        return dedicatedFilterApi;
-    }
-
 }

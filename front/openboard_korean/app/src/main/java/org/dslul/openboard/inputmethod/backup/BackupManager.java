@@ -10,12 +10,8 @@ import android.widget.Toast;
 
 import androidx.core.content.PermissionChecker;
 
-import org.dslul.openboard.inputmethod.backup.model.FilterImageResponse;
-import org.dslul.openboard.inputmethod.backup.model.FilterImageResult;
 import org.dslul.openboard.inputmethod.backup.model.GalleryImage;
 import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
-import org.dslul.openboard.inputmethod.latin.network.ApiClient;
-import org.dslul.openboard.inputmethod.latin.network.ImageFilterApi;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,15 +25,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntConsumer;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-
 /**
  * 자동 백업의 전체 흐름을 관리하는 매니저 클래스
  */
 public class BackupManager {
     private static final String TAG = "Backup - BackupManager";
-    private static final int REQUEST_INTERVAL_MS = 200;
+    private static final int REQUEST_INTERVAL_MS = 60;
 
     // ★ 백그라운드 스케줄러: CPU 코어 수 기반 스레드풀
     private static final ScheduledExecutorService scheduler =
@@ -107,44 +100,34 @@ public class BackupManager {
             return;
         }
 
-        /* ApiClient 초기화 보증 후 서비스 사용 */
-        ApiClient.init(context);
-        ImageFilterApi filterApi = ApiClient.getDedicatedImageFilterApi(context);
-
-        List<GalleryImage> newImages = Collections.synchronizedList(new ArrayList<>());
-        AtomicInteger pending = new AtomicInteger(allImages.size());
-
-        for (GalleryImage image : allImages) {
-            String accessId = image.getContentId();
-
-            filterApi.checkImage(userId, accessId).enqueue(new Callback<FilterImageResponse>() {
-                @Override
-                public void onResponse(Call<FilterImageResponse> call, retrofit2.Response<FilterImageResponse> response) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        FilterImageResult result = response.body().getResult();
-                        if (result != null && !result.isExist()) {
-                            newImages.add(image);
-                        }
-                        checkDone();
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<FilterImageResponse> call, Throwable t) {
-                    Log.e(TAG, "요청 실패 (contentId=" + accessId + "): " + t.getMessage());
-                    checkDone();
-                }
-
-                private void checkDone() {
-                    if (pending.decrementAndGet() == 0) {
-                        onFilteringDone(
-                                context, newImages,
-                                onUploadStart, progressListener, onComplete
-                        );
-                    }
-                }
-            });
+        // 0) 이미 백업된 ID 집합 불러오기
+        Set<String> cachedIds = UploadStateTracker.getBackedUpContentIds(context);
+        if (cachedIds == null) {
+            cachedIds = new HashSet<>();
         }
+
+        // 1) 서버에 체크할 대상만 분리
+        List<GalleryImage> toCheck = new ArrayList<>();
+        for (GalleryImage img : allImages) {
+            if (!cachedIds.contains(img.getContentId())) {
+                toCheck.add(img);
+            }
+        }
+
+        // 2) 검증 대상이 없으면 곧바로 완료
+        if (toCheck.isEmpty()) {
+            Log.i(TAG, "✅ 모든 이미지가 이미 백업됨, 검증 생략");
+            onFilteringDone(context,
+                    Collections.emptyList(),
+                    onUploadStart, progressListener, onComplete);
+            isBackupRunning = false;
+            return;
+        }
+
+        // 3) toCheck 리스트를 그대로 업로드 단계로 넘기기
+        onFilteringDone(context,
+                toCheck,
+                onUploadStart, progressListener, onComplete);
     }
 
     /**
@@ -210,7 +193,7 @@ public class BackupManager {
                             progressListener.onProgress(d);
                             if (d == total) {
                                 Log.i(TAG, "🏁 전체 업로드 완료 (" + (System.currentTimeMillis() - startMs) + "ms)");
-                                UploadStateTracker.addBackedUpContentIds(context, doneIds);
+                                UploadStateTracker.setBackedUpContentIds(context, doneIds);
                                 onComplete.run();
                                 isBackupRunning = false;
                                 scheduler.shutdown();
