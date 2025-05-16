@@ -21,6 +21,7 @@ import org.dslul.openboard.inputmethod.latin.R;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class BackupWorker extends Worker {
@@ -47,53 +48,58 @@ public class BackupWorker extends Worker {
         // 0) 채널 생성
         createChannel(ctx);
 
-        // 1) 전체 업로드 대상 수 계산
-        List<GalleryImage> all = MediaStoreImageFetcher.getAllImages(ctx);
-        int total = all.size();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicInteger totalHolder = new AtomicInteger();
+        final NotificationCompat.Builder[] builder = new NotificationCompat.Builder[1];
 
-        // 2) 초기 알림(Foreground) 띄우기
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_upload)
-                .setContentTitle("추억을 안전하게 보관하는 중…")
-                .setContentText("0/" + total)
-                .setOnlyAlertOnce(true)
-                .setOngoing(true)
-                .setProgress(total, 0, false);
+        // 필터링 완료 후 총 개수 → 알림 띄우기
+        BackupManager.startBackup(ctx,
+                total -> {
+                    totalHolder.set(total);
+                    builder[0] = new NotificationCompat.Builder(ctx, CHANNEL_ID)
+                            .setSmallIcon(R.drawable.ic_upload)
+                            .setContentTitle("사진을 안전하게 보관하는 중…")
+                            .setContentText("0/" + total)
+                            .setOnlyAlertOnce(true)
+                            .setOngoing(true)
+                            .setProgress(total, 0, false);
 
-        // WorkManager 에 ForegroundService 로 등록
-        safeSetForeground(new ForegroundInfo(NOTIF_ID, builder.build()));
+                    // ForegroundService 로 등록
+                    setForegroundAsync(new ForegroundInfo(
+                            NOTIF_ID, builder[0].build()));
+                },
+                done -> {
+                    // 진행률 업데이트
+                    if (builder[0] != null) {           // 필터 결과가 0 이면 builder[0]이 없음
+                        builder[0]
+                                .setContentText(done + "/" + totalHolder.get())
+                                .setProgress(totalHolder.get(), (int) done, false);
+                        safeNotify(builder[0]);
+                    }
+                },
+                () -> {
+                    // 최종 완료
+                    if (builder[0] != null) {
+                        builder[0]
+                                .setProgress(0, 0, false)
+                                .setContentText("모든 사진이 안전하게 보관되었어요! 🎉")
+                                .setOngoing(false)
+                                .setAutoCancel(true)
+                                .setSmallIcon(R.drawable.ic_upload_done);
+                        safeNotify(builder[0]);
+                    }
+                    latch.countDown();
+                }
+        );
 
-        final CountDownLatch latch = new CountDownLatch(1);
-
-        // 3) 실제 백업 로직 (알림 업데이트는 콜백에서)
-        BackupManager.startBackup(ctx, (done) -> {
-            builder
-                    .setContentTitle("사진을 정리하고 있어요…")
-                    .setContentText(done + "/" + total)
-                    .setProgress(total, (int) done, false);
-            safeNotify(NOTIF_ID, builder);
-        }, () -> {
-            // 모든 완료시
-            builder.setProgress(0, 0, false)
-                    .setContentText("모든 사진이 안전하게 저장되었어요! 🎉")
-                    .setOngoing(false)
-                    .setAutoCancel(true)
-                    .setSmallIcon(R.drawable.ic_upload_done);
-            safeNotify(NOTIF_ID, builder);
-
-            // latch 해제 → doWork()가 다음으로 넘어감
-            latch.countDown();
-        });
-
-        // 백업 완료 신호까지 대기
+        // 필터→업로드 전 과정을 동기 대기
         try {
             latch.await();
         } catch (InterruptedException e) {
-            Log.e(TAG, "백업 작업 중 인터럽트 발생", e);
+            Log.e(TAG, "인터럽트", e);
             Thread.currentThread().interrupt();
             return Result.failure();
         }
-
         return Result.success();
     }
 
@@ -111,23 +117,15 @@ public class BackupWorker extends Worker {
         }
     }
 
-    private void safeSetForeground(ForegroundInfo info) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(getApplicationContext(),
-                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            // 권한 없으면 그냥 넘어감
-        }
-        setForegroundAsync(info);
-    }
-
-    private void safeNotify(int id, NotificationCompat.Builder builder) {
+    private void safeNotify(NotificationCompat.Builder b) {
         NotificationManagerCompat nm = NotificationManagerCompat.from(getApplicationContext());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(getApplicationContext(),
-                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        nm.notify(id, builder.build());
+        nm.notify(NOTIF_ID, b.build());
     }
 }
 
