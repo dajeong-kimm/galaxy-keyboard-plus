@@ -10,7 +10,7 @@ pipeline {
     string(
       name: 'FORCE_SERVICES',
       defaultValue: '',
-      description: '콤마(,)로 지정 시 해당 서비스만 빌드·배포 (예: gateway,auth,backend,rag,frontend)'
+      description: '콤마(,)로 지정 시 해당 서비스만 빌드·배포 (예: gateway,auth,backend,rag,mcp,web-search,frontend)'
     )
   }
 
@@ -47,7 +47,8 @@ pipeline {
           string(credentialsId: 'JWT_AT_VALIDITY',              variable: 'JWT_AT_VALIDITY'),
           string(credentialsId: 'JWT_RT_VALIDITY',              variable: 'JWT_RT_VALIDITY'),
           string(credentialsId: 'FRONTEND_API_URL',             variable: 'FRONTEND_API_URL'),
-          string(credentialsId: 'GOOGLE_API_KEY',             variable: 'GOOGLE_API_KEY')
+          string(credentialsId: 'GOOGLE_API_KEY',               variable: 'GOOGLE_API_KEY'),
+          string(credentialsId: 'BRAVE_API_KEY',                variable: 'BRAVE_API_KEY')
         ]) {
           sh '''
             cp "$GCP_KEY_FILE" gcp-key.json
@@ -82,6 +83,7 @@ KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
 JWT_AT_VALIDITY=${JWT_AT_VALIDITY}
 JWT_RT_VALIDITY=${JWT_RT_VALIDITY}
 FRONTEND_API_URL=${FRONTEND_API_URL}
+BRAVE_API_KEY=${BRAVE_API_KEY}
 
 ENV=prod
 """.trim()
@@ -106,6 +108,9 @@ ENV=prod
                               if (p.startsWith('front/apk-fe/'))        return 'frontend'
                               else if (p.startsWith('front/') )         return 'frontend'  // 모든 front/ 경로는 frontend 서비스로 매핑
                               else if (p.startsWith('back/search/'))    return 'search-service'  // search 디렉토리는 search-service로 매핑
+                              else if (p.startsWith('back/mcp/'))       return 'mcp'  // mcp 디렉토리는 mcp 서비스로 매핑
+                              else if (p.startsWith('back/brave-search/')) return 'web-search'  // brave-search 디렉토리는 web-search 서비스로 매핑
+                              else if (p.startsWith('back/web-search/')) return 'web-search'  // web-search 디렉토리는 web-search 서비스로 매핑
                               else /* back/... */                       return p.tokenize('/')[1]
                             }
                             .unique()
@@ -174,11 +179,17 @@ ENV=prod
           backendServices.each { svc ->
             echo "▶ Building & deploying ${svc}"
             // 서비스명에서 컨테이너 이름 추출
-            def containerName = "${svc}"
+            def containerName
             if (svc == 'search-service') {
               containerName = 'search-service'
+            } else if (svc == 'mcp') {
+              containerName = 'mcp-api'
+            } else if (svc == 'web-search') {
+              containerName = 'web-search'
             } else if (svc != 'nginx' && svc != 'redis-ratelimiter' && !svc.startsWith('postgres_')) {
               containerName = "${svc}-service"
+            } else {
+              containerName = "${svc}"
             }
             
             sh """
@@ -210,6 +221,49 @@ ENV=prod
         }
       }
     }
+    
+    // 6) Check Services (새로 추가된 서비스 포함)
+    stage('Check Services') {
+      when {
+        expression { env.SKIP_BUILD != 'true' }
+      }
+      steps {
+        script {
+          def validServices = env.VALID_SERVICES.split(',')
+          
+          // MCP 또는 Web Search 서비스가 배포되었는지 확인
+          if (validServices.contains('mcp') || validServices.contains('web-search')) {
+            echo "▶ Checking MCP and Web Search services..."
+            sh '''
+              # 서비스가 시작될 때까지 대기
+              sleep 10
+              
+              # 서비스 실행 상태 확인
+              if docker ps --filter "name=web-search" --format "{{.Names}}" | grep -q "web-search"; then
+                echo "✅ Web Search service is running"
+                docker logs web-search --tail 10
+              fi
+              
+              if docker ps --filter "name=mcp-api" --format "{{.Names}}" | grep -q "mcp-api"; then
+                echo "✅ MCP API service is running"
+                docker logs mcp-api --tail 10
+              fi
+              
+              # API 엔드포인트 테스트 (선택적)
+              if docker ps --filter "name=web-search" --format "{{.Names}}" | grep -q "web-search"; then
+                echo "Testing Web Search endpoint..."
+                curl -s -o /dev/null -w "%{http_code}" http://localhost:8100 || echo "Web Search not responding"
+              fi
+              
+              if docker ps --filter "name=mcp-api" --format "{{.Names}}" | grep -q "mcp-api"; then
+                echo "Testing MCP API endpoint..."
+                curl -s -o /dev/null -w "%{http_code}" http://localhost:8050/api/status/ || echo "MCP API not responding"
+              fi
+            '''
+          }
+        }
+      }
+    }
   }
 
   post {
@@ -222,6 +276,11 @@ ENV=prod
     }
     failure {
       echo '빌드 또는 배포 실패 ❗'
+      sh '''
+        # 오류 시 MCP 및 Web Search 컨테이너 로그 수집
+        docker logs web-search --tail 50 > web_search_error.log || true
+        docker logs mcp-api --tail 50 > mcp_api_error.log || true
+      '''
     }
   }
 }
