@@ -401,8 +401,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
                         post(() -> {
                             if ((body.getAnswer() == null || body.getAnswer().trim().isEmpty())
-                                    && body.getPhotoResults() != null
-                                    && !body.getPhotoResults().isEmpty()) {
+                                    && body.getPhotoIds() != null
+                                    && !body.getPhotoIds().isEmpty()) {
                                 mResponseType = ResponseType.PHOTO_ONLY;
                             } else if (body.getAnswer() != null
                                     && body.getAnswer().length() >= 50) {

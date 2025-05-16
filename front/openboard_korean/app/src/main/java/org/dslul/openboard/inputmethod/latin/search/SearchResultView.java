@@ -179,38 +179,42 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
         addView(photosContainer, lpPhotos);
 
         // 4) 사진들 채우기
-        for (PhotoResult p : resp.getPhotoResults()) {
-            try {
-                long id = Long.parseLong(p.getId());
-                Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
-                        getContext().getContentResolver(),
-                        id,
-                        MediaStore.Images.Thumbnails.MINI_KIND,
-                        null);
-                ImageView iv = new ImageView(getContext());
-                LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(
-                        dpToPx(80), dpToPx(80));
-                ivLp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
-                iv.setLayoutParams(ivLp);
-                iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                iv.setImageBitmap(thumb);
-                photosContainer.addView(iv);
-
-                // 클릭 시 클립보드 복사
-                Uri uri = ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                iv.setOnClickListener(v -> {
-                    ClipboardManager cm = (ClipboardManager)
-                            getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    cm.setPrimaryClip(ClipData.newUri(
+        List<String> photoIds = resp.getPhotoIds();
+        if (photoIds != null) {
+            for (String idStr : photoIds) {
+                try {
+                    long id = Long.parseLong(idStr);
+                    Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
                             getContext().getContentResolver(),
-                            "Image", uri));
-                    Toast.makeText(getContext(),
-                            "이미지가 클립보드에 복사되었습니다",
-                            Toast.LENGTH_SHORT).show();
-                });
-            } catch (NumberFormatException ignored) { }
+                            id,
+                            MediaStore.Images.Thumbnails.MINI_KIND,
+                            null);
+                    ImageView iv = new ImageView(getContext());
+                    LinearLayout.LayoutParams ivLp = new LinearLayout.LayoutParams(
+                            dpToPx(80), dpToPx(80));
+                    ivLp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
+                    iv.setLayoutParams(ivLp);
+                    iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    iv.setImageBitmap(thumb);
+                    photosContainer.addView(iv);
+
+                    // 클릭 시 클립보드 복사
+                    Uri uri = ContentUris.withAppendedId(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                    iv.setOnClickListener(v -> {
+                        ClipboardManager cm = (ClipboardManager)
+                                getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                        cm.setPrimaryClip(ClipData.newUri(
+                                getContext().getContentResolver(),
+                                "Image", uri));
+                        Toast.makeText(getContext(),
+                                "이미지가 클립보드에 복사되었습니다",
+                                Toast.LENGTH_SHORT).show();
+                    });
+                } catch (NumberFormatException ignored) { }
+            }
         }
+
     }
 
     public void bindShortTextOnly(MessageResponse resp) {
@@ -563,11 +567,11 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
         photoScroll.setVisibility(View.GONE);
 
         // 7) PhotoResult 썸네일 채우기
-        List<PhotoResult> photos = resp.getPhotoResults();
-        if (photos != null) {
-            for (PhotoResult p : photos) {
+        List<String> photoIds = resp.getPhotoIds();
+        if (photoIds != null) {
+            for (String idStr : photoIds) {
                 try {
-                    long id = Long.parseLong(p.getId());
+                    long id = Long.parseLong(idStr);
                     Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
                             getContext().getContentResolver(),
                             id,
@@ -596,6 +600,7 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
                 } catch (NumberFormatException ignored) { }
             }
         }
+
 
         // 8) 전체 보기 버튼
         Button btnMore = card.findViewById(R.id.lt_btn_more);
@@ -634,5 +639,6 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
     public void setLastQuery(String query) {
         mLastQuery = query;
     }
+
 
 }
