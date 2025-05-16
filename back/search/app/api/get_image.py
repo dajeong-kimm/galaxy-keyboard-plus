@@ -26,12 +26,14 @@ logger = logging.getLogger(__name__)
 
 @router.post("/image/")
 async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
-    """이미지 및 일반 질문 처리 API"""
+    """
+    사용자의 자연어 질의에 따라 이미지를 검색하거나,
+    벡터 정보 검색 또는 일반 대화를 처리하는 메인 API 엔드포인트
+    """
     total_start = time.time()
-
     logger.info(f"🔍 쿼리 시작 - user: {user_id}, query: {query}")
 
-    # 캐시 확인
+    # 캐시 확인: 동일 쿼리가 이전에 처리된 적 있는지 확인
     cache_key = get_cache_key(user_id, query)
     cached_result = get_from_cache(cache_key, CACHE_TTL_SECONDS)
     if cached_result:
@@ -43,35 +45,35 @@ async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
     timings = {}
 
     try:
-        # 1. 쿼리 저장 (비동기)
+        # 1. 사용자 쿼리 비동기 저장
         asyncio.create_task(save_query_async(user_id, "user", query, timestamp))
 
-        # 2. 의도 파악
+        # 2. 쿼리 의도 파악: 사진 검색, 정보 요청, 일반 대화 중 하나
         intent_start = time.time()
         intent = await determine_image_query_intent(query)
         timings["intent_detection"] = time.time() - intent_start
         logger.info(f"🎯 의도 파악: {intent} ({timings['intent_detection']:.3f}초)")
 
-        # 3. 의도에 따른 처리
+        # 3. 의도별 처리 분기
         if intent == "find_photo":
-            # 사진 찾기 로직
+            # 📸 사용자 질문이 이미지 관련일 경우 → 이미지 검색
             result = await process_photo_search(user_id, query, timings)
         elif intent == "conversation":
-            # 일반 대화 처리
+            # 💬 일반 대화일 경우 → LLM 기반 응답 생성
             result = await process_conversation(user_id, query, timings)
-        else:  # get_info
-            # 정보 찾기 로직
+        else:
+            # 📚 정보 검색일 경우 → 쿼리 확장 + 벡터 검색 + 답변 생성
             result = await process_info_search(user_id, query, timings)
 
-        # 전체 시간
+        # 4. 전체 처리 시간 저장
         timings["total"] = time.time() - total_start
         result["_timings"] = timings
         result["_from_cache"] = False
 
-        # 캐시에 저장
+        # 5. 결과 캐시 저장
         set_cache(cache_key, result, CACHE_TTL_SECONDS, MAX_CACHE_SIZE)
 
-        # 결과 저장 (비동기)
+        # 6. 비동기 결과 저장
         asyncio.create_task(
             save_result_async(
                 user_id,
@@ -81,12 +83,13 @@ async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
             )
         )
 
-        # 성능 로깅
+        # 7. 성능 로그 출력
         log_performance_summary(intent, timings)
 
         return result
 
     except Exception as e:
+        # 예외 처리 및 로그 출력
         error_time = time.time() - total_start
         logger.error(
             f"❌ 처리 중 오류 발생 ({error_time:.3f}초): {str(e)}", exc_info=True

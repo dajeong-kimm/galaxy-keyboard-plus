@@ -75,7 +75,7 @@ async def perform_vector_search(
             search_similar_items_enhanced_optimized,
             user_id,
             expanded_queries,
-            "info",
+            "information",
             20,
         )
         context_info.extend(result1)
@@ -88,7 +88,7 @@ async def perform_vector_search(
                 search_similar_items_enhanced_optimized,
                 user_id,
                 [original_query],
-                "info",
+                "information",
                 10,
             )
             context_info.extend(result2)
