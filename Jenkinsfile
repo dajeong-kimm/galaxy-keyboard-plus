@@ -48,7 +48,9 @@ pipeline {
           string(credentialsId: 'JWT_RT_VALIDITY',              variable: 'JWT_RT_VALIDITY'),
           string(credentialsId: 'FRONTEND_API_URL',             variable: 'FRONTEND_API_URL'),
           string(credentialsId: 'GOOGLE_API_KEY',               variable: 'GOOGLE_API_KEY'),
-          string(credentialsId: 'BRAVE_API_KEY',                variable: 'BRAVE_API_KEY')
+          string(credentialsId: 'BRAVE_API_KEY',                variable: 'BRAVE_API_KEY'),
+          string(credentialsId: 'GOOGLE_SEARCH_API_KEY',               variable: 'GOOGLE_SEARCH_API_KEY'),
+          string(credentialsId: 'GOOGLE_SEARCH_ENGINE_ID',                variable: 'GOOGLE_SEARCH_ENGINE_ID')
         ]) {
           sh '''
             cp "$GCP_KEY_FILE" gcp-key.json
@@ -85,6 +87,9 @@ JWT_RT_VALIDITY=${JWT_RT_VALIDITY}
 FRONTEND_API_URL=${FRONTEND_API_URL}
 BRAVE_API_KEY=${BRAVE_API_KEY}
 
+GOOGLE_SEARCH_API_KEY=${GOOGLE_SEARCH_API_KEY}
+GOOGLE_SEARCH_ENGINE_ID=${GOOGLE_SEARCH_ENGINE_ID}
+
 ENV=prod
 """.trim()
         }
@@ -110,7 +115,7 @@ ENV=prod
                               else if (p.startsWith('back/search/'))    return 'search-service'  // search 디렉토리는 search-service로 매핑
                               else if (p.startsWith('back/mcp/'))       return 'mcp'  // mcp 디렉토리는 mcp 서비스로 매핑
                               else if (p.startsWith('back/brave-search/')) return 'web-search'  // brave-search 디렉토리는 web-search 서비스로 매핑
-                              else if (p.startsWith('back/web-search/')) return 'web-search'  // web-search 디렉토리는 web-search 서비스로 매핑
+                              else if (p.startsWith('back/google-web-search/')) return 'google-web-search'  // web-search 디렉토리는 web-search 서비스로 매핑
                               else /* back/... */                       return p.tokenize('/')[1]
                             }
                             .unique()
