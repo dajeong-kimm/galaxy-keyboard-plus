@@ -26,6 +26,7 @@ class MCPManager:
 
     def get_all_tools(self) -> dict:
         """서버별 툴 캐시 반환"""
+        logger.info(f"[MCPManager] get_all_tools 반환(result): {self.tools_cache}")
         return self.tools_cache
         """
         {

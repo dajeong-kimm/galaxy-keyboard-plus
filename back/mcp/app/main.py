@@ -39,8 +39,8 @@ async def startup_event():
     logger.info("애플리케이션 시작")
     # candidates에 사용할 MCP 서버 추가
     candidates = [
-        {"name": "brave", "url": os.getenv("WEB_SEARCH_URL")},
         {"name": "google", "url": os.getenv("GOOGLE_WEB_SEARCH_URL")},
+        {"name": "brave", "url": os.getenv("WEB_SEARCH_URL")},
         # ... 필요한 만큼 추가
     ]
 
