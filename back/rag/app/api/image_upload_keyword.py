@@ -162,8 +162,9 @@ async def upload_image_keyword(
         ON CONFLICT (access_id) DO UPDATE SET caption = EXCLUDED.caption
         RETURNING id;
         """
+
         cursor.execute(insert_image_query, (user_id, access_id, caption, now))
-        image_id = cursor.fetchone()[0]
+        image_id = access_id
 
         # 키워드 INSERT
         insert_keyword_query = """
