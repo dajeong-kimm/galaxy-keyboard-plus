@@ -167,7 +167,7 @@ app.get("/health", (req, res) => {
 console.log(
   `GOOGLE_API_KEY is ${
     process.env.GOOGLE_SEARCH_API_KEY ? "set" : "NOT set"
-  }``GOOGLE_SEARCH_ENGINE_ID is ${
+  }, GOOGLE_SEARCH_ENGINE_ID is ${
     process.env.GOOGLE_SEARCH_ENGINE_ID ? "set" : "NOT set"
   }`
 );
