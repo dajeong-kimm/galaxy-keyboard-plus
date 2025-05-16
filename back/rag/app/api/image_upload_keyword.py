@@ -84,8 +84,9 @@ async def upload_image_keyword(
 
         # access_id 중복 체크
         duplicate_check_start = time.time()
-        check_query = "SELECT id FROM images WHERE access_id = %s;"
-        cursor.execute(check_query, (access_id,))
+        check_query = "SELECT id FROM images WHERE user_id = %s AND access_id = %s;"
+        cursor.execute(check_query, (user_id, access_id))
+
         existing = cursor.fetchone()
         logger.info(f"✅ 중복 체크 완료: {time.time() - duplicate_check_start:.3f}초")
 
@@ -160,7 +161,7 @@ async def upload_image_keyword(
         insert_image_query = """
         INSERT INTO images (user_id, access_id, caption, image_time)
         VALUES (%s, %s, %s, %s)
-        ON CONFLICT (access_id) DO UPDATE SET caption = EXCLUDED.caption
+        ON CONFLICT (user_id, access_id) DO UPDATE SET caption = EXCLUDED.caption
         RETURNING id;
         """
 
@@ -184,11 +185,11 @@ async def upload_image_keyword(
 
         # 키워드 INSERT
         insert_keyword_query = """
-        INSERT INTO image_keywords (image_id, keyword, created_at)
-        VALUES (%s, %s, %s);
+        INSERT INTO image_keywords (user_id, image_id, keyword, created_at)
+        VALUES (%s, %s, %s, %s);
         """
         for keyword in full_keywords:
-            cursor.execute(insert_keyword_query, (image_id, keyword, now))
+            cursor.execute(insert_keyword_query, (user_id, image_id, keyword, now))
 
         connection.commit()
         cursor.close()
