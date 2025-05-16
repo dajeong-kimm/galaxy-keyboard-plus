@@ -11,13 +11,17 @@ class MCPManager:
 
     async def initialize(self):
         # 모든 클라이언트 initialize (세션+툴 캐싱)
+        logger.info(f"[MCPManager] Initializing {len(self.clients)} MCP clients...")
         for name, client in self.clients.items():
             await client.initialize()
             self.tools_cache[name] = client.tools_cache
+        logger.info(f"[MCPManager] MCP clients initialized. Tool cache: {self.tools_cache}")
 
     async def close(self):
+        logger.info(f"[MCPManager] Closing all MCP clients...")
         for client in self.clients.values():
             await client.close()
+        logger.info(f"[MCPManager] All MCP clients closed.")
 
     def get_all_tools(self) -> dict:
         """서버별 툴 캐시 반환"""
@@ -45,8 +49,15 @@ class MCPManager:
 
     async def call_tool(self, server_name: str, tool_name: str, arguments: dict):
         """특정 MCP 서버에 툴 호출 위임"""
+        logger.info(f"[MCPManager] call_tool: server={server_name}, tool={tool_name}, arguments={arguments}")
         client = self.clients.get(server_name)
         if not client:
-            logger.error(f"No such MCP server: {server_name}")
+            logger.error(f"[MCPManager] No such MCP server: {server_name}")
             return {"error": f"No such MCP server: {server_name}"}
-        return await client.call_tool(tool_name, arguments)
+        try:
+            result = await client.call_tool(tool_name, arguments)
+            logger.info(f"[MCPManager] call_tool result: server={server_name}, tool={tool_name}, result={str(result)[:300]}")  # 너무 길면 잘라서
+            return result
+        except Exception as e:
+            logger.error(f"[MCPManager] Exception in call_tool: {e}")
+            return {"error": str(e)}

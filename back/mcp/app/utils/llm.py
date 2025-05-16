@@ -2,13 +2,14 @@ import os
 import json
 import logging
 from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 # 로그 초기화
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def format_tools_for_openai(tools_info):
     tool_list = []

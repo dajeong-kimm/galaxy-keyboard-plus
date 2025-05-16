@@ -63,6 +63,8 @@ class MCPClient:
             "method": "list_tools",
             "params": {}
         }
+
+        logger.debug(f"[{self.server_name}] get_tools_list 요청: {request_data}")
         try:
             async with self.session.post(
                 self.server_url,
@@ -70,7 +72,10 @@ class MCPClient:
                 headers={"Content-Type": "application/json"}
             ) as resp:
                 data = await resp.json()
-                return data.get("result", {}) if "result" in data else {}
+                logger.debug(f"[{self.server_name}] get_tools_list 응답: status={resp.status}, data={data}")
+                result = data.get("result", {}) if "result" in data else {}
+                logger.info(f"[{self.server_name}] get_tools_list 반환(result): {result}")
+                return result
         except Exception as e:
             logger.error(f"[{self.server_name}] Failed to get tools: {e}")
             return {}
@@ -86,6 +91,7 @@ class MCPClient:
                 "arguments": arguments
             }
         }
+        logger.debug(f"[{self.server_name}] call_tool 요청: {request_data}")
         try:
             async with self.session.post(
                 self.server_url,
@@ -93,6 +99,8 @@ class MCPClient:
                 headers={"Content-Type": "application/json"}
             ) as resp:
                 data = await resp.json()
+                logger.debug(f"[{self.server_name}] call_tool 응답: status={resp.status}, data={data}")
+                logger.info(f"[{self.server_name}] call_tool 반환값: {data}")
                 return data
         except Exception as e:
             logger.error(f"[{self.server_name}] call_tool error: {e}")
