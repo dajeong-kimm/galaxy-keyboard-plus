@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import logging
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor
@@ -316,48 +316,9 @@ async def generate_info_answer(
     return await loop.run_in_executor(executor, sync_generate_answer)
 
 
-async def generate_conversation_response(user_id: str, query: str) -> str:
-    """대화형 질문에 대한 응답 생성"""
-
-    def sync_generate_conversation():
-        prompt = f"""
-사용자의 일상적인 대화나 개인적인 정보 공유에 적절하게 응답하세요.
-사용자가 선호도, 감정, 경험을 공유할 때 공감하고 자연스럽게 대화를 이어나가세요.
-
-[사용자 메시지]
-{query}
-
-응답 작성 규칙:
-1. 사용자의 말에 공감하고 이해한다는 느낌을 표현
-2. 자연스러운 대화체 사용
-3. 간결하게 1-2문장으로 응답
-4. 가능하면 마지막에 개방형 질문이나 다른 요청이 있는지 물어보기
-5. 한국어로 친근하게 대응
-
-응답:
-"""
-
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "너는 사용자의 개인 비서야. 자연스럽고 친근한 대화를 해줘.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.7,
-        )
-
-        return response.choices[0].message.content
-
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, sync_generate_conversation)
-
-
 async def generate_enhanced_info_answer(
     user_id: str, query: str, context_info: List[Dict]
-) -> tuple[str, List[int]]:
+) -> Tuple[str, List[int]]:
     """개선된 정보 기반 답변 생성 - 사용된 컨텍스트 인덱스 반환 & 불충분한 정보에도 대응"""
 
     def sync_generate_enhanced_answer():
@@ -369,7 +330,7 @@ async def generate_enhanced_info_answer(
                 context_texts.append(f"{i+1}. {text}")
 
         context_text = "\n".join(context_texts)
-
+        
         # 사용된 컨텍스트 인덱스를 추적하기 위한 프롬프트 추가
         if context_text:
             prompt = f"""
@@ -415,35 +376,149 @@ async def generate_enhanced_info_answer(
         )
 
         answer = response.choices[0].message.content.strip()
-
+        
         # 사용된 컨텍스트 인덱스 추출
         used_indices = []
         if context_text:  # 컨텍스트가 있었을 때만 추출
             # 답변 끝부분에서 번호 목록 추출
-            indices_pattern = r"\b([0-9]+(?:,\s*[0-9]+)*)\b"
-            indices_matches = re.findall(indices_pattern, answer.split("\n")[-1])
-
+            indices_pattern = r'\b([0-9]+(?:,\s*[0-9]+)*)\b'
+            indices_matches = re.findall(indices_pattern, answer.split('\n')[-1])
+            
             if indices_matches:
                 # 마지막 변에서 받은 것이 리스트의 형태로 도출되면 그걸 사용
                 last_match = indices_matches[-1]
-                for idx_str in last_match.split(","):
+                for idx_str in last_match.split(','):
                     try:
                         idx = int(idx_str.strip()) - 1  # 1-based -> 0-based
                         if 0 <= idx < len(context_info):
                             used_indices.append(idx)
                     except ValueError:
                         continue
-
+            
             # 수처리된 마지막 행을 제거 (외부에서 보이지 않게)
-            if used_indices and "\n" in answer:
-                lines = answer.split("\n")
-                if any(
-                    all(c in "0123456789, " for c in line.strip())
-                    for line in lines[-2:]
-                ):
-                    answer = "\n".join(lines[:-1]).strip()
-
+            if used_indices and '\n' in answer:
+                lines = answer.split('\n')
+                if any(all(c in '0123456789, ' for c in line.strip()) for line in lines[-2:]):
+                    answer = '\n'.join(lines[:-1]).strip()
+        
         return answer, used_indices
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, sync_generate_enhanced_answer)
+
+
+async def generate_conversation_response(user_id: str, query: str) -> str:
+    """대화형 질문에 대한 응답 생성"""
+
+    def sync_generate_conversation():
+        prompt = f"""
+사용자의 일상적인 대화나 개인적인 정보 공유에 적절하게 응답하세요.
+사용자가 선호도, 감정, 경험을 공유할 때 공감하고 자연스럽게 대화를 이어나가세요.
+
+[사용자 메시지]
+{query}
+
+응답 작성 규칙:
+1. 사용자의 말에 공감하고 이해한다는 느낌을 표현
+2. 자연스러운 대화체 사용
+3. 간결하게 1-2문장으로 응답
+4. 가능하면 마지막에 개방형 질문이나 다른 요청이 있는지 물어보기
+5. 한국어로 친근하게 대응
+
+응답:
+"""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "너는 사용자의 개인 비서야. 자연스럽고 친근한 대화를 해줘.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+        )
+
+        return response.choices[0].message.content
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, sync_generate_conversation)
+
+
+async def generate_contextualized_conversation_response(
+    user_id: str, query: str, chat_history: List[Dict]
+) -> Tuple[str, List[Dict]]:
+    """맥락을 고려한 대화형 응답 생성"""
+
+    def sync_generate_contextualized_conversation():
+        # 이전 대화 기록 포맷팅
+        formatted_history = []
+        for i, chat in enumerate(chat_history):
+            role = chat.get("role", "unknown")
+            text = chat.get("text", "")
+            if text:
+                formatted_history.append(f"{i+1}. [{role}] {text}")
+        
+        context_text = "\n".join(formatted_history)
+        
+        # 응답 생성을 위한 프롬프트
+        prompt = f"""
+사용자의 질문에 대해 이전 대화 기록을 고려하여 답변하세요.
+
+[이전 대화 기록]
+{context_text}
+
+[사용자 질문]
+{query}
+
+답변 작성 규칙:
+1. 이전 대화에서 특히 유의할 내용이 없는 경우 일반적인 답변 제공
+2. 사용자의 이전 발언에 기반하여 개인화된 응답 제공
+3. 자연스럽고 친근한 대화체 사용
+4. 특히 개인 선호도나 이전 언급에 언급되었던 특정 정보를 포함하여 맞춤형 응답 제공
+5. 사용한 이전 대화 번호를 마지막에 목록으로 추가 (예: "1, 3, 5")
+
+답변:
+"""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "너는 사용자의 개인 비서야. 이전 대화를 기반으로 맞춤형 답변을 제공해줄. 어떤 정보를 사용했는지 표시하라.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+        )
+
+        answer = response.choices[0].message.content.strip()
+        
+        # 사용된 채팅 기록 인덱스 추출
+        used_history = []
+        indices_pattern = r'\b([0-9]+(?:,\s*[0-9]+)*)\b'
+        indices_matches = re.findall(indices_pattern, answer.split('\n')[-1])
+        
+        if indices_matches:
+            # 마지막 일치하는 것을 인덱스 목록으로 간주
+            last_match = indices_matches[-1]
+            for idx_str in last_match.split(','):
+                try:
+                    idx = int(idx_str.strip()) - 1  # 1-based -> 0-based
+                    if 0 <= idx < len(chat_history):
+                        used_history.append(chat_history[idx])
+                except ValueError:
+                    continue
+        
+        # 수처리된 마지막 행을 제거 (외부에서 보이지 않게)
+        if used_history and '\n' in answer:
+            lines = answer.split('\n')
+            if any(all(c in '0123456789, ' for c in line.strip()) for line in lines[-2:]):
+                answer = '\n'.join(lines[:-1]).strip()
+        
+        return answer, used_history
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, sync_generate_contextualized_conversation)

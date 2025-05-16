@@ -6,6 +6,7 @@ import re
 from typing import List, Dict, Optional
 from app.utils.ai_utils import expand_info_query, generate_info_answer, openai_client
 from app.utils.semantic_search import search_similar_items_enhanced_optimized
+from app.utils.context_helpers import check_if_requires_context, get_chat_context, generate_contextualized_info_answer
 from app.config.settings import MAX_CONTEXT_ITEMS
 from concurrent.futures import ThreadPoolExecutor
 
@@ -14,8 +15,16 @@ executor = ThreadPoolExecutor(max_workers=10)
 
 
 async def process_info_search(user_id: str, query: str, timings: Dict) -> Dict:
-    """정보 검색 처리"""
-    # 쿼리 확장
+    """정보 검색 처리 - 이전 대화 기록 활용"""
+    # 맥락 필요 여부 확인
+    requires_context = check_if_requires_context(query)
+    chat_history = []
+    
+    if requires_context:
+        # 이전 대화 기록 가져오기
+        chat_history, context_timings = await get_chat_context(user_id, query)
+        timings.update(context_timings)
+        logger.info(f"🔍 이전 대화 검색: {len(chat_history)}개 ({timings.get('context_retrieval', 0):.3f}초)")
     query_expand_start = time.time()
     expanded_queries = await expand_info_query(query)
     timings["query_expansion"] = time.time() - query_expand_start
@@ -40,14 +49,26 @@ async def process_info_search(user_id: str, query: str, timings: Dict) -> Dict:
 
     # 답변 생성
     answer_start = time.time()
-    answer, used_context_indices = await generate_enhanced_info_answer(user_id, query, context_info)
+    
+    if chat_history:
+        # 정보와 맥락을 모두 고려한 답변 생성
+        answer, used_info_indices, used_chat = await generate_contextualized_info_answer(
+            user_id, query, context_info, chat_history
+        )
+        logger.info(f"✍️ 맥락 기반 답변 생성 (사용된 정보: {len(used_info_indices)}개, 사용된 대화: {len(used_chat)}개)")
+    else:
+        # 정보만 고려한 답변 생성
+        answer, used_info_indices = await generate_enhanced_info_answer(user_id, query, context_info)
+        used_chat = []
+        logger.info(f"✍️ 일반 답변 생성 (사용된 정보: {len(used_info_indices)}개)")
+
     timings["answer_generation"] = time.time() - answer_start
     logger.info(f"✍️ 답변 생성 완료 ({timings['answer_generation']:.3f}초)")
     
     # 응답에 실제로 사용된 정보 소스의 ID만 추출
     photo_ids = []
-    if used_context_indices and context_info:
-        for idx in used_context_indices:
+    if used_info_indices and context_info:
+        for idx in used_info_indices:
             if idx < len(context_info):
                 item_id = extract_id_from_item(context_info[idx])
                 if item_id:
@@ -61,6 +82,7 @@ async def process_info_search(user_id: str, query: str, timings: Dict) -> Dict:
         "query": query,
         "answer": answer,
         "context_count": len(context_info),
+        "chat_context_used": len(used_chat) > 0,  # 대화 맥락 사용 여부
         "photo_ids": photo_ids,
         "_timings": timings,
         "_debug": {
@@ -69,6 +91,7 @@ async def process_info_search(user_id: str, query: str, timings: Dict) -> Dict:
             "context_sample": (
                 context_info[0].get("text", "")[:200] if context_info else None
             ),
+            "chat_history_count": len(chat_history),
         },
     }
 
@@ -122,7 +145,9 @@ async def perform_vector_search(
         return []
 
 
-async def generate_enhanced_info_answer(user_id: str, query: str, context_info: List[Dict]) -> tuple[str, List[int]]:
+async def generate_enhanced_info_answer(
+    user_id: str, query: str, context_info: List[Dict]
+) -> tuple[str, List[int]]:
     """개선된 정보 기반 답변 생성 - 사용된 컨텍스트 인덱스 반환 & 불충분한 정보에도 대응"""
 
     def sync_generate_enhanced_answer():
@@ -134,7 +159,7 @@ async def generate_enhanced_info_answer(user_id: str, query: str, context_info: 
                 context_texts.append(f"{i+1}. {text}")
 
         context_text = "\n".join(context_texts)
-        
+
         # 사용된 컨텍스트 인덱스를 추적하기 위한 프롬프트 추가
         if context_text:
             prompt = f"""
@@ -180,31 +205,34 @@ async def generate_enhanced_info_answer(user_id: str, query: str, context_info: 
         )
 
         answer = response.choices[0].message.content.strip()
-        
+
         # 사용된 컨텍스트 인덱스 추출
         used_indices = []
         if context_text:  # 컨텍스트가 있었을 때만 추출
             # 답변 끝부분에서 번호 목록 추출
-            indices_pattern = r'\b([0-9]+(?:,\s*[0-9]+)*)\b'
-            indices_matches = re.findall(indices_pattern, answer.split('\n')[-1])
-            
+            indices_pattern = r"\b([0-9]+(?:,\s*[0-9]+)*)\b"
+            indices_matches = re.findall(indices_pattern, answer.split("\n")[-1])
+
             if indices_matches:
                 # 마지막 변에서 받은 것이 리스트의 형태로 도출되면 그걸 사용
                 last_match = indices_matches[-1]
-                for idx_str in last_match.split(','):
+                for idx_str in last_match.split(","):
                     try:
                         idx = int(idx_str.strip()) - 1  # 1-based -> 0-based
                         if 0 <= idx < len(context_info):
                             used_indices.append(idx)
                     except ValueError:
                         continue
-            
+
             # 수처리된 마지막 행을 제거 (외부에서 보이지 않게)
-            if used_indices and '\n' in answer:
-                lines = answer.split('\n')
-                if any(all(c in '0123456789, ' for c in line.strip()) for line in lines[-2:]):
-                    answer = '\n'.join(lines[:-1]).strip()
-        
+            if used_indices and "\n" in answer:
+                lines = answer.split("\n")
+                if any(
+                    all(c in "0123456789, " for c in line.strip())
+                    for line in lines[-2:]
+                ):
+                    answer = "\n".join(lines[:-1]).strip()
+
         return answer, used_indices
 
     loop = asyncio.get_event_loop()
@@ -220,20 +248,20 @@ def extract_id_from_item(item: Dict) -> Optional[str]:
     text = item.get("text", "")
     if not text:
         return None
-        
+
     # 1. 단순 숫자로 시작하는 영수증 번호 패턴
-    receipt_id_match = re.match(r'^(\d{5,10})', text.strip())
+    receipt_id_match = re.match(r"^(\d{5,10})", text.strip())
     if receipt_id_match:
         return receipt_id_match.group(1)
-        
+
     # 2. "숫자: " 형태의 ID
-    prefix_id_match = re.match(r'^(\d+):\s', text.strip())
+    prefix_id_match = re.match(r"^(\d+):\s", text.strip())
     if prefix_id_match:
         return prefix_id_match.group(1)
-        
+
     # 3. 첫 줄이 숫자로만 이루어진 경우
-    first_line = text.strip().split('\n')[0].strip() if '\n' in text else ''
+    first_line = text.strip().split("\n")[0].strip() if "\n" in text else ""
     if first_line and first_line.isdigit() and len(first_line) > 4:
         return first_line
-        
+
     return None
