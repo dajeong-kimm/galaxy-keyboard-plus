@@ -69,7 +69,7 @@ export default function Section1Intro() {
       // 스크롤 트리거
       const trigger = ScrollTrigger.create({
         trigger: sectionRef.current,
-        start: "bottom 90%",
+        start: "bottom 20%",
         // once: true,
         onEnter: () => {
           if (hasUserScrolled) {
@@ -137,7 +137,7 @@ export default function Section1Intro() {
 
         <div className="flex flex-col items-start justify-start mr-32 gap-y-8">
           <div className="relative w-full h-[100px]">
-            <h1 className="absolute top-0 left-0 text-6xl font-bold title">Phokey</h1>
+            <h1 className="absolute top-0 left-0 text-6xl font-bold text-black title">Phokey</h1>
             {!showQR && <p className="absolute text-xl font-semibold text-gray-600 top-16">서비스 한 줄 설명</p>}
           </div>
 
@@ -151,7 +151,7 @@ export default function Section1Intro() {
             {showQR ? (
               <div className="flex flex-col items-center justify-center">
                 <Image
-                  src="/images/qr-code.png"
+                  src="/images/qr-code.jpg"
                   alt="qr"
                   width={240}
                   height={240}
@@ -159,7 +159,7 @@ export default function Section1Intro() {
                 <p className="mt-2 text-sm text-center text-gray-500">QR코드를 촬영하여 설치 페이지로 이동합니다</p>
               </div>
             ) : (
-              <p className="font-semibold">앱 다운로드</p>
+              <p className="font-semibold text-black">앱 다운로드</p>
             )}
           </button>
         </div>
