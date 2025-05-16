@@ -28,34 +28,42 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 
     // 테스트용
-    private static final List<String> PROTECTED_PATHS = List.of("/api","/rag");
+    private static final List<String> PROTECTED_PATHS = List.of("/api","/rag", "/search");
 
-
-    // private static final List<String> PROTECTED_PATHS = List.of("/api", "/rag");
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+
+        // OPTIONS 메서드는 인증 체크 없이 통과
+        if ("OPTIONS".equalsIgnoreCase(exchange.getRequest().getMethod().name())) {
+            return chain.filter(exchange);
+        }
+
         String path = exchange.getRequest().getPath().value();
 
+        // 1. 특정 헤더로 인증 우회
+        String bypass = exchange.getRequest().getHeaders().getFirst("X-Bypass-Auth");
+        if (path.startsWith("/search") && "adminadmin".equals(bypass)) {
+            // 인증 우회 (프록시만)
+            return chain.filter(exchange);
+        }
+
+        // (아래는 기존 코드 그대로)
         // 보호 경로 확인
         boolean requiresAuth = PROTECTED_PATHS.stream().anyMatch(path::startsWith);
         if (!requiresAuth) return chain.filter(exchange);
 
-        // Authorization 헤더 확인
         String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
-
         if (authHeader == null) {
             logger.warn("🔒 인증 실패: Authorization 헤더 없음");
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
-
         if (!authHeader.startsWith("Bearer ")) {
             logger.warn("🔒 인증 실패: Authorization 형식이 Bearer 아님 (값: {})", authHeader);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
-
         try {
             String token = authHeader.substring(7);
             SecretKey key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
@@ -67,30 +75,18 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
             String userId = claims.getSubject();
 
-            // 요청 헤더에 userId 추가
             ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                     .header("X-User-Id", userId)
                     .build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
-
-        } catch (ExpiredJwtException e) {
-            logger.warn("🔒 인증 실패: 토큰 만료됨 - {}", e.getMessage());
-        } catch (UnsupportedJwtException e) {
-            logger.warn("🔒 인증 실패: 지원하지 않는 토큰 - {}", e.getMessage());
-        } catch (MalformedJwtException e) {
-            logger.warn("🔒 인증 실패: 잘못된 형식의 토큰 - {}", e.getMessage());
-        } catch (SignatureException e) {
-            logger.warn("🔒 인증 실패: 서명 검증 실패 - {}", e.getMessage());
-        } catch (JwtException e) {
-            logger.warn("🔒 인증 실패: JWT 처리 오류 - {}", e.getMessage());
         } catch (Exception e) {
-            logger.error("🔒 인증 실패: 예기치 않은 오류 - {}", e.getMessage(), e);
+            logger.warn("🔒 인증 실패: {}", e.getMessage());
         }
-
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
     }
+
 
     @Override
     public int getOrder() {
