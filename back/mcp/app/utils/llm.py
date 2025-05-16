@@ -21,7 +21,7 @@ def format_tools_for_openai(tools_info):
                     # 반드시 MCP 서버명_툴명으로 이름 생성!
                     "name": f"{srv}_{tool['name']}",
                     "description": tool.get("description", ""),
-                    "parameters": tool.get("parameters", {}),
+                    "parameters": tool.get("inputSchema", {}),
                 }
             })
     return tool_list

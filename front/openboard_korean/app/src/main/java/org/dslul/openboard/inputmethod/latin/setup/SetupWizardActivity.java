@@ -46,7 +46,6 @@ import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
-import org.dslul.openboard.inputmethod.backup.BackupManager;
 import org.dslul.openboard.inputmethod.backup.BackupWorker;
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.search.SearchActivity;

@@ -8,6 +8,7 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.VibrationEffect;
@@ -15,6 +16,7 @@ import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,6 +27,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.dslul.openboard.inputmethod.latin.R;
@@ -119,7 +122,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         BotViewHolder(View v) {
             super(v);
             tvMessage = v.findViewById(R.id.tvBotMessage);
-            btnCopy   = v.findViewById(R.id.btnCopy);
+            btnCopy = v.findViewById(R.id.btnCopy);
             btnToggle = v.findViewById(R.id.btnToggleImages);
             glImages = v.findViewById(R.id.glBotImages);
 
@@ -158,61 +161,81 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 final int size = dpToPx(120, glImages);
                 for (Uri u : uris) {
                     long mediaId = ContentUris.parseId(u);
-                    Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
-                            glImages.getContext().getContentResolver(),
-                            mediaId,
-                            MediaStore.Images.Thumbnails.MINI_KIND,
-                            null
-                    );
 
-                    ImageView iv = new ImageView(glImages.getContext());
                     GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-                    lp.width  = size;
+                    lp.width = size;
                     lp.height = size;
                     lp.setMargins(0, 0, dpToPx(4, glImages), dpToPx(4, glImages));
-                    iv.setLayoutParams(lp);
-                    iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    iv.setImageBitmap(thumb);
 
-                    /* ── (1) 썸네일 클릭 → 갤러리(뷰어) 열기 ────────────────── */
-                    iv.setOnClickListener(v -> {
-                        Context ctx = v.getContext();
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setDataAndType(u, "image/*");
-                        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        try {
-                            ctx.startActivity(intent);
-                        } catch (ActivityNotFoundException e) {
-                            Toast.makeText(ctx, "이미지 뷰어를 열 수 없습니다", Toast.LENGTH_SHORT).show();
-                        }
-                    });
 
-                    /* ── (2) 썸네일 길게 터치 → 클립보드 복사 ───────────────── */
-                    iv.setOnLongClickListener(v -> {
-                        Context ctx = v.getContext();
+                    Bitmap thumb = null;
+                    try {
+                        thumb = MediaStore.Images.Thumbnails.getThumbnail(
+                                glImages.getContext().getContentResolver(),
+                                mediaId,
+                                MediaStore.Images.Thumbnails.MINI_KIND,
+                                null
+                        );
+                    } catch (Exception ignored) {
+                        // 실패하면 thumb는 null
+                    }
 
-                        // 1) 클립보드에 URI 복사
-                        ClipboardManager cm =
-                                (ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE);
-                        ClipData clip = ClipData.newUri(
-                                ctx.getContentResolver(), "image", u);
-                        cm.setPrimaryClip(clip);
+                    if (thumb != null) {
+                        ImageView iv = new ImageView(glImages.getContext());
+                        iv.setLayoutParams(lp);
+                        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        iv.setImageBitmap(thumb);
 
-                        // 2) 진동 (50ms) 발생
-                        Vibrator vibrator = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
-                        if (vibrator != null) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                vibrator.vibrate(
-                                        VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
-                                );
-                            } else {
-                                vibrator.vibrate(50);
+                        /* ── (1) 썸네일 클릭 → 갤러리(뷰어) 열기 ────────────────── */
+                        iv.setOnClickListener(v -> {
+                            Context ctx = v.getContext();
+                            Intent intent = new Intent(Intent.ACTION_VIEW);
+                            intent.setDataAndType(u, "image/*");
+                            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            try {
+                                ctx.startActivity(intent);
+                            } catch (ActivityNotFoundException e) {
+                                Toast.makeText(ctx, "이미지 뷰어를 열 수 없습니다", Toast.LENGTH_SHORT).show();
                             }
-                        }
-                        return true;   // 롱클릭 이벤트 소비
-                    });
+                        });
 
-                    glImages.addView(iv);
+                        /* ── (2) 썸네일 길게 터치 → 클립보드 복사 ───────────────── */
+                        iv.setOnLongClickListener(v -> {
+                            Context ctx = v.getContext();
+
+                            // 1) 클립보드에 URI 복사
+                            ClipboardManager cm =
+                                    (ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE);
+                            ClipData clip = ClipData.newUri(
+                                    ctx.getContentResolver(), "image", u);
+                            cm.setPrimaryClip(clip);
+
+                            // 2) 진동 (50ms) 발생
+                            Vibrator vibrator = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
+                            if (vibrator != null) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    vibrator.vibrate(
+                                            VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
+                                    );
+                                } else {
+                                    vibrator.vibrate(50);
+                                }
+                            }
+                            return true;   // 롱클릭 이벤트 소비
+                        });
+                        glImages.addView(iv);
+                    } else {
+                        // 썸네일이 없으면 텍스트뷰로 대체
+                        TextView tv = new TextView(glImages.getContext());
+                        tv.setLayoutParams(lp);
+                        tv.setText("삭제된 사진입니다.");
+                        tv.setGravity(Gravity.CENTER);
+                        tv.setTextSize(12);  // 적절히 조절
+                        tv.setTextColor(Color.parseColor("#9E9E9E"));
+                        // 배경색·모서리 둥글게 등 원하면 스타일 추가
+                        glImages.addView(tv);
+                    }
+
                 }
             }
 
