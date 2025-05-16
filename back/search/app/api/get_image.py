@@ -17,6 +17,7 @@ from app.utils.cache_utils import (
 )
 from app.services.image_service import process_photo_search
 from app.services.info_service import process_info_search
+from app.services.conversation_service import process_conversation
 from app.config.settings import CACHE_TTL_SECONDS, MAX_CACHE_SIZE
 
 router = APIRouter()
@@ -25,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 @router.post("/image/")
 async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
-    """이미지 관련 질문 처리 API"""
+    """이미지 및 일반 질문 처리 API"""
     total_start = time.time()
 
-    logger.info(f"🔍 이미지 쿼리 시작 - user: {user_id}, query: {query}")
+    logger.info(f"🔍 쿼리 시작 - user: {user_id}, query: {query}")
 
     # 캐시 확인
     cache_key = get_cache_key(user_id, query)
@@ -55,6 +56,9 @@ async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
         if intent == "find_photo":
             # 사진 찾기 로직
             result = await process_photo_search(user_id, query, timings)
+        elif intent == "conversation":
+            # 일반 대화 처리
+            result = await process_conversation(user_id, query, timings)
         else:  # get_info
             # 정보 찾기 로직
             result = await process_info_search(user_id, query, timings)
@@ -97,30 +101,23 @@ async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
 
 def log_performance_summary(intent: str, timings: Dict):
     """성능 요약 로깅"""
-    logger.info(
-        f"""
-⏱️ Image API 성능 요약:
+    if intent == "conversation":
+        logger.info(
+            f"""
+⏱️ API 성능 요약 (대화):
+- 의도 파악: {timings['intent_detection']:.3f}초
+- 대화 응답 생성: {timings.get('conversation_response', 0):.3f}초
+- 전체 시간: {timings['total']:.3f}초
+            """
+        )
+    else:
+        logger.info(
+            f"""
+⏱️ API 성능 요약:
 - 의도 파악: {timings['intent_detection']:.3f}초
 - {'키워드 추출' if intent == 'find_photo' else '쿼리 확장'}: {timings.get('keyword_extraction', timings.get('query_expansion', 0)):.3f}초
 - {'DB 검색' if intent == 'find_photo' else '벡터 검색'}: {timings.get('db_search', timings.get('vector_search', 0)):.3f}초
 - {'DB 검색' if intent == 'find_photo' else '답변 생성'}: {timings.get('db_search', timings.get('answer_generation', 0)):.3f}초
 - 전체 시간: {timings['total']:.3f}초
-        """
-    )
-
-
-# 캐시 관리 엔드포인트
-@router.get("/image/cache/status")
-async def get_cache_status_endpoint():
-    """캐시 상태 확인"""
-    status = get_cache_status()
-    status["max_size"] = MAX_CACHE_SIZE
-    status["ttl_seconds"] = CACHE_TTL_SECONDS
-    return status
-
-
-@router.delete("/image/cache/clear")
-async def clear_cache_endpoint():
-    """캐시 초기화"""
-    cleared_items = clear_cache()
-    return {"cleared_items": cleared_items}
+            """
+        )

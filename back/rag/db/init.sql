@@ -19,5 +19,17 @@ CREATE TABLE image_keywords (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+DROP TABLE IF EXISTS clipboard_items;
+
+CREATE TABLE clipboard_items (
+    id SERIAL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    image_id TEXT REFERENCES images(access_id) ON DELETE CASCADE,
+    type TEXT NOT NULL,       -- 예: '와이파이', '계좌번호'
+    value TEXT NOT NULL,      -- 예: 'olleh_WiFi 12345678'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
 -- 인덱스 생성 (검색 최적화용)
 CREATE INDEX idx_keyword ON image_keywords(keyword);

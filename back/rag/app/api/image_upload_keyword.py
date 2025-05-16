@@ -4,6 +4,7 @@ from app.utils.image_text_extractor import extract_text_from_image
 from app.utils.vector_store import save_text_to_pinecone
 from app.utils.google_geocoding import reverse_geocode
 from app.utils.context_keywords import parse_time_keywords, parse_address_keywords
+from app.utils.clipboard_info_extractor import extract_clipboard_items
 import json
 import os
 import psycopg2
@@ -165,6 +166,21 @@ async def upload_image_keyword(
 
         cursor.execute(insert_image_query, (user_id, access_id, caption, now))
         image_id = access_id
+
+        # 클립보드 정보 추출
+        clipboard_items = extract_clipboard_items(ocr_text)
+        logger.info(f"📋 클립보드 항목 수: {len(clipboard_items)}")
+
+        # 클립보드 INSERT
+        insert_clipboard_query = """
+        INSERT INTO clipboard_items (user_id, image_id, type, value, created_at)
+        VALUES (%s, %s, %s, %s, %s);
+        """
+        for item in clipboard_items:
+            cursor.execute(
+                insert_clipboard_query,
+                (user_id, image_id, item["type"], item["value"], now),
+            )
 
         # 키워드 INSERT
         insert_keyword_query = """
