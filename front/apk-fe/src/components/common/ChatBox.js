@@ -4,34 +4,23 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import Image from "next/image";
+import ReactMarkdown from "react-markdown";
 import axiosInstance from "@/lib/axiosInstance";
 
 // 전체 프롬프트 리스트
 const ALL_PROMPTS = [
-  "별 그려진 연두색 네일아트 사진 찾아줘",
-  "하품하는 고양이 사진 좀",
-  "이디야 와이파이 비밀번호 알아?",
-  "봄봄 와이파이 비밀번호 알려줘",
-  "오므라이스 네일아트 사진",
-  "헬로키티 과자 사진 보내줘",
-  "김해뒷고기 먹으러 언제 갔었지?",
-  "ANTZ 와이파이 비밀번호가 뭐야?",
-  "삼겹살 먹은 곳이 어디지?",
-  "멸망인가 멸종인가 하는 시집 제목이 뭐더라?",
-  "문상훈이 추천한 시집 제목",
-  "편의점 기프티콘",
-  "홍길동 씨 번호 좀 알려줘",
-  "검은 수녀들 좌석 어디야",
-  "파묘 어디서 봤었지?",
-  "기생충 며칠에 봤었어?",
-  "백두산 몇 명이서 봤지?",
-  "피피티 만들 때 참고할만한 데가 어디였어",
-  "해커톤 영남 본선 어디서 해?",
-  "아이디어 경진대회 제출 마감일이 언제였지?",
-  "프런티어 필수로 해야 하는 게 뭐였지?",
-  "추천 고양이 사료",
-  "오드아이 고양이 사진",
-  "대구 간 날이 언제야?",
+  "회색 네일아트 사진",
+  "하품하는 고양이 사진",
+  "백두산 영화 본 날 언제야",
+  "책 사진",
+  "기프티콘 사진",
+  "영화 티켓 사진",
+  "공모전 포스터 사진",
+  "헬로키티 사진",
+  "검은 수녀들 예매 사진",
+  "홍길동 명함 사진",
+  "동성로 봄봄 와이파이 사진",
+  "프로젝트 과제 사진",
 ];
 
 export default function ChatBox() {
@@ -90,7 +79,7 @@ export default function ChatBox() {
         botText = data.answer || "관련 정보를 찾을 수 없습니다.";
         // photo_ids 있을 경우 이미지도 추가
         if (Array.isArray(data.photo_ids) && data.photo_ids.length > 0) {
-          imageIds = data.photo_ids.map((id) => `/images/${id}.jpg`);
+          imageIds = data.photo_ids.map((id) => `/images/grid-images/${id}.jpg`);
         }
       } else if (data.type === "photo_search") {
         // photo_ids가 없거나 비어있으면 안내 메시지
@@ -104,7 +93,7 @@ export default function ChatBox() {
         botText = data.answer || "관련 정보를 찾을 수 없습니다.";
         // photo_ids 있을 경우 이미지도 추가
         if (Array.isArray(data.photo_ids) && data.photo_ids.length > 0) {
-          imageIds = data.photo_ids.map((id) => `/images/${id}.jpg`);
+          imageIds = data.photo_ids.map((id) => `/images/grid-images/${id}.jpg`);
         }
       } else {
         botText = "알 수 없는 응답 형식입니다.";
@@ -169,7 +158,9 @@ export default function ChatBox() {
                   : "self-start bg-white text-gray-800 border border-gray-200 rounded-tl-none shadow-sm"
               }`}
             >
-              <p className="mb-1">{msg.text}</p>
+              <p className="mb-1">
+                <ReactMarkdown>{msg.text}</ReactMarkdown>
+              </p>{" "}
               {msg.images && msg.images.length > 0 && (
                 <div className="inline-flex flex-wrap gap-2 mt-2">
                   {msg.images.map((src, i) => (
@@ -223,7 +214,7 @@ export default function ChatBox() {
                 if (e.key === "Enter") handleSend();
               }}
               placeholder="찾고 싶은 사진 또는 정보를 입력하세요"
-              className="flex-1 h-full px-4 py-3 text-sm border rounded-lg"
+              className="flex-1 h-full px-4 py-3 text-sm text-black border rounded-lg"
             />
             <button
               onClick={handleSend}
