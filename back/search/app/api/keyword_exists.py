@@ -1,5 +1,3 @@
-# app/api/keyword_exists.py
-
 from fastapi import APIRouter, Query
 import psycopg2
 import os
@@ -20,7 +18,7 @@ DB_PARAMS = {
 @router.get("/keyword/exists/")
 def keyword_exists(user_id: str = Query(...), keyword: str = Query(...)):
     """
-    주어진 user_id에 대해 keyword가 존재하는지 여부를 반환
+    주어진 user_id가 등록한 이미지들 중 keyword가 존재하는지 여부 반환
     """
     try:
         conn = psycopg2.connect(**DB_PARAMS)
@@ -30,7 +28,7 @@ def keyword_exists(user_id: str = Query(...), keyword: str = Query(...)):
         SELECT EXISTS (
             SELECT 1
             FROM image_keywords ik
-            JOIN images i ON ik.image_id = i.id
+            JOIN images i ON ik.image_id = i.access_id
             WHERE i.user_id = %s AND ik.keyword = %s
         );
         """
