@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_DIR="$HOME/frontend"
 
 # Define target paths relative to repo root
-ANDROID_DIR="$SCRIPT_DIR/front/frontend/android"
+ANDROID_DIR="$SCRIPT_DIR/front/openboard_korean"
 APP_DIR="$ANDROID_DIR/app"
 KEYSTORE_DIR="$APP_DIR/keystore"
 
