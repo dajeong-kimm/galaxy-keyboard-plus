@@ -79,21 +79,23 @@ async def determine_image_query_intent(query: str) -> str:
 
     def sync_determine_intent():
         prompt = f"""
-다음 질문을 분석하여 사용자의 의도를 파악하세요.
-- 특정 사진을 찾는 질문인 경우: "find_photo"
-- 정보를 물어보는 질문인 경우: "get_info"
+사용자의 질문이 다음 중 어느 의도에 해당하는지 분석하세요:
+- "find_photo": 사용자가 사진을 찾고자 함
+- "get_info": 사용자가 텍스트 정보나 설명을 원함
+
+판단 기준:
+- 질문에 "사진", "이미지", "찍은", "보여줘" 등의 단어가 포함되어 있으면 find_photo
+- 질문이 단어 하나뿐인 경우에도 그 단어가 장소, 인물, 사물 등 일반적으로 사진에 등장할 수 있는 키워드이면 find_photo
+- 그렇지 않으면 get_info
+
+예시:
+- "헬로키티" → find_photo
+- "헬로키티 사진" → find_photo
+- "헬로키티는 누구야?" → get_info
 
 질문: {query}
 
-사진을 찾는 표현들:
-- "사진", "이미지", "찍은", "촬영한", "보여줘", "찾아줘", "있어?", "어디"
-- 특정 시간/장소/활동과 함께 사진을 언급하는 경우
-
-정보를 묻는 표현들:
-- "내용", "정보", "알려줘", "설명", "어때?", "뭐야?", "무엇"
-- 사실이나 지식을 묻는 경우
-
-응답은 "find_photo" 또는 "get_info" 중 하나만 반환하세요.
+응답은 반드시 "find_photo" 또는 "get_info" 중 하나만 주세요.
 """
 
         response = openai_client.chat.completions.create(
@@ -115,49 +117,45 @@ async def determine_image_query_intent(query: str) -> str:
 
 
 async def extract_photo_keywords(query: str) -> List[str]:
-    """사진 검색을 위한 키워드 추출 - 개선된 버전"""
+    """사진 검색을 위한 키워드 추출 - 직접 관련 키워드와 날짜 표현 처리"""
 
     def sync_extract_keywords():
+        # 1. 키워드 추출 프롬프트
         prompt = f"""
-다음 질문에서 사진을 찾기 위한 모든 관련 키워드를 추출하세요.
-날짜/시간 키워드는 제외하고, 사진의 내용을 나타내는 핵심 키워드만 추출합니다.
+다음 질문에서 사진을 찾기 위한 직접 관련 키워드를 추출하세요.
+질문과 직접 관련된 핵심 단어와 유사어만 추출하고, 관련성이 낮은 확장 키워드는 제외합니다.
+날짜/시간 표현은 제외하고 다른 키워드만 추출하세요.
 
 질문: {query}
 
-카테고리별 키워드:
-1. 장소: 집, 회사, 카페, 공원, 바다, 산, 식당, 학교, 호텔, 거리, 매장
-2. 활동: 여행, 파티, 회의, 식사, 운동, 산책, 쇼핑, 놀이, 행사, 축제
-3. 사람: 가족, 친구, 동료, 애완동물, 연인, 부모님, 아이, 손님
-4. 사물: 음식, 차, 건물, 풍경, 꽃, 선물, 케이크, 문서, 제품
-5. 상황: 생일, 기념일, 휴가, 출장, 모임, 데이트, 결혼식
-
 추출 규칙:
-1. 날짜/시간 표현 제외
-2. 동사는 명사로 변환
-3. 가능한 많은 연관 키워드 포함
-4. 문맥상 암시된 키워드도 추가
+1. 질문과 직접 관련된 주요 명사와 형용사만 추출
+2. 핵심 개념의 유사어와 관련어 포함 (최대 2-3개)
+3. 간접적으로 연관된 확장 키워드는 제외
+4. 동사는 관련 명사로만 변환 (예: "먹다" → "식사")
+5. 날짜/시간 표현은 별도로 처리되므로 제외
 
 예시:
-"생일 파티 사진" → ["생일", "파티", "축하", "케이크", "친구", "모임", "기념일"]
-"회사에서 찍은 사진" → ["회사", "사무실", "직장", "동료", "업무", "미팅"]
-"여행 가서 찍은 풍경" → ["여행", "풍경", "관광", "휴가", "자연", "경치"]
+"생일 파티 사진" → ["생일", "파티", "축하"]
+"어제 회사에서 찍은 사진" → ["회사", "사무실", "직장"]
+"지난주 해변에서 찍은 사진" → ["해변", "바다", "바닷가"]
 
 JSON 배열로만 반환하세요.
 """
 
-        response = openai_client.chat.completions.create(
+        keyword_response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": "키워드 추출 전문가. 사진 검색에 도움되는 모든 키워드를 추출해. JSON만 반환.",
+                    "content": "키워드 추출 전문가. 사진 검색에 직접 관련된 핵심 키워드만 추출. JSON 배열만 반환.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
+            temperature=0.2,
         )
 
-        keywords_raw = response.choices[0].message.content
+        keywords_raw = keyword_response.choices[0].message.content
 
         # 코드블록 제거
         if "```" in keywords_raw:
@@ -167,39 +165,97 @@ JSON 배열로만 반환하세요.
 
         try:
             keywords = json.loads(keywords_raw)
-
-            # 키워드 확장
-            expanded_keywords = set(keywords)
-
-            for keyword in keywords:
-                # 활동 관련 확장
-                if keyword in ["여행", "관광", "휴가"]:
-                    expanded_keywords.update(["나들이", "외출", "탐방"])
-                elif keyword in ["파티", "모임"]:
-                    expanded_keywords.update(["행사", "축하", "기념"])
-                elif keyword in ["식사", "음식"]:
-                    expanded_keywords.update(["맛집", "요리", "외식"])
-
-                # 장소 관련 확장
-                if keyword == "회사":
-                    expanded_keywords.update(["사무실", "직장", "업무"])
-                elif keyword == "집":
-                    expanded_keywords.update(["홈", "거실", "방"])
-                elif keyword in ["바다", "해변"]:
-                    expanded_keywords.update(["해안", "바닷가", "해수욕장"])
-
-                # 사람 관련 확장
-                if keyword == "가족":
-                    expanded_keywords.update(["부모", "형제", "친척"])
-                elif keyword == "친구":
-                    expanded_keywords.update(["동료", "친목", "우정"])
-
-            return list(expanded_keywords)
-
         except json.JSONDecodeError:
-            return [
+            # JSON 파싱 실패시 간단한 처리
+            keywords = [
                 kw.strip() for kw in keywords_raw.strip("[]").split(",") if kw.strip()
             ]
+
+        # 2. 시간 표현이 있는지 확인하고 날짜 추출
+        time_words = [
+            "어제",
+            "오늘",
+            "내일",
+            "그저께",
+            "모레",
+            "지난주",
+            "이번주",
+            "다음주",
+            "지난달",
+            "이번달",
+            "다음달",
+            "작년",
+            "올해",
+            "내년",
+            "전날",
+            "다음날",
+        ]
+
+        has_time_expression = any(word in query for word in time_words)
+
+        date_keywords = []
+        if has_time_expression:
+            # 현재 날짜 가져오기
+            current_date = datetime.now()
+
+            # 날짜 추출 프롬프트
+            date_prompt = f"""
+다음 질문의 시간 표현을 오늘 날짜({current_date.strftime('%Y년 %m월 %d일')})를 기준으로 
+정확한 날짜(YYYY년 MM월 DD일)로 변환하세요.
+
+질문: {query}
+
+반환 규칙:
+1. 날짜만 추출하여 "YYYY년 MM월 DD일" 형식으로 반환
+2. 날짜 범위가 있으면 시작일과 종료일을 "YYYY년 MM월 DD일~YYYY년 MM월 DD일" 형식으로 반환
+3. 날짜 정보가 없으면 빈 배열([])을 반환
+
+예시:
+- "어제 찍은 사진" → (오늘이 2025년 05월 16일일 경우) ["2025년 05월 15일"]
+- "지난주 여행" → ["2025년 05월 05일~2025년 05월 11일"]
+- "이번달 초에 찍은 사진" → ["2025년 05월 01일~2025년 05월 05일"]
+- "작년 크리스마스" → ["2024년 12월 25일"]
+
+JSON 배열로만 반환하세요.
+"""
+
+            date_response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "날짜 추출 전문가. 질문에서 언급된 시간 표현을 정확한 날짜로 변환. JSON 배열만 반환.",
+                    },
+                    {"role": "user", "content": date_prompt},
+                ],
+                temperature=0.1,
+            )
+
+            date_raw = date_response.choices[0].message.content
+
+            # 코드블록 제거
+            if "```" in date_raw:
+                date_raw = date_raw.replace("```json", "").replace("```", "").strip()
+
+            try:
+                date_data = json.loads(date_raw)
+                date_keywords.extend(date_data)
+            except json.JSONDecodeError:
+                # 파싱 실패시 날짜에 대한 간단한 처리
+                if "어제" in query:
+                    yesterday = current_date - timedelta(days=1)
+                    date_keywords.append(yesterday.strftime("%Y년 %m월 %d일"))
+                elif "오늘" in query:
+                    date_keywords.append(current_date.strftime("%Y년 %m월 %d일"))
+                elif "내일" in query:
+                    tomorrow = current_date + timedelta(days=1)
+                    date_keywords.append(tomorrow.strftime("%Y년 %m월 %d일"))
+
+        # 3. 키워드와 날짜 합치기
+        final_keywords = keywords + date_keywords
+
+        # 중복 제거
+        return list(set(final_keywords))
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, sync_extract_keywords)
@@ -226,7 +282,7 @@ async def search_photos_by_keywords(user_id: str, keywords: List[str]) -> List[D
                         ELSE 0.5
                     END as match_score
                 FROM images i
-                JOIN image_keywords ik ON i.id = ik.image_id
+                JOIN image_keywords ik ON i.access_id = ik.image_id
                 WHERE i.user_id = %s 
                 AND (
                     ik.keyword = ANY(%s)
