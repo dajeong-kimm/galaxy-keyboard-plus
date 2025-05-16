@@ -26,10 +26,9 @@ def keyword_exists(user_id: str = Query(...), keyword: str = Query(...)):
 
         query = """
         SELECT EXISTS (
-            SELECT 1
-            FROM image_keywords ik
-            JOIN images i ON ik.image_id = i.access_id
-            WHERE i.user_id = %s AND ik.keyword = %s
+        SELECT 1
+        FROM image_keywords
+        WHERE user_id = %s AND keyword = %s
         );
         """
         cursor.execute(query, (user_id, keyword))

@@ -30,7 +30,7 @@ import java.util.function.IntConsumer;
  */
 public class BackupManager {
     private static final String TAG = "Backup - BackupManager";
-    private static final int REQUEST_INTERVAL_MS = 60;
+    private static final int REQUEST_INTERVAL_MS = 1;
 
     // ★ 백그라운드 스케줄러: CPU 코어 수 기반 스레드풀
     private static final ScheduledExecutorService scheduler =

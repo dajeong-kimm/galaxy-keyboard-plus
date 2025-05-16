@@ -31,12 +31,12 @@ def get_images_by_keyword(
         cursor = conn.cursor()
 
         query = """
-        SELECT ik.image_id
-        FROM image_keywords ik
-        JOIN images i ON ik.image_id = i.access_id
-        WHERE i.user_id = %s AND ik.keyword = %s
-        ORDER BY ik.created_at DESC
+        SELECT image_id
+        FROM image_keywords
+        WHERE user_id = %s AND keyword = %s
+        ORDER BY created_at DESC
         LIMIT %s OFFSET %s;
+
         """
         cursor.execute(query, (user_id, keyword, page_size, offset))
         results = cursor.fetchall()

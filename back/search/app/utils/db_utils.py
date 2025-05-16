@@ -20,47 +20,49 @@ async def search_photos_by_keywords(user_id: str, keywords: List[str]) -> List[D
             # 개선된 검색 쿼리 - 매치 점수와 정보 포함
             query = """
             WITH keyword_matches AS (
-                SELECT 
-                    i.access_id,
-                    i.image_time,
-                    i.caption,
-                    ik.keyword,
-                    CASE 
-                        WHEN ik.keyword = ANY(%s) THEN 1.0
-                        ELSE 0.5
-                    END as match_score
-                FROM images i
-                JOIN image_keywords ik ON i.access_id = ik.image_id
-                WHERE i.user_id = %s 
-                AND (
-                    ik.keyword = ANY(%s)
-                    OR EXISTS (
-                        SELECT 1 FROM unnest(%s::text[]) AS search_kw
-                        WHERE ik.keyword ILIKE '%%' || search_kw || '%%'
-                    )
+            SELECT 
+                i.access_id,
+                i.image_time,
+                i.caption,
+                ik.keyword,
+                CASE 
+                    WHEN ik.keyword = ANY(%s) THEN 1.0
+                    ELSE 0.5
+                END as match_score
+            FROM images i
+            JOIN image_keywords ik 
+                ON i.access_id = ik.image_id AND i.user_id = ik.user_id  -- ✅ 핵심 수정
+            WHERE i.user_id = %s 
+            AND (
+                ik.keyword = ANY(%s)
+                OR EXISTS (
+                    SELECT 1 FROM unnest(%s::text[]) AS search_kw
+                    WHERE ik.keyword ILIKE '%%' || search_kw || '%%'
                 )
-            ),
-            aggregated AS (
-                SELECT 
-                    access_id,
-                    image_time,
-                    caption,
-                    COUNT(DISTINCT keyword) as keyword_count,
-                    SUM(match_score) as total_score,
-                    STRING_AGG(DISTINCT keyword, ', ') as matched_keywords
-                FROM keyword_matches
-                GROUP BY access_id, image_time, caption
             )
+        ),
+        aggregated AS (
             SELECT 
                 access_id,
+                image_time,
                 caption,
-                keyword_count,
-                total_score,
-                matched_keywords,
-                image_time
-            FROM aggregated
-            ORDER BY total_score DESC, keyword_count DESC, image_time DESC
-            LIMIT %s;
+                COUNT(DISTINCT keyword) as keyword_count,
+                SUM(match_score) as total_score,
+                STRING_AGG(DISTINCT keyword, ', ') as matched_keywords
+            FROM keyword_matches
+            GROUP BY access_id, image_time, caption
+        )
+        SELECT 
+            access_id,
+            caption,
+            keyword_count,
+            total_score,
+            matched_keywords,
+            image_time
+        FROM aggregated
+        ORDER BY total_score DESC, keyword_count DESC, image_time DESC
+        LIMIT %s;
+
             """
 
             cursor.execute(
