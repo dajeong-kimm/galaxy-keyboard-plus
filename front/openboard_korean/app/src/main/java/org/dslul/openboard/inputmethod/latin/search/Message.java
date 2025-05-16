@@ -23,9 +23,11 @@ public class Message {
 
     private boolean imagesVisible = false;
 
+    private boolean animate;
+
     // 사용자 메시지용 생성자 (기존용)
     public Message(Sender sender, String text, Date timestamp) {
-        this(sender, text, timestamp, null, null, null, null);
+        this(sender, text, timestamp, null, null, null, null, false);
     }
 
     // 봇 메시지용 생성자 (확장)
@@ -35,7 +37,8 @@ public class Message {
                    String answer,
                    List<PhotoResult> photoResults,
                    List<InfoResult> infoResults,
-                   List<ChatItem> items
+                   List<ChatItem> items,
+                   boolean animate
     ) {
         this.sender = sender;
         this.text = text;
@@ -44,6 +47,7 @@ public class Message {
         this.photoResults = photoResults;
         this.infoResults = infoResults;
         this.chatItems = items;
+        this.animate = animate;
     }
 
     public Sender getSender() {
@@ -80,5 +84,9 @@ public class Message {
 
     public void setImagesVisible(boolean v) {
         imagesVisible = v;
+    }
+
+    public boolean shouldAnimate() {
+        return animate;
     }
 }
