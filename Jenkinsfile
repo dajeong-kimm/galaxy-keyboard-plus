@@ -110,13 +110,33 @@ ENV=prod
                         ? params.FORCE_SERVICES.split(',').collect{ it.trim() }
                         : []
           env.CHANGED_SERVICES = (forced ?: changed).toSet().join(',')
-          if (!env.CHANGED_SERVICES) {
-            echo 'No service changes. Skipping build.'
+          
+          // Compose 파일에 정의된 서비스 목록 조회
+          def available = sh(
+            script: "docker compose -f ${COMPOSE_FILE} config --services",
+            returnStdout: true
+          ).trim().split('\n')
+          
+          // 변경된 서비스 중 실제로 compose에 존재하는 서비스 필터링
+          def validServices = env.CHANGED_SERVICES.split(',')
+                              .findAll { svc -> available.contains(svc) }
+          
+          // 없는 서비스 목록
+          def invalidServices = env.CHANGED_SERVICES.split(',')
+                                .findAll { svc -> !available.contains(svc) }
+          
+          if (invalidServices) {
+            echo "⚠️ 다음 서비스는 docker-compose에 정의되어 있지 않아 무시됩니다: ${invalidServices.join(', ')}"
+          }
+          
+          if (!validServices) {
+            echo '유효한 서비스 변경사항이 없습니다. 빌드를 건너뜁니다.'
             currentBuild.result = 'SUCCESS'
             // 이후 스테이지 실행 차단
-            error('No changes detected')
+            error('No valid services to build')
           } else {
-            echo "Target services: ${env.CHANGED_SERVICES}"
+            env.VALID_SERVICES = validServices.join(',')
+            echo "빌드 대상 서비스: ${env.VALID_SERVICES}"
           }
         }
       }
@@ -125,37 +145,22 @@ ENV=prod
     // 4) Build & Deploy Backend
     stage('Build & Deploy Backend') {
       when {
-        expression { env.CHANGED_SERVICES.split(',').any { it != 'frontend' } }
+        expression { env.VALID_SERVICES.split(',').any { it != 'frontend' } }
       }
       steps {
         script {
-          // Compose 파일에 정의된 서비스 목록 조회
-          def available = sh(
-            script: "docker compose -f ${COMPOSE_FILE} config --services",
-            returnStdout: true
-          ).trim().split('\n')
-
-          // backend 서비스 후보 필터링
-          def toDeploy = env.CHANGED_SERVICES.split(',')
-                                  .findAll { svc -> svc != 'frontend' }
-                                  .findAll { svc -> available.contains(svc) }
+          // 백엔드 서비스 필터링
+          def backendServices = env.VALID_SERVICES.split(',')
+                                .findAll { svc -> svc != 'frontend' }
 
           // 실제 빌드·배포
-          toDeploy.each { svc ->
+          backendServices.each { svc ->
             echo "▶ Building & deploying ${svc}"
             sh """
               docker rm -f ${svc}-service || true
               docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --no-cache ${svc}
               docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps --force-recreate ${svc}
             """
-          }
-
-          // 정의되지 않은 서비스 로깅
-          def skipped = env.CHANGED_SERVICES.split(',')
-                            .findAll { it != 'frontend' }
-                            .minus(toDeploy)
-          if (skipped) {
-            echo "⚠️ Skipped unknown backend services: ${skipped.join(', ')}"
           }
         }
       }
@@ -164,25 +169,16 @@ ENV=prod
     // 5) Build & Deploy Frontend
     stage('Build & Deploy Frontend') {
       when {
-        expression { env.CHANGED_SERVICES.split(',').contains('frontend') }
+        expression { env.VALID_SERVICES.split(',').contains('frontend') }
       }
       steps {
         script {
-          def available = sh(
-            script: "docker compose -f ${COMPOSE_FILE} config --services",
-            returnStdout: true
-          ).trim().split('\n')
-
-          if (available.contains('frontend')) {
-            echo "▶ Building & deploying frontend"
-            sh """
-              docker rm -f frontend-service || true
-              docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --no-cache frontend
-              docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps --force-recreate frontend
-            """
-          } else {
-            echo "⚠️ 'frontend' 서비스가 Compose 파일에 정의되어 있지 않습니다. 스킵합니다."
-          }
+          echo "▶ Building & deploying frontend"
+          sh """
+            docker rm -f frontend-service || true
+            docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --no-cache frontend
+            docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --no-deps --force-recreate frontend
+          """
         }
       }
     }
