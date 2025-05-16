@@ -38,12 +38,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequest().getMethod().name())) {
             return chain.filter(exchange);
         }
-
-        String path = exchange.getRequest().getPath().value();
-
+        
         // 1. 특정 헤더로 인증 우회
-        String bypass = exchange.getRequest().getHeaders().getFirst("X-Bypass-Auth");
-        if (path.startsWith("/search") && "adminadmin".equals(bypass)) {
+        String path = exchange.getRequest().getURI().getPath();
+        String bypass = exchange.getRequest().getHeaders().getFirst("X-BYPASS-ADMIN");
+
+        if (("adminadmin".equals(bypass)) && (
+                path.startsWith("/search") ||
+                        path.startsWith("/rag/upload-image-keyword")
+        )) {
             // 인증 우회 (프록시만)
             return chain.filter(exchange);
         }
