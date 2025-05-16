@@ -17,7 +17,8 @@
 */
 -->
 
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
         android:id="@+id/suggestions_strip_wrapper"
@@ -29,22 +30,23 @@
         <!-- Provide audio and haptic feedback by ourselves based on the keyboard settings.
              We just need to ignore the system's audio and haptic feedback settings. -->
 
-        <ImageButton
+        <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/suggestions_strip_search_key"
             style="?attr/suggestionWordStyle"
+            app:lottie_autoPlay="false"
+            app:lottie_fileName="search_loading.json"
+            app:lottie_loop="false"
             android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
-            android:layout_height="fill_parent"
-            android:contentDescription="@string/search"
-            android:src="@drawable/ic_search" />
+            android:layout_height="match_parent"
+            android:contentDescription="@string/search" />
 
         <!-- ImageButton(search_key) 아래나 옆에 -->
         <Button
             android:id="@+id/suggestions_strip_search_status"
+            style="@style/Widget.AppCompat.Button.Borderless"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="검색중"
-            android:visibility="gone"
-            style="@style/Widget.AppCompat.Button.Borderless" />
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/suggestions_strip_input_container"
@@ -58,15 +60,11 @@
 
             <EditText
                 android:id="@+id/suggestions_strip_search_input"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-
                 android:cursorVisible="true"
-
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:hint="@string/search_hint"
+                android:layout_marginHorizontal="8dp"
+                android:minWidth="120dp"
                 android:imeOptions="actionSearch|flagNoExtractUi"
                 android:inputType="text"
                 android:maxLines="1" />
@@ -81,20 +79,20 @@
 
             <ImageButton
                 android:id="@+id/suggestions_strip_copy_key"
-                android:src="@drawable/ic_copy"
                 style="?attr/suggestionWordStyle"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"/>
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_copy" />
 
         </LinearLayout>
 
-<!--        <ImageButton-->
-<!--            android:id="@+id/suggestions_strip_other_key"-->
-<!--            style="?attr/suggestionWordStyle"-->
-<!--            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"-->
-<!--            android:layout_height="fill_parent"-->
-<!--            android:layout_weight="0"-->
-<!--            android:contentDescription="@string/more_keys_strip_description" />-->
+        <!--        <ImageButton-->
+        <!--            android:id="@+id/suggestions_strip_other_key"-->
+        <!--            style="?attr/suggestionWordStyle"-->
+        <!--            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"-->
+        <!--            android:layout_height="fill_parent"-->
+        <!--            android:layout_weight="0"-->
+        <!--            android:contentDescription="@string/more_keys_strip_description" />-->
         <!-- Provide audio and haptic feedback by ourselves based on the keyboard settings.
              We just need to ignore the system's audio and haptic feedback settings. -->
         <ImageButton
@@ -125,11 +123,11 @@
         android:id="@+id/search_answer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:maxLines="6"
+        android:padding="6dp"
+        android:scrollbars="vertical"
         android:textColor="@android:color/white"
         android:textSize="14sp"
-        android:padding="6dp"
-        android:maxLines="6"
-        android:scrollbars="vertical"
-        android:visibility="gone"/>
+        android:visibility="gone" />
 
 </merge>

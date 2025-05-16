@@ -1502,63 +1502,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     @Override
     public void onCodeInput(final int codePoint, final int x, final int y,
                             final boolean isKeyRepeat) {
-        // ── 검색 모드에서는 HangulCombiner 로 자모를 조합하여 EditText 에 표시 ──
-        if (mSuggestionStripView != null && mSuggestionStripView.isInSearchMode()) {
-            final MainKeyboardView kv   = mKeyboardSwitcher.getMainKeyboardView();
-            final int keyX = kv.getKeyX(x), keyY = kv.getKeyY(y);
-            final EditText et = mSuggestionStripView.getSearchInput();
-
-            /* ── 1)  공백(SPACE) : 조합 완료 + 공백 커밋 ─────────────────────── */
-            if (codePoint == Constants.CODE_SPACE) {
-                // 1-a  조합중 글자를 확정버퍼에 붙임
-                mSearchCommitted.append(mSearchCombiner.getCombiningStateFeedback());
-                // 1-b  combiner 리셋
-                mSearchCombiner.reset();
-                // 1-c  공백도 확정버퍼에 붙임
-                mSearchCommitted.append(' ');
-
-                et.setText(mSearchCommitted.toString());       // 공백까지 포함
-                et.setSelection(et.length());
-                return;
-            }
-
-            /* ── 2)  백스페이스 ──────────────────────────────────────────────── */
-            if (codePoint == Constants.CODE_DELETE) {
-                if (mSearchCombiner.getCombiningStateFeedback().length() > 0) {
-                    // 2-a  combiner 내부 한 글자 삭제
-                    Event ev = createSoftwareKeypressEvent(codePoint, keyX, keyY, isKeyRepeat);
-                    mSearchCombiner.processEvent(null, ev);
-                } else if (mSearchCommitted.length() > 0) {
-                    // 2-b  확정버퍼에서 한 글자 삭제
-                    mSearchCommitted.deleteCharAt(mSearchCommitted.length() - 1);
-                }
-                // 2-c  화면 갱신
-                et.setText(mSearchCommitted.toString()
-                        + mSearchCombiner.getCombiningStateFeedback());
-                et.setSelection(et.length());
-                return;
-            }
-
-            /* ── 3)  일반 자모/문자 입력 ─────────────────────────────────────── */
-            if (codePoint > 0) {
-                Event ev = createSoftwareKeypressEvent(codePoint, keyX, keyY, isKeyRepeat);
-                mSearchCombiner.processEvent(null, ev);
-
-                et.setText(mSearchCommitted.toString()
-                        + mSearchCombiner.getCombiningStateFeedback());
-                et.setSelection(et.length());
-                return;
-            }
-
-            /* ── 4)  그 밖의 기능키(한/영, 이모지 등) → 원래 IME 로 전달 ───── */
-            Event ev = createSoftwareKeypressEvent(
-                    getCodePointForKeyboard(codePoint), keyX, keyY, isKeyRepeat);
-            onEvent(ev);
-            return;
-        }
-
-
-
         // TODO: this processing does not belong inside LatinIME, the caller should be doing this.
         final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
         // x and y include some padding, but everything down the line (especially native
@@ -1608,18 +1551,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     // Called from PointerTracker through the KeyboardActionListener interface
     @Override
     public void onTextInput(final String rawText) {
-        if (mSuggestionStripView != null && mSuggestionStripView.isInSearchMode()) {
-            // rawText는 여러 글자일 수 있으니, 한 글자씩 combiner에 넘겨 줌
-            for (char c : rawText.toCharArray()) {
-                Event ev = Event.createSoftwareKeypressEvent(c, c, 0, 0, false);
-                mSearchCombiner.processEvent(null, ev);
-            }
-            String composed = mSearchCombiner.getCombiningStateFeedback().toString();
-            EditText et = mSuggestionStripView.getSearchInput();
-            et.setText(composed);
-            et.setSelection(composed.length());
-            return;
-        }
 
         // TODO: have the keyboard pass the correct key code when we need it.
         final Event event = Event.createSoftwareTextEvent(rawText, Constants.CODE_OUTPUT_TEXT);
@@ -2129,7 +2060,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         return mSearchCombiner;
     }
 
-    /** 검색 모드 조합기 초기화 용도로만 쓰입니다 */
+    /**
+     * 검색 모드 조합기 초기화 용도로만 쓰입니다
+     */
     public void resetSearchCombiner() {
         mSearchCombiner.reset();
     }

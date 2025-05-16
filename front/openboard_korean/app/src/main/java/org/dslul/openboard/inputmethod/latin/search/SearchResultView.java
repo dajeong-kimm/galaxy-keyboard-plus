@@ -249,6 +249,7 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
         tv.setTextSize(14);
         tv.setMaxLines(1);
         tv.setEllipsize(TextUtils.TruncateAt.END);
+        tv.setTextIsSelectable(true);
         LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
         );
@@ -519,6 +520,8 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
         final TextView tvContent = card.findViewById(R.id.lt_content);
         tvContent.setText(fullText);
         tvContent.setEllipsize(TextUtils.TruncateAt.END);
+
+        tvContent.setTextIsSelectable(true);
 
         // 7) 버튼 높이 + 패딩/마진 보존용 dp → px
         int btnArea = dpToPx(40 /* 버튼 높이 */ + 12 /* 위여유 */ + 12 /* 아래여유 */);

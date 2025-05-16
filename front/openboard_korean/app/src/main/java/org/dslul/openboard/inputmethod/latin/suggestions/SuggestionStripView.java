@@ -73,6 +73,9 @@ import java.util.ArrayList;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
 
+import com.airbnb.lottie.LottieAnimationView;
+import com.airbnb.lottie.LottieDrawable;
+
 import retrofit2.Call;
 
 public final class SuggestionStripView extends RelativeLayout implements OnClickListener,
@@ -88,7 +91,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     }
 
     /* ▼ 새로 추가할 필드들 --------------------------------------------------- */
-    private ImageButton mSearchKey;      // 돋보기(검색 모드 진입)
+    private LottieAnimationView mSearchKey;
     private ImageButton mVoiceKey;       // 마이크(= 클립보드 키 자리에 있던 버튼)
     private LinearLayout mInputContainer;// EditText+Send 래퍼
     private EditText mSearchInput;       // 검색어 입력창
@@ -97,8 +100,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private String mLastQuery;
 
     // 기존 필드 바로 아래
-    private Drawable mIconSearch;   // 돋보기
-    private Drawable mIconSearchActive;  // 응답 완료 후 사용할 컬러 채워진 아이콘
     private Drawable mIconClose;    // X 아이콘
     private ImageButton mCopyKey;
 
@@ -121,7 +122,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private MessageResponse mLastResponse;       // ◀ 수정
     private boolean mKeyHighlighted = false; // 깜빡임→강조 상태 구분  ◀ 수정
     private boolean mAnswerShown = false;    // 답변(말풍선) 이미 그렸는지  ◀ 수정
-    private Animation mBlinkAnim;            // 깜빡임 애니메이션  ◀ 수정
 
     private final View mMoreSuggestionsContainer;
     private final MoreSuggestionsView mMoreSuggestionsView;
@@ -185,7 +185,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         mStripVisibilityGroup = new StripVisibilityGroup(this, mSuggestionsStrip);
 
         // blink 애니메이션 리소스 로드  ◀ 수정
-        mBlinkAnim = AnimationUtils.loadAnimation(context, R.anim.blink);
         mKeyHighlighted = false;
         mAnswerShown = false;
 
@@ -226,19 +225,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
         mVoiceKey.setImageDrawable(iconVoice);
 
-        mSearchKey = findViewById(R.id.suggestions_strip_search_key);
         mSearchStatus = findViewById(R.id.suggestions_strip_search_status);
+        // 🔍, ❌ 아이콘 준비
+        mIconClose = getResources().getDrawable(R.drawable.ic_close, null);
+
+        mSearchKey = findViewById(R.id.suggestions_strip_search_key);
         if (mSearchKey == null) {
             throw new IllegalStateException(
                     "suggestions_strip_search_key not found in current layout variant");
         }
-        // 🔍, ❌ 아이콘 준비
-        mIconSearch = getResources().getDrawable(R.drawable.ic_search, null);
-        mIconSearchActive = AppCompatResources.getDrawable(context, R.drawable.ic_search_active);
-        mIconClose = getResources().getDrawable(R.drawable.ic_close, null);
-
-        mSearchKey.setImageDrawable(mIconSearch);   // 기본은 🔍
-//        mSendKey = findViewById(R.id.suggestions_strip_send_key);
         mInputContainer = findViewById(R.id.suggestions_strip_input_container);
         mSearchInput = findViewById(R.id.suggestions_strip_search_input);
         mCopyKey = findViewById(R.id.suggestions_strip_copy_key);
@@ -269,15 +264,19 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         // 1) 기존 검색 키 숨기고
         mSearchKey.setVisibility(View.GONE);
         // 2) '검색중' 버튼 보이고 비활성화
-        mSearchStatus.setText("검색중");
+//        mSearchStatus.setText("검색중");
         mSearchStatus.setEnabled(false);
         mSearchStatus.setVisibility(View.VISIBLE);
+
+        mSearchKey.setVisibility(View.VISIBLE);
+        mSearchKey.setAnimation("search_loading.json");    // 움직이는 JSON
+        mSearchKey.setRepeatCount(LottieDrawable.INFINITE);
+        mSearchKey.playAnimation();
 
         // 3) 실제 API 호출
         dispatchSearchQuery();
 
         // 3) 깜빡임 시작
-        mSearchKey.startAnimation(mBlinkAnim);
 //        if (mInSearchMode) return;
 //        mInSearchMode = true;
 //
@@ -323,7 +322,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             ((LatinIME) mListener).resetSearchBuffers();
         }
 
-        mSearchKey.setImageDrawable(mIconSearch);      // 🔍 복원
+//        mSearchKey.setImageDrawable(mIconSearch);      // 🔍 복원
         mInputContainer.setVisibility(GONE);
         mSuggestionsStrip.setVisibility(VISIBLE);
         updateVisibility(true /* strip */, false /* isFullscreen */); // 버튼들 복원
@@ -419,9 +418,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                     // ── 50자 이상: 버튼 강조 후 대기 ──
                                     mSearchPanel.clearLoadingBubble();
                                     mSearchStatus.setVisibility(View.GONE);
-                                    mSearchKey.setVisibility(View.VISIBLE);
-                                    mSearchKey.clearAnimation();
-                                    mSearchKey.setImageDrawable(mIconSearchActive);
+                                    mSearchKey.pauseAnimation();
+                                    mSearchKey.setRepeatCount(0);
+                                    mSearchKey.setAnimation("search_loading_blue.json"); // 파랑 정지된 JSON
+                                    mSearchKey.setProgress(0f);
                                     mKeyHighlighted = true;
                                     break;
 
@@ -447,6 +447,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 //                            mSearchKey.clearAnimation();
 //                            mSearchKey.setAlpha(1f);
 //                            mKeyHighlighted = true;
+                            Toast.makeText(getContext(), "검색 완료", Toast.LENGTH_SHORT).show();
                         });
                         Log.d(TAG_NET, "✅ 결과 수신");
 
@@ -767,7 +768,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
             // 1) 검색 모드가 아니면 진입
             if (!mInSearchMode) {
-                mSearchKey.setImageDrawable(mIconSearch);
                 enterSearchMode();
                 return;
             }
@@ -785,7 +785,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             } else {
                 // 세 번째 클릭(❌): 패널 닫고 키보드 복귀
                 mSearchPanel.dismissMoreKeysPanel();
-                mSearchKey.setImageDrawable(mIconSearch);     // ❌ → 🔍
+                mSearchKey.setAnimation("search_loading.json");  // 흑 정지된 JSON
+                mSearchKey.setRepeatCount(0);
+                mSearchKey.setProgress(0f);
                 mKeyHighlighted = false;
                 mAnswerShown = false;
                 mInSearchMode = false;
