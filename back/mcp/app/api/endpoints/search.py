@@ -48,12 +48,12 @@ async def search_endpoint(
         # mcp 서버의 툴 호출
         params = llm_response.get("params", {})
 
-        # count 값 강제 제한
-        if "count" in params:
-            try:
-                params["count"] = max(1, min(int(params["count"]), 3))
-            except Exception:
-                params["count"] = 1  # 파싱 에러시 fallback
+        for key in ("count", "num"):
+            if key in params:
+                try:
+                    params[key] = max(1, min(int(params[key]), 2))
+                except Exception:
+                    params[key] = 1
 
         # MCP 서버 툴 호출
         mcp_result = await mcp_manager.call_tool(
