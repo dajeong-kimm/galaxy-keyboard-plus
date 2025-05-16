@@ -1,7 +1,10 @@
 package org.dslul.openboard.inputmethod.latin.search;
 
 import android.app.Fragment;
+import android.content.ContentUris;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -207,23 +210,40 @@ public class SearchPageFragment extends Fragment {
                             return;
                         }
                         MessageResponse body = resp.body();
+                        String type = body.getType();
 
                         /* 응답 원본 JSON을 보고 싶다면 ↓ */
                         Log.d(API_TAG, "body=" + GSON.toJson(body));
 
-                        Log.d(API_TAG, "answer=\"" + body.getAnswer() + "\""
-                                + "  photos=" + (body.getPhotoResults() == null ? 0 : body.getPhotoResults().size())
-                                + "  infos=" + (body.getInfoResults() == null ? 0 : body.getInfoResults().size()));
+                        // 1) 메시지 텍스트 준비
+                        String displayText = "";
+                        if ("info_search".equals(type) || "conversation".equals(type)) {
+                            displayText = body.getAnswer();             // answer 보여줌
+                        }
 
-                        String botText = body.getAnswer() != null ? body.getAnswer() : "정보를 찾았습니다.";
+                        // 2) 이미지 ID → Uri 변환
+                        List<Uri> uris = new ArrayList<>();
+                        if ("photo_search".equals(type) || "info_search".equals(type)) {
+                            for (String id : body.getPhotoIds()) {
+                                try {
+                                    long mediaId = Long.parseLong(id);
+                                    uris.add(ContentUris.withAppendedId(
+                                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                            mediaId
+                                    ));
+                                } catch (NumberFormatException ignored) {}
+                            }
+                        }
+
+                        // 3) 어댑터에 반영
                         Message botMsg = new Message(
                                 Message.Sender.BOT,
-                                botText,
+                                displayText,
                                 new Date(),
-                                body.getAnswer(),
-                                body.getPhotoResults(),
-                                body.getInfoResults(),
-                                null
+                                body.getAnswer(),         // answer 필드 (null 허용)
+                                /* photoResults */        convertToPhotoResults(body.getPhotoIds()),
+                                /* infoResults */         null,
+                                /* chatItems */           null
                         );
                         messages.add(botMsg);
                         adapter.notifyItemInserted(messages.size() - 1);
@@ -243,6 +263,17 @@ public class SearchPageFragment extends Fragment {
                         showStatus("네트워크 오류: " + t.getMessage(), true);
                     }
                 });
+    }
+
+    private List<PhotoResult> convertToPhotoResults(List<String> ids) {
+        List<PhotoResult> out = new ArrayList<>();
+        for (String id : ids) {
+            PhotoResult pr = new PhotoResult();
+            pr.setId(id);
+            pr.setText(null);
+            out.add(pr);
+        }
+        return out;
     }
 
     /**

@@ -29,4 +29,16 @@ public class PhotoResult {
     public String getText() {
         return text;
     }
+
+    public void setScore(double score) {
+        this.score = score;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
 }
