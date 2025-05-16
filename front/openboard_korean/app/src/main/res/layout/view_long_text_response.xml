@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/long_text_card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_long_response_card"
+    android:padding="12dp"
+    android:layout_margin="8dp">
+
+    <LinearLayout
+        android:id="@+id/lt_vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="52dp">
+
+        <!-- 제목 + 복사 버튼 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/lt_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#202020"
+                android:visibility="gone" />
+
+            <ImageButton
+                android:id="@+id/lt_btn_copy"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_copy"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="복사"
+                app:tint="#666"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- 구분선 -->
+        <View
+            android:id="@+id/lt_divider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="#DDDDDD"
+            android:visibility="gone" />
+
+        <!-- 본문 -->
+        <TextView
+            android:id="@+id/lt_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#333333"
+            android:ellipsize="end"
+            android:maxLines="5"
+            android:overScrollMode="ifContentScrolls"/>
+
+        <!-- 사진 가로 스크롤 -->
+        <HorizontalScrollView
+            android:id="@+id/photo_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/photos_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"/>
+        </HorizontalScrollView>
+
+    </LinearLayout>
+
+    <!-- 전체 보기 버튼 -->
+    <Button
+        android:id="@+id/lt_btn_more"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_gravity="bottom"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:text="전체 보기"/>
+</FrameLayout>

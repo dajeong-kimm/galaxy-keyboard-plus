@@ -124,16 +124,16 @@ services:
       - internal
 
   # MCP 웹 검색 서비스 추가
-  mcp:
-    container_name: mcp-service
-    build: ./back/mcp  # mcp-web-search 프로젝트 경로
-    ports:
-      - "0.0.0.0:8050:8050"  # FastAPI 포트
-    environment:
-      - NODE_ENV=production
-    restart: always
-    networks:
-      - internal
+  # mcp:
+  #   container_name: mcp-service
+  #   build: ./back/mcp  # mcp-web-search 프로젝트 경로
+  #   ports:
+  #     - "0.0.0.0:8050:8050"  # FastAPI 포트
+  #   environment:
+  #     - NODE_ENV=production
+  #   restart: always
+  #   networks:
+  #     - internal
 
   # Redis 서비스 (Rate Limiter 전용)
   redis-ratelimiter:
