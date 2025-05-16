@@ -1,4 +1,5 @@
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +12,11 @@ class MCPManager:
 
     async def initialize(self):
         # 모든 클라이언트 initialize (세션+툴 캐싱)
-        logger.info(f"[MCPManager] Initializing {len(self.clients)} MCP clients...")
+        logger.info(f"[MCPManager] Initializing ...")
+        await asyncio.gather(*(client.initialize() for client in self.clients.values()))
         for name, client in self.clients.items():
-            await client.initialize()
             self.tools_cache[name] = client.tools_cache
-        logger.info(f"[MCPManager] MCP clients initialized. Tool cache: {self.tools_cache}")
+        logger.info(f"[MCPManager] MCP clients initialized.")
 
     async def close(self):
         logger.info(f"[MCPManager] Closing all MCP clients...")

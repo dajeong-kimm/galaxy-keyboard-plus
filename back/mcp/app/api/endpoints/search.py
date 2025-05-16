@@ -53,7 +53,7 @@ async def search_endpoint(
             try:
                 params["count"] = max(1, min(int(params["count"]), 3))
             except Exception:
-                params["count"] = 3  # 파싱 에러시 fallback
+                params["count"] = 1  # 파싱 에러시 fallback
 
         # MCP 서버 툴 호출
         mcp_result = await mcp_manager.call_tool(
