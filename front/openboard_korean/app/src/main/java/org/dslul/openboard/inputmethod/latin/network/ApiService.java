@@ -2,7 +2,9 @@ package org.dslul.openboard.inputmethod.latin.network;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.GET;
 import retrofit2.http.POST;
+import retrofit2.http.Query;
 
 /**
  * API 요청을 위한 인터페이스

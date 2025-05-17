@@ -8,3 +8,10 @@ app/build
 app/release
 app/.cxx
 fastlane/Appfile
+# Keystore files
+*.jks
+*.keystore
+release-keystore.jks
+
+# Keystore properties
+keystore.properties
