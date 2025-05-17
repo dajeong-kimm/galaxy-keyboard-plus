@@ -2,10 +2,10 @@ import asyncio
 import logging
 import time
 import json
-import requests
 import re
+import requests
 from typing import List, Dict, Optional
-from app.utils.ai_utils import expand_info_query, generate_info_answer, openai_client
+from app.utils.ai_utils import expand_info_query
 from app.utils.semantic_search import search_similar_items_enhanced_optimized
 from app.utils.context_helpers import (
     check_if_requires_context,
@@ -214,26 +214,60 @@ async def generate_enhanced_info_answer(
 
             payload = {"query": final_query}
 
+            logger.info(f"🚀 MCP API 요청 시작: 쿼리 길이 {len(final_query)} 자")
+            mcp_start_time = time.time()
+
             response = requests.post(
                 "http://mcp-api:8050/api/search/",
-                # "http://k12e201.p.ssafy.io:8050/api/search",
+                # "http://k12e201.p.ssafy.io:8050/api/search/",
                 headers=headers,
                 json=payload,
                 timeout=30,  # 타임아웃 설정
             )
 
+            mcp_response_time = time.time() - mcp_start_time
+            logger.info(f"✅ MCP API 응답 수신: {mcp_response_time:.3f}초")
+
             if response.status_code == 200:
+                mcp_parse_start = time.time()
                 result = response.json()
                 answer = result.get(
                     "answer", "죄송합니다. 답변을 생성하는 데 문제가 발생했습니다."
                 )
+
+                mcp_parse_time = time.time() - mcp_parse_start
+                total_mcp_time = time.time() - mcp_start_time
+
+                logger.info(
+                    f"""
+📊 MCP API 성능 요약:
+- 요청-응답 시간: {mcp_response_time:.3f}초
+- 응답 파싱 시간: {mcp_parse_time:.3f}초
+- 전체 처리 시간: {total_mcp_time:.3f}초
+- 응답 길이: {len(answer)} 자
+                """
+                )
             else:
+                error_time = time.time() - mcp_start_time
                 logger.error(
-                    f"❌ MCP API 응답 오류: {response.status_code}, {response.text}"
+                    f"❌ MCP API 응답 오류 ({error_time:.3f}초): 상태 코드 {response.status_code}, 응답: {response.text}"
                 )
                 answer = "죄송합니다. 답변을 생성하는 데 문제가 발생했습니다."
+        except requests.exceptions.Timeout:
+            error_time = time.time() - mcp_start_time
+            logger.error(f"⏱️ MCP API 타임아웃 발생 ({error_time:.3f}초)")
+            answer = "죄송합니다. 서버 응답 시간이 너무 오래 걸립니다."
+        except requests.exceptions.ConnectionError:
+            error_time = time.time() - mcp_start_time
+            logger.error(
+                f"🔌 MCP API 연결 오류 ({error_time:.3f}초): 서버에 연결할 수 없습니다."
+            )
+            answer = "죄송합니다. MCP 서버에 연결할 수 없습니다."
         except Exception as e:
-            logger.error(f"❌ MCP API 요청 오류: {str(e)}", exc_info=True)
+            error_time = time.time() - mcp_start_time
+            logger.error(
+                f"❌ MCP API 요청 오류 ({error_time:.3f}초): {str(e)}", exc_info=True
+            )
             answer = "죄송합니다. 서버 통신 중 오류가 발생했습니다."
 
         # 사용된 컨텍스트 인덱스 추출
@@ -267,100 +301,6 @@ async def generate_enhanced_info_answer(
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, sync_generate_enhanced_answer)
-
-
-# async def generate_enhanced_info_answer(
-#     user_id: str, query: str, context_info: List[Dict]
-# ) -> tuple[str, List[int]]:
-#     """개선된 정보 기반 답변 생성 - 사용된 컨텍스트 인덱스 반환 & 불충분한 정보에도 대응"""
-
-#     def sync_generate_enhanced_answer():
-#         # context 정보를 더 체계적으로 정리
-#         context_texts = []
-#         for i, item in enumerate(context_info[:5]):  # 상위 5개만 사용
-#             text = item.get("text", "").strip()
-#             if text:
-#                 context_texts.append(f"{i+1}. {text}")
-
-#         context_text = "\n".join(context_texts)
-
-#         # 사용된 컨텍스트 인덱스를 추적하기 위한 프롬프트 추가
-#         if context_text:
-#             prompt = f"""
-# 사용자의 질문에 대해 아래 제공된 정보를 활용하여 답변하세요.
-# 정보가 부족하더라도 최대한 관련된 내용을 추출하여 자연스러운 답변을 구성하세요.
-
-# [제공된 정보]
-# {context_text}
-
-# [사용자 질문]
-# {query}
-
-# 답변 작성 규칙:
-# 1. 제공된 정보를 기반으로 정확하게 답변
-# 2. 친근하고 자연스러운 대화체 사용
-# 3. 정보가 부족한 경우에도 질문에 맞는 답변 제공
-# 4. 알려진 정보만으로 답변하되, 의미있는 정보가 전혀 없는 경우 적절히 안내
-# 5. 반드시 사용한 정보의 번호를 마지막에 목록으로 추가 (1, 3, 5처럼 숫자만 쓰고 각 숫자는 쉼표로 구분)
-
-# 답변:
-# """
-#         else:
-#             # 컨텍스트가 없는 경우
-#             prompt = f"""
-# 사용자의 질문: "{query}"
-
-# 질문에 대한 정확한 정보를 찾지 못했지만, 최대한 관련된 내용을 제공해보세요.
-# 정보가 부족하더라도 사용자의 질문에 유용한 답변을 제공하되, 추측임을 지하고 정확한 정보를 제공하는 방식으로 작성해주세요.
-
-# 답변:
-# """
-
-#         response = openai_client.chat.completions.create(
-#             model="gpt-4o-mini",  # 다른 모델로 변경 가능
-#             messages=[
-#                 {
-#                     "role": "system",
-#                     "content": "너는 사용자의 개인 비서야. 제공된 정보를 활용해 정확하고 도움이 되는 답변을 해줘. 어떤 정보를 사용했는지 표시하라.",
-#                 },
-#                 {"role": "user", "content": prompt},
-#             ],
-#             temperature=0.7,
-#         )
-
-#         answer = response.choices[0].message.content.strip()
-
-#         # 사용된 컨텍스트 인덱스 추출
-#         used_indices = []
-#         if context_text:  # 컨텍스트가 있었을 때만 추출
-#             # 답변 끝부분에서 번호 목록 추출
-#             indices_pattern = r"\b([0-9]+(?:,\s*[0-9]+)*)\b"
-#             indices_matches = re.findall(indices_pattern, answer.split("\n")[-1])
-
-#             if indices_matches:
-#                 # 마지막 변에서 받은 것이 리스트의 형태로 도출되면 그걸 사용
-#                 last_match = indices_matches[-1]
-#                 for idx_str in last_match.split(","):
-#                     try:
-#                         idx = int(idx_str.strip()) - 1  # 1-based -> 0-based
-#                         if 0 <= idx < len(context_info):
-#                             used_indices.append(idx)
-#                     except ValueError:
-#                         continue
-
-#             # 수처리된 마지막 행을 제거 (외부에서 보이지 않게)
-#             if used_indices and "\n" in answer:
-#                 lines = answer.split("\n")
-#                 if any(
-#                     all(c in "0123456789, " for c in line.strip())
-#                     for line in lines[-2:]
-#                 ):
-#                     answer = "\n".join(lines[:-1]).strip()
-
-#         return answer, used_indices
-
-#     loop = asyncio.get_event_loop()
-#     return await loop.run_in_executor(executor, sync_generate_enhanced_answer)
 
 
 def extract_id_from_item(item: Dict) -> Optional[str]:
