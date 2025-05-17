@@ -36,6 +36,7 @@
         </case>
     </switch>
     <Row
+
         latin:keyWidth="10%p"
     >
         <include
@@ -47,6 +48,7 @@
         <include
             latin:keyboardLayout="@xml/rowkeys_korean_dubeolsik_standard_2"
             latin:keyXPos="5%p" />
+
     </Row>
     <Row
         latin:keyWidth="10%p"

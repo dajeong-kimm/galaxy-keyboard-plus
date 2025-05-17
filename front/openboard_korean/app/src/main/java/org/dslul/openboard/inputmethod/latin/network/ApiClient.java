@@ -33,6 +33,7 @@ public final class ApiClient {
 
     private static volatile Retrofit retrofit;           // ① 단일 Retrofit
     private static ChatApiService   chatApiService;      // ② 서비스 캐시
+    private static ClipboardService clipboardService;
     private static ApiService       apiService;
 
     private static ChatStorageApi chatStorageApi;
@@ -132,6 +133,7 @@ public final class ApiClient {
         chatApiService = retrofit.create(ChatApiService.class);
         apiService     = retrofit.create(ApiService.class);
         chatStorageApi = retrofit.create(ChatStorageApi.class);
+        clipboardService = retrofit.create(ClipboardService.class);
 
         Log.d("ApiClient", "★ Retrofit 초기화 완료");
     }
@@ -221,6 +223,9 @@ public final class ApiClient {
     /** 어디서든 호출 가능한 getter */
     public static ChatApiService getChatApiService() { return chatApiService; }
     public static ApiService   getApiService()      { return apiService;   }
+
+
+    public static ClipboardService getClipboardService() {return clipboardService;}
 
     public static ChatStorageApi getChatStorageApi() { return chatStorageApi; }
 }

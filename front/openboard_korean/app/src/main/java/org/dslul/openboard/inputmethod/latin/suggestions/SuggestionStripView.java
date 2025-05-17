@@ -59,9 +59,13 @@ import org.dslul.openboard.inputmethod.latin.LatinIME;
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.SuggestedWords;
 import org.dslul.openboard.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import org.dslul.openboard.inputmethod.latin.common.Constants;
 import org.dslul.openboard.inputmethod.latin.define.DebugFlags;
 import org.dslul.openboard.inputmethod.latin.network.ApiClient;
+import org.dslul.openboard.inputmethod.latin.network.ApiService;
+import org.dslul.openboard.inputmethod.latin.network.ClipBoardResponse;
+import org.dslul.openboard.inputmethod.latin.network.ClipboardService;
 import org.dslul.openboard.inputmethod.latin.network.MessageResponse;
 import org.dslul.openboard.inputmethod.latin.search.SearchResultView;
 import org.dslul.openboard.inputmethod.latin.settings.Settings;
@@ -499,7 +503,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         setVisibility(visibility);
         final SettingsValues currentSettingsValues = Settings.getInstance().getCurrent();
         mVoiceKey.setVisibility(currentSettingsValues.mShowsVoiceInputKey ? VISIBLE : GONE);
-        mClipboardKey.setVisibility(currentSettingsValues.mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
+        mClipboardKey.setVisibility(VISIBLE);
+//        mClipboardKey.setVisibility(currentSettingsValues.mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
 //        mOtherKey.setVisibility(currentSettingsValues.mIncognitoModeEnabled ? VISIBLE : INVISIBLE);
         mSearchKey.setVisibility(VISIBLE);   // 항상 노출
     }
@@ -750,9 +755,48 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             return;
         }
         if (view == mClipboardKey) {
-            mListener.onCodeInput(Constants.CODE_CLIPBOARD,
-                    Constants.SUGGESTION_STRIP_COORDINATE, Constants.SUGGESTION_STRIP_COORDINATE,
-                    false /* isKeyRepeat */);
+            AuthManager am = AuthManager.getInstance(getContext());
+            am.getUserId();
+            String userId = am.getUserId();
+            if(userId.equals("null")){
+                Toast.makeText(getContext(), "로그인이 필요한 기능 입니다." , Toast.LENGTH_SHORT).show();
+            }else{
+                // API 호출 부분
+                ClipboardService clipboardService = ApiClient.getClipboardService();
+                clipboardService.getLatestClipboard(userId).enqueue(new retrofit2.Callback<ClipBoardResponse>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<ClipBoardResponse> call, retrofit2.Response<ClipBoardResponse> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            ClipBoardResponse clipboardData = response.body();
+                            String clipboardText = clipboardData.getValue();
+
+                            if (clipboardText != null && !clipboardText.isEmpty()) {
+                                // 1. 텍스트 입력 (기존 기능 유지)
+                                mListener.onTextInput(clipboardText);
+
+                                // 2. 클립보드에 복사
+                                android.content.ClipboardManager clipboardManager =
+                                        (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                android.content.ClipData clipData =
+                                        android.content.ClipData.newPlainText("clipboard text", clipboardText);
+                                clipboardManager.setPrimaryClip(clipData);
+
+                                // 3. 토스트 메시지 표시
+                                Toast.makeText(getContext(), "클립보드 내용 \"" + clipboardText + "\"이 입력되었습니다", Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(getContext(), "클립보드가 비어있습니다", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            Toast.makeText(getContext(), "클립보드 데이터를 가져오는데 실패했습니다", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(retrofit2.Call<ClipBoardResponse> call, Throwable t) {
+                        Toast.makeText(getContext(), "네트워크 오류: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
             return;
         }
 

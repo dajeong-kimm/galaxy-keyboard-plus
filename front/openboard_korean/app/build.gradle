@@ -32,9 +32,27 @@ android {
         ]
 
     }
+    signingConfigs {
+        debug {
+            storeFile file(localProperties.getProperty('keystore.file.path', '../release.keystore'))
+            storePassword localProperties.getProperty('keystore.password', '')
+            keyAlias localProperties.getProperty('keystore.key.alias', 'release-key')
+            keyPassword localProperties.getProperty('keystore.key.password', '')
+        }
+        release {
+            storeFile file(localProperties.getProperty('keystore.file.path', '../release.keystore'))
+            storePassword localProperties.getProperty('keystore.password', '')
+            keyAlias localProperties.getProperty('keystore.key.alias', 'release-key')
+            keyPassword localProperties.getProperty('keystore.key.password', '')
+        }
+    }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             debuggable false
             jniDebuggable false
