@@ -28,7 +28,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 
     // 테스트용
-    private static final List<String> PROTECTED_PATHS = List.of("/api","/rag", "/search");
+    //private static final List<String> PROTECTED_PATHS = List.of("/api","/rag", "/search");
+    private static final List<String> PROTECTED_PATHS = List.of();
 
 
     @Override
