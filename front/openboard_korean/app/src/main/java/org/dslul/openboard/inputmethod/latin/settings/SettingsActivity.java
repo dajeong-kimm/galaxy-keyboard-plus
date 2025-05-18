@@ -20,7 +20,9 @@ import android.app.ActionBar;
 import android.content.Intent;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
+import android.view.MenuItem;
 
+import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.permissions.PermissionsManager;
 import org.dslul.openboard.inputmethod.latin.utils.FragmentUtils;
 
@@ -68,4 +70,40 @@ public final class SettingsActivity extends PreferenceActivity
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         PermissionsManager.get(this).onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(
+                R.anim.slide_in_left,
+                R.anim.slide_out_right
+        );
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            // 백스택이 있으면 fragment 팝만
+            if (getFragmentManager().getBackStackEntryCount() > 0) {
+                getFragmentManager().popBackStack();
+            } else {
+                // 백스택 없으면 액티비티 종료
+                finish();
+            }
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // 프래그먼트 매니저에서 백스택이 있으면 팝
+        if (getFragmentManager().getBackStackEntryCount() > 0) {
+            getFragmentManager().popBackStack();
+        } else {
+            // 백스택이 없으면 액티비티 종료
+            super.onBackPressed();  // super.onBackPressed() → finish()
+        }
+    }
+
 }

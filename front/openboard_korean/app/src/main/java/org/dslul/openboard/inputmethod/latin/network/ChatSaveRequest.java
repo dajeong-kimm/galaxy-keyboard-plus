@@ -14,7 +14,7 @@ public class ChatSaveRequest {
         this.userId = userId;
         this.sender = sender;
         this.message = message;
-        this.items = items;
+        this.items   = items;
     }
 
     public String getUserId() {

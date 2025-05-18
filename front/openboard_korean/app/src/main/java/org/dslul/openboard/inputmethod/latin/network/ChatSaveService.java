@@ -26,17 +26,17 @@ public class ChatSaveService extends JobIntentService {
     private static final String TAG = "ChatSaveService";
     private static final int JOB_ID = 1001;
 
-    private static final String EXTRA_USER_ID  = "EXTRA_USER_ID";
-    private static final String EXTRA_SENDER   = "EXTRA_SENDER";
-    private static final String EXTRA_MESSAGE  = "EXTRA_MESSAGE";
+    private static final String EXTRA_USER_ID = "EXTRA_USER_ID";
+    private static final String EXTRA_SENDER = "EXTRA_SENDER";
+    private static final String EXTRA_MESSAGE = "EXTRA_MESSAGE";
     private static final String EXTRA_ITEMS_JSON = "EXTRA_ITEMS_JSON";
 
     public static void enqueue(
-        Context ctx,
-        String userId,
-        String sender,
-        String message,
-        String itemsJson
+            Context ctx,
+            String userId,
+            String sender,
+            String message,
+            String itemsJson
     ) {
         Intent intent = new Intent(ctx, ChatSaveService.class);
         intent.putExtra(EXTRA_USER_ID, userId);
@@ -50,23 +50,34 @@ public class ChatSaveService extends JobIntentService {
 
     @Override
     protected void onHandleWork(@NonNull Intent intent) {
-        String userId   = intent.getStringExtra(EXTRA_USER_ID);
-        String sender   = intent.getStringExtra(EXTRA_SENDER);
-        String message  = intent.getStringExtra(EXTRA_MESSAGE);
+        String userId = intent.getStringExtra(EXTRA_USER_ID);
+        String sender = intent.getStringExtra(EXTRA_SENDER);
+        String message = intent.getStringExtra(EXTRA_MESSAGE);
         String itemsJson = intent.getStringExtra(EXTRA_ITEMS_JSON);
 
-        // JSON → List<ChatItem> 역직렬화
-        List<ChatItem> items = null;
+        // 1) JSON → List<String> (photoIds) 파싱
+        List<String> photoIds = new ArrayList<>();
         if (itemsJson != null) {
-            Type listType = new TypeToken<ArrayList<ChatItem>>(){}.getType();
-            items = new Gson().fromJson(itemsJson, listType);
+            Type listType = new TypeToken<ArrayList<String>>() {
+            }.getType();
+            photoIds = new Gson().fromJson(itemsJson, listType);
         }
 
+        // 2) ID 리스트 → ChatItem 리스트로 변환 (text는 빈 문자열)
+        List<ChatItem> items = new ArrayList<>();
+        for (String id : photoIds) {
+            ChatItem ci = new ChatItem();
+            ci.setAccessId(id);
+            ci.setText("");
+            items.add(ci);
+        }
+
+        // 3) ChatSaveRequest에 ChatItem 리스트 전달
         ChatSaveRequest req = new ChatSaveRequest(
-            userId,
-            sender,
-            message,
-            items
+                userId,
+                sender,
+                message,
+                items
         );
 
         ChatStorageApi api = ApiClient.getChatStorageApi();

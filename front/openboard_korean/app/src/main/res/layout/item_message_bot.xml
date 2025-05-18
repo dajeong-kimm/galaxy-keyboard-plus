@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:padding="4dp">
 
-    <!-- 90% 가이드라인 (최대 너비) -->
+    <!-- 90% 가이드라인 -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_90"
         android:layout_width="wrap_content"
@@ -27,13 +27,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- 카드 내부 ConstraintLayout -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="8dp">
 
-            <!-- 1) 빈 헤더 영역: 복사 버튼만 여기 담김 -->
+            <!-- 1) 헤더: 복사 버튼만 -->
             <FrameLayout
                 android:id="@+id/headerCopyZone"
                 android:layout_width="0dp"
@@ -42,7 +41,6 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
 
-                <!-- 우측 상단 고정 복사 버튼 -->
                 <ImageButton
                     android:id="@+id/btnCopy"
                     android:layout_width="15dp"
@@ -53,16 +51,17 @@
                     android:contentDescription="답변 복사"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_copy"
+                    android:alpha="0.7"
                     app:tint="?android:attr/textColorSecondary" />
             </FrameLayout>
 
-            <!-- 2) 스크롤 가능한 텍스트 영역 -->
+            <!-- 2) 스크롤 가능한 텍스트 -->
             <androidx.core.widget.NestedScrollView
                 android:id="@+id/scrollText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:fillViewport="true"
-                app:layout_constraintBottom_toTopOf="@+id/btnToggleImages"
+                app:layout_constraintBottom_toTopOf="@+id/scrollImages"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/headerCopyZone">
@@ -74,30 +73,32 @@
                     android:padding="4dp"
                     android:textColor="#000"
                     android:textIsSelectable="true"
+                    android:longClickable="true"
                     android:textSize="15sp" />
             </androidx.core.widget.NestedScrollView>
 
-            <!-- 3) 토글 버튼 (사진 보기/숨기기) -->
-            <Button
-                android:id="@+id/btnToggleImages"
-                style="@style/ToggleButtonStyle"
-                android:layout_width="wrap_content"
+            <!-- 3) 가로 스크롤 가능한 사진 컨테이너 -->
+            <HorizontalScrollView
+                android:id="@+id/scrollImages"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="사진 보기"
+                android:overScrollMode="ifContentScrolls"
+                android:paddingTop="8dp"
+                android:scrollbars="none"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/scrollText" />
+                app:layout_constraintTop_toBottomOf="@id/scrollText">
 
-            <!-- 4) 썸네일 그리드 -->
-            <GridLayout
-                android:id="@+id/glBotImages"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:columnCount="2"
-                android:visibility="gone"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/btnToggleImages" />
+
+                <GridLayout
+                    android:id="@+id/glBotImages"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:columnCount="6"
+                    android:padding="4dp"
+                    android:rowCount="3" />
+            </HorizontalScrollView>
+
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.cardview.widget.CardView>
 </androidx.constraintlayout.widget.ConstraintLayout>

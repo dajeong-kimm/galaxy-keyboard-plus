@@ -44,7 +44,7 @@ public class BackupManager {
     public static void startBackup(
             Context context,
             IntConsumer onUploadStart,
-            BackupWorker.ProgressListener progressListener,
+            FullBackupWorker.ProgressListener progressListener,
             Runnable onComplete) {
 
         // 0.실행 중이면 중복 방지
@@ -90,7 +90,7 @@ public class BackupManager {
             List<GalleryImage> allImages,
             String userId,
             IntConsumer onUploadStart,
-            BackupWorker.ProgressListener progressListener,
+            FullBackupWorker.ProgressListener progressListener,
             Runnable onComplete
     ) {
 
@@ -137,7 +137,7 @@ public class BackupManager {
             Context context,
             List<GalleryImage> newImages,
             IntConsumer onUploadStart,
-            BackupWorker.ProgressListener progressListener,
+            FullBackupWorker.ProgressListener progressListener,
             Runnable onComplete) {
 
         Collections.sort(newImages, Comparator.comparingLong(GalleryImage::getTimestamp).reversed());
@@ -150,6 +150,7 @@ public class BackupManager {
                     android.widget.Toast.makeText(context, "업로드할 이미지가 없습니다.", android.widget.Toast.LENGTH_LONG).show()
             );
             isBackupRunning = false;
+            onComplete.run();
             return;
         }
 
@@ -171,7 +172,7 @@ public class BackupManager {
     private static void uploadImages(
             Context context,
             List<GalleryImage> imagesToUpload,
-            BackupWorker.ProgressListener progressListener,
+            FullBackupWorker.ProgressListener progressListener,
             Runnable onComplete) {
 
         AtomicInteger doneCnt = new AtomicInteger(0);
@@ -193,10 +194,9 @@ public class BackupManager {
                             progressListener.onProgress(d);
                             if (d == total) {
                                 Log.i(TAG, "🏁 전체 업로드 완료 (" + (System.currentTimeMillis() - startMs) + "ms)");
-                                UploadStateTracker.setBackedUpContentIds(context, doneIds);
+                                UploadStateTracker.addBackedUpContentIds(context, doneIds);
                                 onComplete.run();
                                 isBackupRunning = false;
-                                scheduler.shutdown();
                             }
                         }
                 );

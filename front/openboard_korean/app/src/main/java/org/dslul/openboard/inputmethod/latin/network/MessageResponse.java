@@ -6,16 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MessageResponse {
-    @SerializedName("type")
-    private String type;
-    @SerializedName("answer")
-    private String answer;
 
+    private String type;
+    private String query;
     @SerializedName("photo_ids")
-    private List<String> photoIds = new ArrayList<>();
+    private List<String> photoIds;
+    private String answer;
 
     // getters
     public String getType()      { return type; }
+    public String getQuery()       { return query; }
     public String getAnswer()    { return answer; }
     public List<String> getPhotoIds() { return photoIds; }
 
