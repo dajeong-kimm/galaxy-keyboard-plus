@@ -107,7 +107,7 @@ export default function Section3ScrollCompare() {
         <div className="relative flex flex-col items-center">
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex flex-col items-center text-center">
             <div className="text-2xl font-semibold text-red-600 opacity-0">여백채우기</div>
-            <div ref={nailartLabelRef} className="relative text-2xl font-bold text-black">
+            <div className="relative text-2xl font-bold text-black">
               매니큐어
               <div
                 className="absolute top-1/2 left-0 h-[4px] bg-red-500"
