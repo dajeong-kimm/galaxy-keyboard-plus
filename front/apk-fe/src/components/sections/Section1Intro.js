@@ -66,25 +66,25 @@ export default function Section1Intro() {
         },
       });
 
-      // 스크롤 트리거
-      const trigger = ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "bottom 20%",
-        // once: true,
-        onEnter: () => {
-          if (hasUserScrolled) {
-            requestAnimationFrame(() => {
-              gsap.to(window, {
-                scrollTo: "#experience",
-                duration: 1,
-                ease: "power2.inOut",
-              });
-            });
-          }
-        },
-      });
+      // // 스크롤 트리거
+      // const trigger = ScrollTrigger.create({
+      //   trigger: sectionRef.current,
+      //   start: "bottom 20%",
+      //   // once: true,
+      //   onEnter: () => {
+      //     if (hasUserScrolled) {
+      //       requestAnimationFrame(() => {
+      //         gsap.to(window, {
+      //           scrollTo: "#experience",
+      //           duration: 1,
+      //           ease: "power2.inOut",
+      //         });
+      //       });
+      //     }
+      //   },
+      // });
 
-      return () => trigger.kill();
+      // return () => trigger.kill();
     }, sectionRef);
 
     return () => {
@@ -105,10 +105,7 @@ export default function Section1Intro() {
   };
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative flex flex-col items-center justify-center h-screen bg-white"
-    >
+    <section ref={sectionRef} className="relative flex flex-col items-center justify-center h-screen bg-white">
       <div className="flex items-center justify-center gap-16">
         <div className="absolute top-0 left-0 z-0 w-8 h-full bg-black" />
 
@@ -150,12 +147,7 @@ export default function Section1Intro() {
           >
             {showQR ? (
               <div className="flex flex-col items-center justify-center">
-                <Image
-                  src="/images/qr-code.jpg"
-                  alt="qr"
-                  width={240}
-                  height={240}
-                />
+                <Image src="/images/qr-code.jpg" alt="qr" width={240} height={240} />
                 <p className="mt-2 text-sm text-center text-gray-500">QR코드를 촬영하여 설치 페이지로 이동합니다</p>
               </div>
             ) : (
@@ -165,10 +157,7 @@ export default function Section1Intro() {
         </div>
       </div>
 
-      <button
-        onClick={scrollToExperience}
-        className="absolute bottom-12 right-8"
-      >
+      <button onClick={scrollToExperience} className="absolute bottom-12 right-8">
         <ArrowDown className="w-6 h-6 animate-bounce" />
       </button>
     </section>
