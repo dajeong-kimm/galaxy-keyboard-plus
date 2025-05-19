@@ -37,6 +37,22 @@
             android:id="@+id/setup_step3_bullet"
             style="@style/setupStepBulletStyle"
             android:text="@string/setup_step3_bullet" />
+        <TextView
+            android:id="@+id/setup_step4_bullet"
+            style="@style/setupStepBulletStyle"
+            android:text="@string/setup_step4_bullet" />
+        <TextView
+            android:id="@+id/setup_step5_bullet"
+            style="@style/setupStepBulletStyle"
+            android:text="@string/setup_step5_bullet" />
+        <TextView
+            android:id="@+id/setup_step6_bullet"
+            style="@style/setupStepBulletStyle"
+            android:text="@string/setup_step6_bullet" />
+        <TextView
+            android:id="@+id/setup_step7_bullet"
+            style="@style/setupStepBulletStyle"
+            android:text="@string/setup_step7_bullet" />
     </LinearLayout>
     <org.dslul.openboard.inputmethod.latin.setup.SetupStepIndicatorView
         android:id="@+id/setup_step_indicator"
@@ -53,6 +69,18 @@
             layout="@layout/setup_step" />
         <include
             android:id="@+id/setup_step3"
+            layout="@layout/setup_step" />
+        <include
+            android:id="@+id/setup_step4"
+            layout="@layout/setup_step" />
+        <include
+            android:id="@+id/setup_step5"
+            layout="@layout/setup_step" />
+        <include
+            android:id="@+id/setup_step6"
+            layout="@layout/setup_step" />
+        <include
+            android:id="@+id/setup_step7"
             layout="@layout/setup_step" />
     </FrameLayout>
     <TextView

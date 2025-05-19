@@ -33,13 +33,13 @@ async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
     total_start = time.time()
     logger.info(f"🔍 쿼리 시작 - user: {user_id}, query: {query}")
 
-    # 캐시 확인: 동일 쿼리가 이전에 처리된 적 있는지 확인
+    # 캐시 키는 생성하지만 실제 캐싱은 비활성화
     cache_key = get_cache_key(user_id, query)
-    cached_result = get_from_cache(cache_key, CACHE_TTL_SECONDS)
-    if cached_result:
-        cached_result["_timings"]["total"] = time.time() - total_start
-        cached_result["_from_cache"] = True
-        return cached_result
+    # cached_result = get_from_cache(cache_key, CACHE_TTL_SECONDS)
+    # if cached_result:
+    #     cached_result["_timings"]["total"] = time.time() - total_start
+    #     cached_result["_from_cache"] = True
+    #     return cached_result
 
     timestamp = int(time.time())
     timings = {}
@@ -68,10 +68,10 @@ async def process_image_query(user_id: str = Form(...), query: str = Form(...)):
         # 4. 전체 처리 시간 저장
         timings["total"] = time.time() - total_start
         result["_timings"] = timings
-        result["_from_cache"] = False
+        result["_from_cache"] = False  # 캐싱 비활성화됨 - 항상 false
 
-        # 5. 결과 캐시 저장
-        set_cache(cache_key, result, CACHE_TTL_SECONDS, MAX_CACHE_SIZE)
+        # 5. 결과 캐시 저장 비활성화
+        # set_cache(cache_key, result, CACHE_TTL_SECONDS, MAX_CACHE_SIZE)
 
         # 6. 비동기 결과 저장
         asyncio.create_task(

@@ -17,16 +17,16 @@
 ** limitations under the License.
 */
 --><resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="english_ime_name" translatable="false">OpenBoard</string>
+    <string name="english_ime_name" translatable="false">PhoKey</string>
     <!-- Name of Android spell checker service. AOSP(Android Open Source Project) should not be translated.
          This resource should be copied from msgid="511950477199948048" -->
-    <string name="spell_checker_service_name">OpenBoard Spell Checker</string>
+    <string name="spell_checker_service_name">PhoKey Spell Checker</string>
     <!-- Title for IME settings screen.
          This resource should be copied from msgid="423615877174850267" -->
-    <string name="ime_settings">OpenBoard Settings</string>
+    <string name="ime_settings">PhoKey Settings</string>
     <!-- Title for the spell checking service settings screen. AOSP(Android Open Source Project) should not be translated.
          This resource should be copied from msgid="2970535894327288421" -->
-    <string name="android_spell_checker_settings">OpenBoard Spell Checker Settings</string>
+    <string name="android_spell_checker_settings">PhoKey Spell Checker Settings</string>
     <!-- Title for Latin keyboard input options dialog [CHAR LIMIT=25] -->
     <string name="english_ime_input_options">Input options</string>
     <!-- Title for the spell checker option to turn on/off contact names lookup [CHAR LIMIT=25] -->
@@ -455,6 +455,30 @@ disposition rather than other common dispositions for Latin languages. [CHAR LIM
     <string name="setup_step3_instruction">Now you can type in all your favorite apps with <xliff:g id="APPLICATION_NAME" example="Android Keyboard">%s</xliff:g>.</string>
     <!-- The label of the button that triggers the screen for configuaring additional languages of the keyboard. [CHAR_LIMIT=64] -->
     <string name="setup_step3_action">Configure additional languages</string>
+    <!-- Ordinal number of the 4th step in the setup wizard. [CHAR LIMIT=5] -->
+    <!-- STEP 4: 카카오 로그인 -->
+    <string name="setup_step4_bullet" translatable="false">4</string>
+    <string name="setup_step4_title">로그인</string>
+    <string name="setup_step4_instruction">버튼을 누르면 카카오 로그인 페이지로 이동합니다.</string>
+    <string name="setup_step4_action">카카오 로그인</string>
+    <!-- Ordinal number of the 5th step in the setup wizard. [CHAR LIMIT=5] -->
+    <!-- STEP 5: 사진 접근 권한 설정 -->
+    <string name="setup_step5_bullet" translatable="false">5</string>
+    <string name="setup_step5_title">사진 접근 권한 설정</string>
+    <string name="setup_step5_instruction">버튼을 누르면 사진 권한을 요청합니다.</string>
+    <string name="setup_step5_action">사진 권한 요청</string>
+    <!-- Ordinal number of the 6th step in the setup wizard. [CHAR LIMIT=5] -->
+    <!-- STEP 6: 알림 권한 설정 -->
+    <string name="setup_step6_bullet" translatable="false">6</string>
+    <string name="setup_step6_title">알림 권한 설정</string>
+    <string name="setup_step6_instruction">버튼을 누르면 알림 권한을 요청합니다.</string>
+    <string name="setup_step6_action">알림 권한 요청</string>
+    <!-- Ordinal number of the 7th step in the setup wizard. [CHAR LIMIT=5] -->
+    <!-- STEP 7: 백업 실행 -->
+    <string name="setup_step7_bullet" translatable="false">7</string>
+    <string name="setup_step7_title">백업 시작</string>
+    <string name="setup_step7_instruction">화면에 안내문구만 나오고 5초 뒤 메인 페이지로 이동합니다.</string>
+    <string name="setup_step7_action">백업 실행</string>
     <!-- The label of the button that finishes the setup wizard. [CHAR_LIMIT=64] -->
     <string name="setup_finish_action">Finished</string>
     <!-- Option to show setup wizard icon. [CHAR LIMIT=30]-->

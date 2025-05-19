@@ -7,8 +7,8 @@ import android.content.ClipboardManager;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -16,25 +16,34 @@ import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.MediaStore;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+import androidx.core.widget.NestedScrollView;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
+
+import org.commonmark.node.Node;
 import org.dslul.openboard.inputmethod.latin.R;
-import org.dslul.openboard.inputmethod.latin.network.InfoResult;
-import org.dslul.openboard.inputmethod.latin.network.PhotoResult;
-import org.dslul.openboard.inputmethod.latin.network.dto.ChatItem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,18 +96,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             botHolder.tvMessage.setTextIsSelectable(true);
 
             // 3) 복사 버튼 보이기/동작 설정
-            String body = msg.getAnswer() != null ? msg.getAnswer() : msg.getText();
-            if (body != null && !body.trim().isEmpty()) {
-                botHolder.btnCopy.setVisibility(View.VISIBLE);
-                botHolder.btnCopy.setOnClickListener(v -> {
-                    ClipboardManager cm =
-                            (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    ClipData clip = ClipData.newPlainText("bot message", msg.getText());
-                    cm.setPrimaryClip(clip);
-                });
-            } else {
-                botHolder.btnCopy.setVisibility(View.GONE);
-            }
+            botHolder.btnCopy.setVisibility(View.VISIBLE);
+            botHolder.btnCopy.setOnClickListener(v -> {
+                ClipboardManager cm =
+                        (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText("bot message", msg.getText());
+                cm.setPrimaryClip(clip);
+            });
 
             botHolder.bind(msg);
         }
@@ -119,17 +123,19 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     static class BotViewHolder extends RecyclerView.ViewHolder {
+        private final FrameLayout headerCopyZone;      // 복사 버튼 영역
+        private final NestedScrollView scrollText;     // 텍스트 스크롤 영역
         private final TextView tvMessage;
         private final ImageButton btnCopy;
-        private final Button btnToggle;
         private final GridLayout glImages;
         private final Markwon markwon;
 
         BotViewHolder(View v) {
             super(v);
+            headerCopyZone = v.findViewById(R.id.headerCopyZone);
+            scrollText = v.findViewById(R.id.scrollText);
             tvMessage = v.findViewById(R.id.tvBotMessage);
             btnCopy = v.findViewById(R.id.btnCopy);
-            btnToggle = v.findViewById(R.id.btnToggleImages);
             glImages = v.findViewById(R.id.glBotImages);
 
             markwon = Markwon.create(v.getContext());
@@ -140,166 +146,43 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
 
         void bind(Message m) {
-            // 1) 본문 또는 answer 준비
-            String body = m.getAnswer() != null ? m.getAnswer() : m.getText();
-
-            // 2) PhotoResult/InfoResult/ChatItem → Uri 변환
-            List<Uri> uris = new ArrayList<>();
-            addUrisFromPhotos(m.getPhotoResults(), uris);
-            addUrisFromInfos(m.getInfoResults(), uris);
-            addUrisFromChatItems(m.getChatItems(), uris);
-
-            boolean hasPhotos = !uris.isEmpty();
-            boolean hasText = body != null && !body.trim().isEmpty();
-
-            if (m.shouldAnimate()) {
-                // ── 애니메이션 분기 ────────────────────────────────
-                if (hasText) {
-                    // 텍스트 있을 때 타자기 효과
-                    tvMessage.setText("");
-                    btnToggle.setVisibility(View.GONE);
-                    glImages.setVisibility(View.GONE);
-                    animateText(body);
-                } else if (hasPhotos && !hasText) {
-                    // 사진만 있을 때 썸네일 순차 생성
-                    tvMessage.setText("");
-                    btnToggle.setVisibility(View.GONE);
-                    glImages.setVisibility(View.VISIBLE);
-                    animateImages(uris);
-                }
+            // 1) 텍스트 유무에 따라 영역 보이기/숨기기
+            if (m.getText() == null || m.getText().trim().isEmpty()) {
+                headerCopyZone.setVisibility(View.GONE);
+                scrollText.setVisibility(View.GONE);
             } else {
-                // 애니메이션 꺼짐 또는 히스토리 로드
-                renderStatic(body, uris, m);
+                headerCopyZone.setVisibility(View.VISIBLE);
+                scrollText.setVisibility(View.VISIBLE);
             }
-        }
 
-        private void fillImages(List<Uri> uris) {
-            // 그리드에 뷰가 비어 있다고 가정하고 호출됨
-            final int size = dpToPx(120, glImages);
-            for (Uri u : uris) {
-                addSingleImage(u, size);
-            }
-        }
-
-        private void renderStatic(String body, List<Uri> uris, Message m) {
-            // 마크다운 + 토글 처리
-            markwon.setMarkdown(tvMessage, body);
-            btnToggle.setVisibility(uris.isEmpty() ? View.GONE : View.VISIBLE);
-            if (m.isImagesVisible()) {
-                btnToggle.setText("사진 숨기기");
-                glImages.setVisibility(View.VISIBLE);
+            // 2) 텍스트 애니메이션
+            if (m.shouldAnimate() && !m.getText().isEmpty()) {
+                animateTyping(m.getText());
             } else {
-                btnToggle.setText("사진 보기");
-                glImages.setVisibility(View.GONE);
+                // 그냥 한번에 출력
+                markwon.setMarkdown(tvMessage, m.getText());
             }
 
-            // 최초 1회만 이미지 채우기
-            if (glImages.getChildCount() == 0) {
-                fillImages(uris);
-            }
-
-            btnToggle.setOnClickListener(v -> {
-                boolean now = !m.isImagesVisible();
-                m.setImagesVisible(now);
-                if (now) {
-                    btnToggle.setText("사진 숨기기");
-                    glImages.setVisibility(View.VISIBLE);
-                } else {
-                    btnToggle.setText("사진 보기");
-                    glImages.setVisibility(View.GONE);
-                }
-            });
-        }
-
-        // 1) 타자기 효과
-        private void animateText(final String text) {
-            Handler h = new Handler(Looper.getMainLooper());
-            tvMessage.setText("");
-            for (int i = 0; i < text.length(); i++) {
-                final int idx = i;
-                h.postDelayed(() -> tvMessage.append(String.valueOf(text.charAt(idx))),
-                        idx * 5L  // 5ms 간격
-                );
-            }
-        }
-
-        // 2) 이미지 순차 추가
-        private void animateImages(List<Uri> uris) {
+            // 1) 사진 애니/즉시 추가 (중복 제거)
             glImages.removeAllViews();
-            Handler h = new Handler(Looper.getMainLooper());
-            final int size = dpToPx(120, glImages);
-            for (int i = 0; i < uris.size(); i++) {
-                final Uri u = uris.get(i);
-                h.postDelayed(() -> addSingleImage(u, size), i * 100L);
-            }
-        }
-
-        // 3) 단일 썸네일 추가 로직 (원래 fillImages 내부 로직에서 분리)
-        private void addSingleImage(Uri u, int size) {
-            long mediaId = ContentUris.parseId(u);
-            Bitmap thumb = null;
-            try {
-                thumb = MediaStore.Images.Thumbnails.getThumbnail(
-                        glImages.getContext().getContentResolver(),
-                        mediaId, MediaStore.Images.Thumbnails.MINI_KIND, null);
-            } catch (Exception ignored) {
-            }
-
-            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-            lp.width = size;
-            lp.height = size;
-            lp.setMargins(0, 0, dpToPx(4, glImages), dpToPx(4, glImages));
-
-            if (thumb != null) {
-                ImageView iv = new ImageView(glImages.getContext());
-                iv.setLayoutParams(lp);
-                iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                iv.setImageBitmap(thumb);
-                // 기존 클릭·롱클릭 리스너 설정 그대로…
-                glImages.addView(iv);
-            } else {
-                TextView tv = new TextView(glImages.getContext());
-                tv.setLayoutParams(lp);
-                tv.setText("삭제된 사진입니다.");
-                tv.setGravity(Gravity.CENTER);
-                tv.setTextSize(12);
-                tv.setTextColor(Color.parseColor("#9E9E9E"));
-                glImages.addView(tv);
-            }
-        }
-
-        // PhotoResult ID → Uri
-        private void addUrisFromPhotos(List<PhotoResult> list, List<Uri> out) {
-            if (list == null) return;
-            for (PhotoResult r : list) {
-                try {
-                    long id = Long.parseLong(r.getId());
-                    out.add(ContentUris.withAppendedId(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-                } catch (NumberFormatException ignored) {
+            if (m.getPhotoIds() != null) {
+                if (m.shouldAnimate()) {
+                    animateImages(m.getPhotoIds());
+                } else {
+                    showAllImages(m.getPhotoIds());
                 }
             }
-        }
-
-        // InfoResult ID → Uri
-        private void addUrisFromInfos(List<InfoResult> list, List<Uri> out) {
-            if (list == null) return;
-            for (InfoResult r : list) {
-                try {
-                    long id = Long.parseLong(r.getId());
-                    out.add(ContentUris.withAppendedId(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-                } catch (NumberFormatException ignored) {
-                }
+            // 한 번만 애니메이션
+            if (m.shouldAnimate()) {
+                m.setShouldAnimate(false);
             }
         }
 
-        // PhotoResult ID → Uri
-        private void addUrisFromChatItems(List<ChatItem> list, List<Uri> out) {
-            if (list == null) return;
-            for (ChatItem r : list) {
+        //  API에서 넘어온 photo_ids → MediaStore Uri
+        private void addUrisFromPhotoIds(List<String> ids, List<Uri> out) {
+            for (String idStr : ids) {
                 try {
-                    long id = Long.parseLong(r.getAccessId());
+                    long id = Long.parseLong(idStr);
                     out.add(ContentUris.withAppendedId(
                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
                 } catch (NumberFormatException ignored) {
@@ -309,6 +192,131 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         private int dpToPx(int dp, View v) {
             return Math.round(dp * v.getResources().getDisplayMetrics().density);
+        }
+
+        // 텍스트 타이핑 효과
+        private void animateTyping(String fullText) {
+            // 1) Markdown 파싱 → Spanned 얻기
+            Node node = markwon.parse(fullText);
+            Spanned spanned = markwon.render(node);
+
+            // 2) Spanned → Spannable (SpannableStringBuilder)
+            Spannable spannable = new SpannableStringBuilder(spanned);
+
+            // 3) 빈 문자열로 초기화
+            tvMessage.setText("");
+
+            Handler h = new Handler(Looper.getMainLooper());
+            int delay = 10; // ms 간격
+
+            // 4) Spannable 길이만큼 reveal
+            for (int i = 1; i <= spannable.length(); i++) {
+                final int idx = i;
+                h.postDelayed(() -> {
+                    // Spannable 의 일부분을 잘라서 넣으면, span 정보가 유지됩니다.
+                    tvMessage.setText(spannable.subSequence(0, idx),
+                            TextView.BufferType.SPANNABLE);
+                }, delay * i);
+            }
+        }
+
+        // 이미지 하나씩 순차 추가
+        private void animateImages(List<String> photoIds) {
+            Handler h = new Handler(Looper.getMainLooper());
+            int delayPer = 50; // 한 장당 지연(ms)
+            for (int i = 0; i < photoIds.size(); i++) {
+                final String id = photoIds.get(i);
+                h.postDelayed(() -> {
+                    Uri u = ContentUris.withAppendedId(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            Long.parseLong(id)
+                    );
+                    addOneImage(u);
+                }, delayPer * i);
+            }
+        }
+
+        // 즉시 모두 추가
+        private void showAllImages(List<String> photoIds) {
+            for (String id : photoIds) {
+                Uri u = ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        Long.parseLong(id));
+                addOneImage(u);
+            }
+        }
+
+        // 단일 이미지 추가 (Glide 포함)
+        private void addOneImage(Uri u) {
+            int size = dpToPx(80, glImages);
+            ImageView iv = new ImageView(glImages.getContext());
+            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+            lp.width = size;
+            lp.height = size;
+            lp.setMargins(dpToPx(2, glImages), dpToPx(2, glImages),
+                    dpToPx(2, glImages), dpToPx(2, glImages));
+            iv.setLayoutParams(lp);
+            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+            Glide.with(iv.getContext())
+                    .load(u)
+                    .override(size, size)
+                    .centerCrop()
+                    .listener(new RequestListener<Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e,
+                                                    Object model,
+                                                    Target<Drawable> target,
+                                                    boolean isFirstResource) {
+                            // 실패 → TextView로 대체
+                            glImages.removeView(iv);
+                            TextView tv = new TextView(glImages.getContext());
+                            tv.setLayoutParams(lp);
+                            tv.setText("삭제된 사진입니다.");
+                            tv.setGravity(Gravity.CENTER);
+                            tv.setTextSize(12);
+                            tv.setTextColor(Color.parseColor("#9E9E9E"));
+                            glImages.addView(tv);
+                            return true;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(Drawable res,
+                                                       Object model,
+                                                       Target<Drawable> target,
+                                                       DataSource src,
+                                                       boolean first) {
+                            return false;
+                        }
+                    })
+                    .into(iv);
+
+            // 클릭/롱클릭 리스너
+            iv.setOnClickListener(v -> {
+                Intent intent = new Intent(Intent.ACTION_VIEW)
+                        .setDataAndType(u, "image/*")
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                try {
+                    v.getContext().startActivity(intent);
+                } catch (ActivityNotFoundException ignored) {
+                }
+            });
+            iv.setOnLongClickListener(v -> {
+                ClipboardManager cm = (ClipboardManager)
+                        v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newUri(
+                        v.getContext().getContentResolver(), "image", u));
+                Vibrator vib = (Vibrator)
+                        v.getContext().getSystemService(Context.VIBRATOR_SERVICE);
+                if (vib != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vib.vibrate(VibrationEffect.createOneShot(50,
+                                VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else vib.vibrate(50);
+                }
+                return true;
+            });
+            glImages.addView(iv);
         }
     }
 }

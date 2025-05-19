@@ -1,10 +1,7 @@
 package org.dslul.openboard.inputmethod.latin.search;
 
 import android.app.Fragment;
-import android.content.ContentUris;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -210,42 +207,45 @@ public class SearchPageFragment extends Fragment {
                             return;
                         }
                         MessageResponse body = resp.body();
-                        String type = body.getType();
 
                         /* 응답 원본 JSON을 보고 싶다면 ↓ */
                         Log.d(API_TAG, "body=" + GSON.toJson(body));
 
-                        // 1) 메시지 텍스트 준비
-                        String displayText = "";
-                        if ("info_search".equals(type) || "conversation".equals(type)) {
-                            displayText = body.getAnswer();             // answer 보여줌
+                        // API 타입에 따라 메시지 구성
+                        Message botMsg;
+                        switch (body.getType()) {
+                            case "conversation":
+                                // 대화형 응답: answer만
+                                botMsg = new Message(
+                                        Message.Sender.BOT,
+                                        body.getAnswer(),
+                                        new Date(),
+                                        /*photoIds=*/ null,
+                                        true
+                                );
+                                break;
+                            case "info_search":
+                                // 정보+이미지: answer + photoIds
+                                botMsg = new Message(
+                                        Message.Sender.BOT,
+                                        body.getAnswer(),
+                                        new Date(),
+                                        body.getPhotoIds(),
+                                        true
+                                );
+                                break;
+                            case "photo_search":
+                            default:
+                                // 이미지 검색: photoIds만
+                                botMsg = new Message(
+                                        Message.Sender.BOT,
+                                        /*text=*/ "",
+                                        new Date(),
+                                        body.getPhotoIds(),
+                                        true
+                                );
+                                break;
                         }
-
-                        // 2) 이미지 ID → Uri 변환
-                        List<Uri> uris = new ArrayList<>();
-                        if ("photo_search".equals(type) || "info_search".equals(type)) {
-                            for (String id : body.getPhotoIds()) {
-                                try {
-                                    long mediaId = Long.parseLong(id);
-                                    uris.add(ContentUris.withAppendedId(
-                                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                            mediaId
-                                    ));
-                                } catch (NumberFormatException ignored) {}
-                            }
-                        }
-
-                        // 3) 어댑터에 반영
-                        Message botMsg = new Message(
-                                Message.Sender.BOT,
-                                displayText,
-                                new Date(),
-                                body.getAnswer(),         // answer 필드 (null 허용)
-                                /* photoResults */        convertToPhotoResults(body.getPhotoIds()),
-                                /* infoResults */         null,
-                                /* chatItems */           null,
-                                true
-                        );
                         messages.add(botMsg);
                         adapter.notifyItemInserted(messages.size() - 1);
                         rvMessages.scrollToPosition(messages.size() - 1);
@@ -264,17 +264,6 @@ public class SearchPageFragment extends Fragment {
                         showStatus("네트워크 오류: " + t.getMessage(), true);
                     }
                 });
-    }
-
-    private List<PhotoResult> convertToPhotoResults(List<String> ids) {
-        List<PhotoResult> out = new ArrayList<>();
-        for (String id : ids) {
-            PhotoResult pr = new PhotoResult();
-            pr.setId(id);
-            pr.setText(null);
-            out.add(pr);
-        }
-        return out;
     }
 
     /**
@@ -361,27 +350,10 @@ public class SearchPageFragment extends Fragment {
         Log.d(TAG_SAVE, "saveChat() sender=" + m.getSender()
                 + " text=\"" + m.getText() + "\"");
 
-        List<ChatItem> items = new ArrayList<>();
-        if (m.getSender() == Message.Sender.BOT) {
-            // ① PhotoResult
-            if (m.getPhotoResults() != null) {
-                for (PhotoResult pr : m.getPhotoResults()) {
-                    // ChatItem(String accessId, String text)
-                    items.add(new ChatItem(pr.getId(), pr.getText()));
-                }
-            }
-            // ② InfoResult
-            if (m.getInfoResults() != null) {
-                for (InfoResult ir : m.getInfoResults()) {
-                    items.add(new ChatItem(ir.getId(), ir.getText()));
-                }
-            }
-        }
-
-        // Gson 으로 JSON 문자열로 변환
+        // Bot 메시지인 경우에만 photoIds를 Gson을 사용해 JSON 문자열로 변환
         String itemsJson = null;
-        if (!items.isEmpty()) {
-            itemsJson = new Gson().toJson(items);
+        if (m.getSender() == Message.Sender.BOT && m.getPhotoIds() != null) {
+            itemsJson = new Gson().toJson(m.getPhotoIds());
         }
 
         // 서비스에 enqueue 할 때 JSON 문자열 넘기기
@@ -402,12 +374,22 @@ public class SearchPageFragment extends Fragment {
                         .atZone(ZoneId.systemDefault()).toInstant());
 
         if ("user".equals(c.getSender())) {
-            return new Message(Message.Sender.USER, c.getMessage(), when,
-                    null, null, null, c.getItems(), false);
-        } else { // bot
-            // accessId → PhotoResult/InfoResult 매핑은 필요 시 변환
-            return new Message(Message.Sender.BOT, c.getMessage(), when,
-                    c.getMessage(), null, null, c.getItems(), false);
+            return new Message(Message.Sender.USER, c.getMessage(), when);
+        } else {
+            // Bot 메시지: ChatItem.accessId만 추출해서 photoIds 리스트로
+            List<String> photoIds = new ArrayList<>();
+            if (c.getItems() != null) {
+                for (ChatItem it : c.getItems()) {
+                    photoIds.add(it.getAccessId());
+                }
+            }
+            return new Message(
+                    Message.Sender.BOT,
+                    c.getMessage(),
+                    when,
+                    photoIds,
+                    false
+            );
         }
     }
 }

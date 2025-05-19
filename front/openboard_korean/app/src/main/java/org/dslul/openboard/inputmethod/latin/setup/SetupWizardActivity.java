@@ -19,7 +19,6 @@ package org.dslul.openboard.inputmethod.latin.setup;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -27,7 +26,10 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
@@ -42,16 +44,20 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.work.Constraints;
+import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
-import org.dslul.openboard.inputmethod.backup.BackupWorker;
+import org.dslul.openboard.inputmethod.backup.FullBackupWorker;
+import org.dslul.openboard.inputmethod.backup.IncrementalBackupWorker;
 import org.dslul.openboard.inputmethod.latin.R;
+import org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity;
 import org.dslul.openboard.inputmethod.latin.search.SearchActivity;
 import org.dslul.openboard.inputmethod.latin.utils.LeakGuardHandlerWrapper;
 import org.dslul.openboard.inputmethod.latin.utils.UncachedInputMethodManagerUtils;
 
+import java.time.Duration;
 import java.util.ArrayList;
 
 import javax.annotation.Nonnull;
@@ -63,16 +69,20 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
     private static final int REQ_MEDIA_PERMS = 0x31;
     private static final int REQ_NOTIF_PERMS = 0x32;
 
-    /** 버전에 맞게 요청할 미디어 읽기 권한 목록 반환 */
+    /**
+     * 버전에 맞게 요청할 미디어 읽기 권한 목록 반환
+     */
     private static String[] getMediaPermissions() {
         if (Build.VERSION.SDK_INT >= 33) {          // Android 13
-            return new String[] { Manifest.permission.READ_MEDIA_IMAGES };
+            return new String[]{Manifest.permission.READ_MEDIA_IMAGES};
         } else {                                           // 23 ≤ API < 33
-            return new String[] { Manifest.permission.READ_EXTERNAL_STORAGE };
+            return new String[]{Manifest.permission.READ_EXTERNAL_STORAGE};
         }
     }
 
-    /** 이미 허가돼 있나 확인하고, 없으면 런타임 요청 */
+    /**
+     * 이미 허가돼 있나 확인하고, 없으면 런타임 요청
+     */
     private void ensureMediaPermission() {
         String[] perms = getMediaPermissions();
         for (String p : perms) {
@@ -82,12 +92,12 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 return;   // 요청했으니 결과 콜백 기다림
             }
         }
-        ensureNotificationPermission();
+//        ensureNotificationPermission();
     }
 
     private void ensureNotificationPermission() {
         if (Build.VERSION.SDK_INT >= 33) {
-            String[] perms = new String[]{ Manifest.permission.POST_NOTIFICATIONS };
+            String[] perms = new String[]{Manifest.permission.POST_NOTIFICATIONS};
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, perms, REQ_NOTIF_PERMS);
@@ -104,21 +114,46 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build();
 
-        // 2) 백업용 Worker를 OneTimeWorkRequest로 생성
-        OneTimeWorkRequest backupRequest = new OneTimeWorkRequest.Builder(BackupWorker.class)
-                .setConstraints(constraints)
-                .build();
+        // 2) 권한 직후 전체 백업 (한 번만)
+        OneTimeWorkRequest fullReq =
+                new OneTimeWorkRequest.Builder(FullBackupWorker.class)
+                        .setConstraints(constraints)
+                        .build();
+        WorkManager.getInstance(this)
+                .enqueueUniqueWork(
+                        "full_backup",
+                        ExistingWorkPolicy.KEEP,
+                        fullReq
+                );
 
-        // 3) WorkManager에 enqueue
-        WorkManager
-                .getInstance(getApplicationContext())
-                .enqueue(backupRequest);
+        // 3) 이후 새 사진마다 실행될 증분 백업 워커 등록
+        Constraints incCons = new Constraints.Builder()
+                .addContentUriTrigger(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        true
+                )
+                .setTriggerContentUpdateDelay(Duration.ofSeconds(5))
+                // (선택) 네트워크 제약도 추가하려면 아래 한 줄 더
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+        OneTimeWorkRequest incReq =
+                new OneTimeWorkRequest.Builder(IncrementalBackupWorker.class)
+                        .setConstraints(incCons)
+                        .build();
+        WorkManager.getInstance(this)
+                .enqueueUniqueWork(
+                        "incremental_backup",
+                        ExistingWorkPolicy.REPLACE,
+                        incReq
+                );
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
         if (requestCode == REQ_MEDIA_PERMS) {
             boolean granted = false;
             for (int g : grantResults) {
@@ -128,8 +163,9 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 }
             }
             if (granted) {
-                // 사진 권한 → 알림 권한 체크
-                ensureNotificationPermission();
+                // 사진 권한 허용 → 6단계(알림 권한) 화면으로 전환
+                mStepNumber = STEP_6_REQUEST_NOTIF_PERM;
+                updateSetupStepView();
             } else {
                 Toast.makeText(this,
                         "사진 권한이 없으면 백업 기능을 사용할 수 없습니다.",
@@ -140,13 +176,15 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         if (requestCode == REQ_NOTIF_PERMS) {
             boolean granted = grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            if (!granted) {
+            if (granted) {
+                // 알림 권한 허용 → 7단계(백업)로 이동
+                mStepNumber = STEP_7_RUN_BACKUP_WORKER;
+                updateSetupStepView();
+            } else {
                 Toast.makeText(this,
                         "알림 권한이 없으면 진행 상황을 볼 수 없습니다.",
                         Toast.LENGTH_LONG).show();
             }
-            // 권한 유무와 상관없이 백업 시작
-            onNotificationPermissionGranted();
             return;
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -178,8 +216,16 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
     private static final int STEP_1 = 1;
     private static final int STEP_2 = 2;
     private static final int STEP_3 = 3;
-    private static final int STEP_LAUNCHING_IME_SETTINGS = 4;
-    private static final int STEP_BACK_FROM_IME_SETTINGS = 5;
+    private static final int STEP_4_LOGIN = 4; // 카카오 로그인
+    private static final int STEP_5_REQUEST_PHOTO_PERM = 5; // 사진 권한
+    private static final int STEP_6_REQUEST_NOTIF_PERM = 6; // 알림 권한
+    private static final int STEP_7_RUN_BACKUP_WORKER = 7; // 백업 실행
+    private static final long STEP_7_DELAY_MS = 5_000L;      // 5초 딜레이
+
+    private static final int STEP_LAUNCHING_IME_SETTINGS = 8;
+    private static final int STEP_BACK_FROM_IME_SETTINGS = 9;
+
+    private static final int REQ_KAKAO_LOGIN = 100;
 
     private SettingsPoolingHandler mHandler;
 
@@ -229,7 +275,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         setTheme(android.R.style.Theme_Translucent_NoTitleBar);
         super.onCreate(savedInstanceState);
 
-        mImm = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+        mImm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         mHandler = new SettingsPoolingHandler(this, mImm);
 
         setContentView(R.layout.setup_wizard);
@@ -272,7 +318,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         mSetupStepGroup.addStep(step1);
 
         final SetupStep step2 = new SetupStep(STEP_2, applicationName,
-                (TextView)findViewById(R.id.setup_step2_bullet), findViewById(R.id.setup_step2),
+                (TextView) findViewById(R.id.setup_step2_bullet), findViewById(R.id.setup_step2),
                 R.string.setup_step2_title, R.string.setup_step2_instruction,
                 0 /* finishedInstruction */, R.drawable.ic_setup_step2,
                 R.string.setup_step2_action);
@@ -285,7 +331,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         mSetupStepGroup.addStep(step2);
 
         final SetupStep step3 = new SetupStep(STEP_3, applicationName,
-                (TextView)findViewById(R.id.setup_step3_bullet), findViewById(R.id.setup_step3),
+                (TextView) findViewById(R.id.setup_step3_bullet), findViewById(R.id.setup_step3),
                 R.string.setup_step3_title, R.string.setup_step3_instruction,
                 0 /* finishedInstruction */, R.drawable.ic_setup_step3,
                 R.string.setup_step3_action);
@@ -331,12 +377,147 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         mActionFinish.setCompoundDrawablesRelativeWithIntrinsicBounds(getResources().getDrawable(R.drawable.ic_setup_finish),
                 null, null, null);
         mActionFinish.setOnClickListener(this);
+
+        // ────────── 추가: STEP_4 - 카카오 로그인 ──────────
+        final SetupStep step4 = new SetupStep(
+                STEP_4_LOGIN, applicationName,
+                findViewById(R.id.setup_step4_bullet),
+                findViewById(R.id.setup_step4),
+                R.string.setup_step4_title,           // “로그인”
+                R.string.setup_step4_instruction,     // “버튼을 눌러 카카오 로그인 페이지로 이동합니다.”
+                0,                                     // 완료(instruction) 없음
+                R.drawable.ic_setup_step4,            // 아이콘
+                R.string.setup_step4_action            // “카카오 로그인”
+        );
+        step4.setAction(new Runnable() {
+            @Override
+            public void run() {
+                // 카카오 로그인 화면으로 이동
+                Intent intent = new Intent(SetupWizardActivity.this, KakaoLoginActivity.class);
+                startActivityForResult(intent, REQ_KAKAO_LOGIN);
+            }
+        });
+
+
+        mSetupStepGroup.addStep(step4);
+
+        // ────────── 추가: STEP_5 - 사진 접근 권한 요청 ──────────
+        final SetupStep step5 = new SetupStep(
+                STEP_5_REQUEST_PHOTO_PERM, applicationName,
+                findViewById(R.id.setup_step5_bullet),
+                findViewById(R.id.setup_step5),
+                R.string.setup_step5_title,           // “사진 접근 권한 설정”
+                R.string.setup_step5_instruction,     // “버튼을 눌러 사진 권한을 요청합니다.”
+                0,
+                R.drawable.ic_setup_step5,
+                R.string.setup_step5_action           // “사진 권한 요청”
+        );
+        step5.setAction(new Runnable() {
+            @Override
+            public void run() {
+                // 기존 ensureMediaPermission() 호출
+                ensureMediaPermission();
+            }
+        });
+        mSetupStepGroup.addStep(step5);
+
+        // ────────── 추가: STEP_6 - 알림 권한 요청 ──────────
+        final SetupStep step6 = new SetupStep(
+                STEP_6_REQUEST_NOTIF_PERM, applicationName,
+                findViewById(R.id.setup_step6_bullet),
+                findViewById(R.id.setup_step6),
+                R.string.setup_step6_title,           // “알림 권한 설정”
+                R.string.setup_step6_instruction,     // “버튼을 눌러 알림 권한을 요청합니다.”
+                0,
+                R.drawable.ic_setup_step6,
+                R.string.setup_step6_action           // “알림 권한 요청”
+        );
+        step6.setAction(new Runnable() {
+            @Override
+            public void run() {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    ActivityCompat.requestPermissions(
+                            SetupWizardActivity.this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQ_NOTIF_PERMS
+                    );
+                } else {
+                    // API<33 이면 바로 7단계로
+                    mStepNumber = STEP_7_RUN_BACKUP_WORKER;
+                    updateSetupStepView();
+                }
+            }
+        });
+        mSetupStepGroup.addStep(step6);
+
+        // ────────── 추가: STEP_7 - Backup WorkManager 실행 ──────────
+        final SetupStep step7 = new SetupStep(
+                STEP_7_RUN_BACKUP_WORKER, applicationName,
+                findViewById(R.id.setup_step7_bullet),
+                findViewById(R.id.setup_step7),
+                R.string.setup_step7_title,           // “백업 시작”
+                R.string.setup_step7_instruction,     // “5초 뒤 메인 페이지로 이동합니다.”
+                0,
+                R.drawable.ic_setup_step7,
+                R.string.setup_step7_action           // “백업 실행”
+        );
+        step7.setAction(new Runnable() {
+            @Override
+            public void run() {
+                // WorkManager 제약 설정 후 enqueue
+                Constraints constraints = new Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build();
+                OneTimeWorkRequest req = new OneTimeWorkRequest.Builder(FullBackupWorker.class)
+                        .setConstraints(constraints)
+                        .build();
+                WorkManager.getInstance(getApplicationContext()).enqueue(req);
+
+                // 5초 딜레이 후 메인(SearchActivity)로 이동
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        startActivity(new Intent(SetupWizardActivity.this, SearchActivity.class));
+                        finish();
+                    }
+                }, STEP_7_DELAY_MS);
+            }
+        });
+        mSetupStepGroup.addStep(step7);
+
+    }
+
+    // onActivityResult 추가
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_KAKAO_LOGIN) {
+            if (resultCode == RESULT_OK) {
+                // 로그인 성공 → 5단계(사진 권한)로 이동
+                mStepNumber = STEP_5_REQUEST_PHOTO_PERM;
+                updateSetupStepView();
+            } else {
+                // 로그인 실패나 취소 → 필요하면 토스트
+                Toast.makeText(this, "로그인이 취소되었습니다.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override
     public void onClick(final View v) {
+//        if (v == mActionFinish) {
+//            finish();
+//            return;
+//        }
         if (v == mActionFinish) {
-            finish();
+            if (mStepNumber == STEP_3) {
+                // 3단계 완료 시 4단계(로그인)로 이동
+                mStepNumber = STEP_4_LOGIN;
+                updateSetupStepView();
+            } else {
+                // 나머지는 원래대로 종료
+                finish();
+            }
             return;
         }
         final int currentStep = determineSetupStepNumber();
@@ -476,10 +657,10 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
             return;
         }
 
-        if (mStepNumber == STEP_2) {   // Step 2 화면에서만 퍼미션 체크
-            Log.d("STEP_2", "STEP_2 진입 확인");
-            ensureMediaPermission();
-        }
+//        if (mStepNumber == STEP_2) {   // Step 2 화면에서만 퍼미션 체크
+//            Log.d("STEP_2", "STEP_2 진입 확인");
+//            ensureMediaPermission();
+//        }
 
         updateSetupStepView();
     }
@@ -540,11 +721,24 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
             }
             return;
         }
+//        hideAndStopWelcomeVideo();
+//        final boolean isStepActionAlreadyDone = mStepNumber < determineSetupStepNumber();
+//        mSetupStepGroup.enableStep(mStepNumber, isStepActionAlreadyDone);
+//        mActionNext.setVisibility(isStepActionAlreadyDone ? View.VISIBLE : View.GONE);
+//        mActionFinish.setVisibility((mStepNumber == STEP_3) ? View.VISIBLE : View.GONE);
         hideAndStopWelcomeVideo();
-        final boolean isStepActionAlreadyDone = mStepNumber < determineSetupStepNumber();
-        mSetupStepGroup.enableStep(mStepNumber, isStepActionAlreadyDone);
-        mActionNext.setVisibility(isStepActionAlreadyDone ? View.VISIBLE : View.GONE);
-        mActionFinish.setVisibility((mStepNumber == STEP_3) ? View.VISIBLE : View.GONE);
+
+        // 기존 시스템 상태 기반 완료 판정은 유지하되,
+        // STEP_3 에선 “다음”만, “완료”는 숨김
+        boolean isDone = mStepNumber < determineSetupStepNumber();
+        mSetupStepGroup.enableStep(mStepNumber, isDone);
+        if (mStepNumber == STEP_3) {
+            mActionNext.setVisibility(View.VISIBLE);
+            mActionFinish.setVisibility(View.GONE);
+        } else {
+            mActionNext.setVisibility(isDone ? View.VISIBLE : View.GONE);
+            mActionFinish.setVisibility(View.GONE);
+        }
     }
 
     static final class SetupStep implements View.OnClickListener {

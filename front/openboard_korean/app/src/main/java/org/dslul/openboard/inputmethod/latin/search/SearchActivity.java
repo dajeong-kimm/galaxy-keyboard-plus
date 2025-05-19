@@ -53,6 +53,11 @@ public class SearchActivity extends Activity {
         if (item.getItemId() == R.id.action_settings) {
             // 설정 화면으로 이동
             startActivity(new Intent(this, SettingsActivity.class));
+            // 이 두 리소스를 방금 만든 애니메이션으로 교체
+            overridePendingTransition(
+                    R.anim.slide_in_right,
+                    R.anim.slide_out_left
+            );
             return true;
         }
         return super.onOptionsItemSelected(item);

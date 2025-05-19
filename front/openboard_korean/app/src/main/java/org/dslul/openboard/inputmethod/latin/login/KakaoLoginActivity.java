@@ -1,5 +1,6 @@
 package org.dslul.openboard.inputmethod.latin.login;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -8,6 +9,7 @@ import android.content.pm.Signature;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -45,6 +47,13 @@ public class KakaoLoginActivity extends Activity {
         Log.d(TAG, "onCreate()");
 
         setContentView(R.layout.activity_kakao_login);
+
+        // 1) 액션바 업 버튼 켜기
+        ActionBar ab = getActionBar();
+        if (ab != null) {
+            ab.setDisplayHomeAsUpEnabled(true);
+            ab.setHomeButtonEnabled(true);
+        }
 
         // 매니저 인스턴스 초기화
         authManager = AuthManager.getInstance(this);
@@ -174,17 +183,6 @@ public class KakaoLoginActivity extends Activity {
     private void checkAndShowLoginStatus() {
         if (authManager.isLoggedIn()) {
             String userId = secureStorage.getUserId();
-//            String accessToken = secureStorage.getAccessToken();
-//            String refreshToken = secureStorage.getRefreshToken();
-
-//            Log.i(TAG, "로그인 상태: 로그인됨");
-//            Log.i(TAG, "사용자 ID: " + userId);
-//            if (accessToken != null) {
-//                Log.i(TAG, "액세스 토큰: " + accessToken.substring(0, Math.min(20, accessToken.length())) + "...");
-//            }
-//            if (refreshToken != null) {
-//                Log.i(TAG, "리프레시 토큰: " + refreshToken.substring(0, Math.min(20, refreshToken.length())) + "...");
-//            }
 
             Toast.makeText(this, "이미 로그인되어 있습니다: " + userId, Toast.LENGTH_SHORT).show();
             btnKakaoLogin.setVisibility(View.GONE);
@@ -220,10 +218,10 @@ public class KakaoLoginActivity extends Activity {
                         } else {
                             checkAndShowLoginStatus();
                         }
-                        Intent intent = new Intent(getApplicationContext(), SearchActivity.class);
-                        startActivity(intent);
+//                        Intent intent = new Intent(getApplicationContext(), SearchActivity.class);
+//                        startActivity(intent);
                         // 로그인 성공 후 액티비티 종료 (선택적)
-                        // setResult(RESULT_OK);
+                         setResult(RESULT_OK);
                          finish();
                     }
                 });
@@ -297,5 +295,32 @@ public class KakaoLoginActivity extends Activity {
             btnLogout.setEnabled(!isLoading);
         }
         progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+    }
+
+    // 2) 업 버튼 눌렀을 때
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    // 3) finish() 오버라이드 → 나갈 때 애니메이션
+    @Override
+    public void finish() {
+        super.finish();
+        // SettingsFragment / SettingsActivity에서 쓰시는 것과 동일한 리소스
+        overridePendingTransition(
+                R.anim.stay,
+                R.anim.fade_out
+        );
+    }
+
+    // (선택) 하드웨어 백 버튼도 동일하게
+    @Override
+    public void onBackPressed() {
+        finish();
     }
 }

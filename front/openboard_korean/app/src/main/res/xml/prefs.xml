@@ -44,6 +44,6 @@
     <Preference
         android:key="kakao_login"
         android:title="마이페이지"
-        android:summary="로그인 정보를 관리하는 페이지입니다."
+        android:summary="로그인 정보 관리"
         android:icon="@drawable/ic_settings_preferences"/>
 </PreferenceScreen>

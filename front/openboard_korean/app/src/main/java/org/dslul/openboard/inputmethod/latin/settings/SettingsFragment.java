@@ -29,6 +29,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import org.dslul.openboard.inputmethod.latin.R;
+import org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity;
 import org.dslul.openboard.inputmethod.latin.utils.ApplicationUtils;
 import org.dslul.openboard.inputmethod.latin.utils.FeedbackUtils;
 import org.dslul.openboard.inputmethod.latin.utils.JniUtils;
@@ -62,14 +63,16 @@ public final class SettingsFragment extends InputMethodSettingsFragment {
         // 카카오 로그인 preference에 클릭 리스너 추가
         Preference kakaoLoginPref = findPreference("kakao_login");
         if (kakaoLoginPref != null) {
-            kakaoLoginPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    // preference 클릭 시 KakaoLoginActivity 실행
-                    Intent kakaoLoginIntent = new Intent(getActivity(), org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity.class);
-                    startActivity(kakaoLoginIntent);
-                    return true;
-                }
+            kakaoLoginPref.setOnPreferenceClickListener(preference -> {
+                Activity act = getActivity();
+                Intent intent = new Intent(act, KakaoLoginActivity.class);
+                act.startActivity(intent);
+                // ⇨ 여기에 애니메이션 추가
+                act.overridePendingTransition(
+                        R.anim.fade_in,  // 새 액티비티가 들어올 때
+                        R.anim.stay   // 기존 액티비티가 나갈 때
+                );
+                return true;
             });
         }
     }
