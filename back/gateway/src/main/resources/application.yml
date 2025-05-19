@@ -78,6 +78,11 @@ spring:
           uri: http://rag-service:8090
           predicates:
             - Path=/rag/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@ragServerRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
           metadata:
             description: "RAG Service with Rate Limiting"
 
