@@ -455,6 +455,7 @@ disposition rather than other common dispositions for Latin languages. [CHAR LIM
     <string name="setup_step3_instruction">Now you can type in all your favorite apps with <xliff:g id="APPLICATION_NAME" example="Android Keyboard">%s</xliff:g>.</string>
     <!-- The label of the button that triggers the screen for configuaring additional languages of the keyboard. [CHAR_LIMIT=64] -->
     <string name="setup_step3_action">Configure additional languages</string>
+    <string name="setup_step3_aux_label">추가 언어 설정</string>
     <!-- Ordinal number of the 4th step in the setup wizard. [CHAR LIMIT=5] -->
     <!-- STEP 4: 카카오 로그인 -->
     <string name="setup_step4_bullet" translatable="false">4</string>

@@ -618,4 +618,11 @@
         <attr name="minValue" format="integer" />
         <attr name="stepValue" format="integer" />
     </declare-styleable>
+
+    <declare-styleable name="StepGaugeView">
+        <attr name="sgv_totalSteps" format="integer" />
+        <attr name="sgv_currentStep" format="integer" />
+        <attr name="sgv_finishedColor" format="color" />
+        <attr name="sgv_unfinishedColor" format="color" />
+    </declare-styleable>
 </resources>

@@ -21,18 +21,15 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
-    <TextView
-        android:id="@+id/setup_step_title"
-        style="@style/setupStepTitleStyle"
-        android:paddingTop="@dimen/setup_step_vertical_padding"
-        android:paddingBottom="@dimen/setup_step_vertical_padding" />
+    android:orientation="vertical"
+    android:gravity="center_horizontal">
     <TextView
         android:id="@+id/setup_step_instruction"
-        style="@style/setupStepInstructionStyle"
-        android:paddingBottom="@dimen/setup_step_vertical_padding" />
+        style="@style/setupStepInstructionStyle.Large"
+        android:paddingBottom="@dimen/setup_step_vertical_padding"/>
+
     <TextView
         android:id="@+id/setup_step_action_label"
         style="@style/setupStepActionLabelStyle"
-        android:layout_marginTop="@dimen/setup_step_horizontal_line_height" />
+        android:layout_marginTop="@dimen/setup_step_horizontal_line_height"/>
 </LinearLayout>

@@ -1,0 +1,13 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_app_logo">
+
+    <!-- 키보드 그룹에 bounce 애니메이션 적용 -->
+    <target
+        android:name="group_keyboard"
+        android:animation="@animator/keyboard_bounce" />
+
+    <!-- ‘P’ 패스에 색상 애니메이션 적용 -->
+    <target
+        android:name="path_p"
+        android:animation="@animator/p_color_shift" />
+</animated-vector>
