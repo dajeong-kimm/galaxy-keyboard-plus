@@ -143,11 +143,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             // 1) 본문 또는 answer 준비
             String body = m.getAnswer() != null ? m.getAnswer() : m.getText();
 
-            // 2) PhotoResult/InfoResult/ChatItem → Uri 변환
+            // photoIds → Uri 변환
             List<Uri> uris = new ArrayList<>();
-            addUrisFromPhotos(m.getPhotoResults(), uris);
-            addUrisFromInfos(m.getInfoResults(), uris);
-            addUrisFromChatItems(m.getChatItems(), uris);
+            addUrisFromIds(m.getPhotoIds(), uris);
 
             boolean hasPhotos = !uris.isEmpty();
             boolean hasText = body != null && !body.trim().isEmpty();
@@ -315,38 +313,11 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         }
 
-        // PhotoResult ID → Uri
-        private void addUrisFromPhotos(List<PhotoResult> list, List<Uri> out) {
-            if (list == null) return;
-            for (PhotoResult r : list) {
+        private void addUrisFromIds(List<String> ids, List<Uri> out) {
+            if (ids == null) return;
+            for (String s : ids) {
                 try {
-                    long id = Long.parseLong(r.getId());
-                    out.add(ContentUris.withAppendedId(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
-
-        // InfoResult ID → Uri
-        private void addUrisFromInfos(List<InfoResult> list, List<Uri> out) {
-            if (list == null) return;
-            for (InfoResult r : list) {
-                try {
-                    long id = Long.parseLong(r.getId());
-                    out.add(ContentUris.withAppendedId(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
-
-        // PhotoResult ID → Uri
-        private void addUrisFromChatItems(List<ChatItem> list, List<Uri> out) {
-            if (list == null) return;
-            for (ChatItem r : list) {
-                try {
-                    long id = Long.parseLong(r.getAccessId());
+                    long id = Long.parseLong(s);
                     out.add(ContentUris.withAppendedId(
                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id));
                 } catch (NumberFormatException ignored) {

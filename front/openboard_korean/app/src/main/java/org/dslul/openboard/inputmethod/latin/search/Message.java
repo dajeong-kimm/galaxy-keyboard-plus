@@ -16,18 +16,16 @@ public class Message {
     private final Date timestamp;
 
     private final String answer;
-    private final List<PhotoResult> photoResults;
-    private final List<InfoResult> infoResults;
 
-    private final List<ChatItem> chatItems;
+    private final List<String> photoIds;
 
     private boolean imagesVisible = false;
 
     private boolean animate;
 
     // 사용자 메시지용 생성자 (기존용)
-    public Message(Sender sender, String text, Date timestamp) {
-        this(sender, text, timestamp, null, null, null, null, false);
+    public class Message {
+         this(sender, text, timestamp, null, null, null, null, false);
     }
 
     // 봇 메시지용 생성자 (확장)
@@ -35,18 +33,14 @@ public class Message {
                    String text,
                    Date timestamp,
                    String answer,
-                   List<PhotoResult> photoResults,
-                   List<InfoResult> infoResults,
-                   List<ChatItem> items,
+                   List<String> photoIds
                    boolean animate
     ) {
         this.sender = sender;
         this.text = text;
         this.timestamp = timestamp;
         this.answer = answer;
-        this.photoResults = photoResults;
-        this.infoResults = infoResults;
-        this.chatItems = items;
+        this.photoIds = photoIds;
         this.animate = animate;
     }
 
@@ -70,17 +64,7 @@ public class Message {
         return answer;
     }
 
-    public List<PhotoResult> getPhotoResults() {
-        return photoResults;
-    }
-
-    public List<InfoResult> getInfoResults() {
-        return infoResults;
-    }
-
-    public List<ChatItem> getChatItems() {
-        return chatItems;
-    }
+    public List<String>      getPhotoIds()     { return photoIds;    }
 
     public void setImagesVisible(boolean v) {
         imagesVisible = v;
