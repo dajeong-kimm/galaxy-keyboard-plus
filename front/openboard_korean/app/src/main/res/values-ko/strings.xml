@@ -203,7 +203,7 @@
     <string name="autospace_after_punctuation_summary">"문장부호 입력 후 자동으로 띄어쓰기를 추가합니다."</string>
 
     <string name="button_default" msgid="3988017840431881491">"기본값"</string>
-    <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>에 오신 것을 환영합니다."</string>
+    <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"제스처 타이핑 사용"</string>
     <string name="setup_start_action" msgid="8936036460897347708">"시작하기"</string>
     <string name="setup_next_action" msgid="371821437915144603">"다음 단계"</string>
