@@ -446,18 +446,20 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             mVoiceKey.setVisibility(GONE);
                             mClipboardKey.setVisibility(GONE);
                             mSearchStatus.setVisibility(GONE);
+                            mFetchClipboardKey.setVisibility(GONE);   // ← 사진 모드일 땐 숨김
 
 //                                    mInputContainer.setVisibility(GONE);
                             mSearchAnswer.setVisibility(GONE);
 
                             // photo bar 초기화 및 채우기
                             mPhotoBarContainer.removeAllViews();
+                            int barSize = dpToPx(96);
                             for (String idStr : body.getPhotoIds()) {
                                 try {
                                     long id = Long.parseLong(idStr);
                                     Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(getContext().getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
                                     ImageView iv = new ImageView(getContext());
-                                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
+                                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(barSize, barSize);
                                     lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
                                     iv.setLayoutParams(lp);
                                     iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -467,7 +469,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                     iv.setOnClickListener(v -> {
                                         ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                                         cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-                                        Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
+//                                        Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
                                         InputConnection ic = mMainKeyboardView.getInputConnection();
                                         if (ic != null) {
                                             // 컴포지션 확정
@@ -490,9 +492,20 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                 } catch (NumberFormatException ignored) {
                                 }
                             }
-                            ViewGroup.LayoutParams lp = mPhotoBar.getLayoutParams();
-                            lp.height = dpToPx(80);          // 원하는 높이(dp 단위)
-                            setLayoutParams(lp);
+                            /* 1) 썸네일 바 높이 지정 */
+                            ViewGroup.LayoutParams barLp = mPhotoBar.getLayoutParams();
+                            barLp.height = barSize;
+                            mPhotoBar.setLayoutParams(barLp);
+
+                            /* 2) SuggestionStripView(자신) 높이 = barSize + gapBottom */
+                            ViewGroup.LayoutParams rootLp = getLayoutParams();
+                            rootLp.height = barSize + dpToPx(6);
+                            setLayoutParams(rootLp);
+
+                            /* 3) 부모 레이아웃 재측정/재배치 */
+                            requestLayout();
+
+
                             mPhotoBar.setVisibility(VISIBLE);
 
                             // 검색 아이콘 → ❌ 로 변경
@@ -548,6 +561,16 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     public void updateVisibility(final boolean shouldBeVisible, final boolean isFullscreenMode) {
         final int visibility = shouldBeVisible ? VISIBLE : (isFullscreenMode ? GONE : INVISIBLE);
         setVisibility(visibility);
+
+        // ───── ① PHOTO_ONLY 모드에서는 보조 버튼 전부 숨김 ─────
+        if (mResponseType == ResponseType.PHOTO_ONLY) {
+            mVoiceKey.setVisibility(GONE);
+            mClipboardKey.setVisibility(GONE);
+            mFetchClipboardKey.setVisibility(GONE);
+            // 검색 키(X)는 그대로 두고, strip도 이미 GONE 상태
+            return;                       // ← 더 이상 처리하지 않고 종료
+        }
+
         final SettingsValues currentSettingsValues = Settings.getInstance().getCurrent();
 //        mVoiceKey.setVisibility(currentSettingsValues.mShowsVoiceInputKey ? VISIBLE : GONE);
         mVoiceKey.setVisibility(VISIBLE);
@@ -867,6 +890,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 mSuggestionsStrip.setVisibility(VISIBLE);
                 mVoiceKey.setVisibility(VISIBLE);
                 mClipboardKey.setVisibility(Settings.getInstance().getCurrent().mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
+                mFetchClipboardKey.setVisibility(VISIBLE);
 
                 // 3) 검색키 애니메이션/아이콘 원복
                 mSearchKey.clearAnimation();
@@ -909,39 +933,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
             return;
         }
-
-//        if (view == mCopyKey) {                   // ⧉ 복사 버튼
-//            if (mSearchPanel != null) {
-//                String answer = mSearchPanel.getAnswerText();
-//
-//                if (!answer.isEmpty()) {
-//                    ClipboardManager cb = (ClipboardManager)
-//                            getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-//                    cb.setPrimaryClip(ClipData.newPlainText("answer", answer));
-//
-//                    // ▼ 여기 한 줄 추가
-//                    Toast.makeText(getContext(), "복사되었습니다", Toast.LENGTH_SHORT).show();
-//                    // 선택사항: 피드백
-//                    AudioAndHapticFeedbackManager.getInstance()
-//                            .performHapticAndAudioFeedback(Constants.NOT_A_CODE, this);
-//                    Log.d("clipboard", "clipboard 저장");
-//                    // 4. 입력해 준 만큼, 백스페이스 키 이벤트를 보내서
-//                    //    원래 호스트 입력창에 남아 있던 쿼리를 모두 지워준다
-//                    if (mLastQuery != null) {
-//                        for (int i = 0; i < mLastQuery.length(); i++) {
-//                            mListener.onCodeInput(
-//                                    Constants.CODE_DELETE,
-//                                    Constants.SUGGESTION_STRIP_COORDINATE,
-//                                    Constants.SUGGESTION_STRIP_COORDINATE,
-//                                    false
-//                            );
-//                        }
-//                        mLastQuery = null;
-//                    }
-//                }
-//            }
-//            return;
-//        }
 
         final Object tag = view.getTag();
         // {@link Integer} tag is set at
