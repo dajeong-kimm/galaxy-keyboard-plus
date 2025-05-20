@@ -209,8 +209,6 @@ public class KakaoLoginActivity extends Activity {
                     @Override
                     public void run() {
                         setLoading(false);
-                        Toast.makeText(KakaoLoginActivity.this,
-                                "로그인 성공: " + userId, Toast.LENGTH_SHORT).show();
 
                         // UI 갱신
                         if (tvLoginStatus != null && tvTokenInfo != null) {
@@ -234,7 +232,7 @@ public class KakaoLoginActivity extends Activity {
                     public void run() {
                         setLoading(false);
                         Toast.makeText(KakaoLoginActivity.this,
-                                "로그인 실패: " + errorMessage, Toast.LENGTH_LONG).show();
+                                "로그인 실패", Toast.LENGTH_LONG).show();
                     }
                 });
             }
@@ -272,7 +270,7 @@ public class KakaoLoginActivity extends Activity {
                     public void run() {
                         setLoading(false);
                         Toast.makeText(KakaoLoginActivity.this,
-                                "로그아웃 성공", Toast.LENGTH_SHORT).show();
+                                "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show();
 
                         // UI 갱신
                         if (tvLoginStatus != null && tvTokenInfo != null) {

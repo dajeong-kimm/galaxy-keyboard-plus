@@ -7,7 +7,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.util.Log;
 
@@ -26,14 +25,10 @@ import org.dslul.openboard.inputmethod.latin.network.Chat;
 import org.dslul.openboard.inputmethod.latin.network.ChatApiService;
 import org.dslul.openboard.inputmethod.latin.network.ChatHistoryResponse;
 import org.dslul.openboard.inputmethod.latin.network.ChatPage;
-import org.dslul.openboard.inputmethod.latin.network.ChatSaveRequest;
 import org.dslul.openboard.inputmethod.latin.network.ChatSaveService;
 import org.dslul.openboard.inputmethod.latin.network.ChatStorageApi;
-import org.dslul.openboard.inputmethod.latin.network.InfoResult;
 import org.dslul.openboard.inputmethod.latin.network.MessageRequest;
 import org.dslul.openboard.inputmethod.latin.network.MessageResponse;
-import org.dslul.openboard.inputmethod.latin.network.PhotoResult;
-import org.dslul.openboard.inputmethod.latin.network.dto.BaseResponse;
 import org.dslul.openboard.inputmethod.latin.network.dto.ChatItem;
 
 import java.time.LocalDateTime;
@@ -50,11 +45,13 @@ public class SearchPageFragment extends Fragment {
     private RecyclerView rvMessages;
     private ImageButton btnScrollBottom;
     private TextView tvStatus;
-    private LottieAnimationView avLoading;
     private EditText etMessage;
     private ImageButton btnSend;
     private MessageAdapter adapter;
     private List<Message> messages = new ArrayList<>();
+    private LottieAnimationView avLoading;
+    private View customSpinner;
+    private View customLightSpinner;
 
     // Retrofit 서비스
     private ChatApiService chatApiService;
@@ -88,7 +85,7 @@ public class SearchPageFragment extends Fragment {
         rvMessages = view.findViewById(R.id.rvMessages);
         btnScrollBottom = view.findViewById(R.id.btnScrollBottom);
         tvStatus = view.findViewById(R.id.tvStatus);
-        avLoading = view.findViewById(R.id.avLoading);
+        customLightSpinner = view.findViewById(R.id.customLightSpinner);
         etMessage = view.findViewById(R.id.etMessage);
         btnSend = view.findViewById(R.id.btnSend);
 
@@ -281,11 +278,15 @@ public class SearchPageFragment extends Fragment {
     private void showLoading(boolean loading) {
         tvStatus.setVisibility(View.GONE);
         if (loading) {
-            avLoading.setVisibility(View.VISIBLE);
-            avLoading.playAnimation();
+            customLightSpinner.setVisibility(View.VISIBLE);
+//            customSpinner.setVisibility(View.VISIBLE);
+//            avLoading.setVisibility(View.VISIBLE);
+//            avLoading.playAnimation();
         } else {
-            avLoading.pauseAnimation();
-            avLoading.setVisibility(View.GONE);
+            customLightSpinner.setVisibility(View.GONE);
+//            customSpinner.setVisibility(View.GONE);
+//            avLoading.pauseAnimation();
+//            avLoading.setVisibility(View.GONE);
         }
     }
 

@@ -409,11 +409,6 @@ public final class SetupWizardActivity extends Activity {
         mAuthManager.loginWithKakao(new AuthCallback() {
             @Override public void onLoginSuccess(final String userId) {
                 runOnUiThread(() -> {
-                    Toast.makeText(SetupWizardActivity.this,
-                            "로그인 성공: " + userId, Toast.LENGTH_SHORT).show();
-
-
-//                    mBtnNext.setEnabled(true);
                     // 3) 5단계(사진 권한)로 진행
                     mStepNumber = STEP_5;
                     updateSetupStepView();
@@ -423,7 +418,7 @@ public final class SetupWizardActivity extends Activity {
             @Override public void onLoginFailure(final String error) {
                 runOnUiThread(() -> {
                     Toast.makeText(SetupWizardActivity.this,
-                            "로그인 실패: " + error, Toast.LENGTH_LONG).show();
+                            "로그인 실패", Toast.LENGTH_LONG).show();
                     // 버튼 복구
                     mBtnNext.setEnabled(true);
                     mBtnNext.setText(R.string.setup_step4_action); // “카카오 로그인”

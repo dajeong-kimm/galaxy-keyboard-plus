@@ -45,7 +45,6 @@ import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -68,6 +67,7 @@ import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import org.dslul.openboard.inputmethod.latin.common.Constants;
 import org.dslul.openboard.inputmethod.latin.define.DebugFlags;
 import org.dslul.openboard.inputmethod.latin.network.ApiClient;
+import org.dslul.openboard.inputmethod.latin.network.ChatSaveService;
 import org.dslul.openboard.inputmethod.latin.network.ClipBoardResponse;
 import org.dslul.openboard.inputmethod.latin.network.ClipboardService;
 import org.dslul.openboard.inputmethod.latin.network.KeywordApi;
@@ -81,7 +81,6 @@ import org.dslul.openboard.inputmethod.latin.suggestions.MoreSuggestionsView.Mor
 
 import java.util.ArrayList;
 import java.util.List;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 
@@ -89,6 +88,7 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.google.gson.Gson;
 
 import retrofit2.Call;
 
@@ -135,7 +135,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 //    private ImageButton mCopyKey;
 
     private static final String TAG_NET = "SearchAPI";
-    private static final String DEFAULT_USER_ID = "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258"; // TODO: 실제 계정으로 치환
+    private static String DEFAULT_USER_ID;
     private SearchResultView mSearchPanel;
 
     static final boolean DBG = DebugFlags.DEBUG_ENABLED;
@@ -188,7 +188,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         public void showSuggestionsStrip() {
             mSuggestionsStrip.setVisibility(VISIBLE);
         }
-
     }
 
     /**
@@ -203,6 +202,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     public SuggestionStripView(final Context context, final AttributeSet attrs, final int defStyle) {
         super(context, attrs, defStyle);
+
+        // AuthManager에 들어있는 userId를 사용.
+        DEFAULT_USER_ID = AuthManager.getInstance(context).getUserId();
 
         final LayoutInflater inflater = LayoutInflater.from(context);
         inflater.inflate(R.layout.suggestions_strip, this);
@@ -342,16 +344,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
         });
 
-//        mInputContainer = findViewById(R.id.suggestions_strip_input_container);
-//        mSearchInput = findViewById(R.id.suggestions_strip_search_input);
-//        mCopyKey = findViewById(R.id.suggestions_strip_copy_key);
-//        mCopyKey.setOnClickListener(this);
-//        mCopyKey.setVisibility(GONE);    // ← 초기엔 숨김
-
-//        mSearchInput.setFocusableInTouchMode(true);
-//        mSearchInput.setCursorVisible(true);
-
-
         mSearchKey.setOnClickListener(this);
         mSearchStatus.setOnClickListener(this);
 
@@ -440,8 +432,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
         }
     }
-
-
     // ========== Search Mode helpers ======================================
     private void enterSearchMode() {
         if (mInSearchMode) return;
@@ -476,12 +466,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             ((LatinIME) mListener).resetSearchBuffers();
         }
 
-//        mSearchKey.setImageDrawable(mIconSearch);      // 🔍 복원
-//        mInputContainer.setVisibility(GONE);
         mSuggestionsStrip.setVisibility(VISIBLE);
         updateVisibility(true /* strip */, false /* isFullscreen */); // 버튼들 복원
-
-//        mCopyKey.setVisibility(GONE);
 
         if (mSearchPanel != null && mSearchPanel.isShowingInParent()) {
             mSearchPanel.dismissMoreKeysPanel();
@@ -490,7 +476,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     }
 
     private void dispatchSearchQuery() {
-//        final String query = mSearchInput.getText().toString().trim();
         // 0) panel이 없으면 새로 만들고 리스너 바인드`
         if (mSearchPanel == null) {
             mSearchPanel = new SearchResultView(getContext());
@@ -514,13 +499,20 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         // ✅ 로그 출력 추가
         Log.d(TAG_NET, "🔍 전송된 query: " + query);
 
+        // ─── 사용자 질문 저장 ───
+        ChatSaveService.enqueue(
+                getContext(),
+                DEFAULT_USER_ID,
+                "user",
+                query,
+                null
+        );
+
         // 3) 로딩 스피너만 붙이기
         mSearchPanel.clearLoadingBubble();  // 혹시 이전 로딩이 남아 있으면 지우고
         mSearchPanel.bindLoading();
 
-        Log.d(TAG_NET, "▶ REQUEST\n" +
-//                "URL   : http://k12e201.p.ssafy.io:8090/rag/search/\n" +
-                "user_id = " + DEFAULT_USER_ID + "\n" + "query   = " + query);
+        Log.d(TAG_NET, "▶ REQUEST\n" + "user_id = " + DEFAULT_USER_ID + "\n" + "query   = " + query);
 
         // ① Retrofit 호출
         ApiClient.getChatApiService().search(DEFAULT_USER_ID, query).enqueue(new retrofit2.Callback<MessageResponse>() {
@@ -533,11 +525,23 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 MessageResponse body = res.body();
                 if (body == null) return;
 
+                // ─── 봇 응답 저장 ───
+                List<String> photos = body.getPhotoIds();
+                String itemsJson = null;
+                if (photos != null) {
+                    itemsJson = new Gson().toJson(photos);
+                }
+                ChatSaveService.enqueue(
+                        getContext(),
+                        DEFAULT_USER_ID,
+                        "bot",
+                        body.getAnswer(),
+                        itemsJson
+                );
+
                 post(() -> {
                     if (body.getType().equals("info_search") || body.getType().equals("conversation"))
                         mResponseType = ResponseType.LONG_TEXT;
-//                            else if (body.getType().equals("conversation"))
-//                                mResponseType = ResponseType.SHORT_TEXT;
                     else mResponseType = ResponseType.PHOTO_ONLY;
 
                     mLastResponse = body;
@@ -555,31 +559,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             mSearchKey.setProgress(0f);
                             mKeyHighlighted = true;
                             break;
-
-//                                case SHORT_TEXT:
-//                                    Log.d("행동", "SHORT_TEXT = \"" + body.getAnswer() + "\"");
-//                                    mSearchPanel.clearLoadingBubble();  // SearchResultView 로딩만 정리
-//
-//                                    // 제안 줄(UI) 숨기기
-//                                    mSuggestionsStrip.setVisibility(GONE);
-//                                    mInputContainer.setVisibility(GONE);
-//                                    mPhotoBar.setVisibility(GONE);
-//
-//                                    // 답변 텍스트 보이기
-//                                    mSearchAnswer.setText(body.getAnswer());
-//                                    mSearchAnswer.setVisibility(VISIBLE);
-//
-//                                    // 복사 버튼 노출
-//                                    mCopyKey.setVisibility(VISIBLE);
-//
-//                                    // 검색 아이콘 → ❌ 로 변경
-//                                    mSearchKey.clearAnimation();
-//                                    mSearchKey.setRepeatCount(0);
-//                                    mSearchKey.setImageDrawable(mIconClose);
-//
-//                                    mAnswerShown = true;
-//                                    break;
-
                         case PHOTO_ONLY:
                             Log.d("행동", "PHOTO_ONLY = \"" + body.getAnswer() + "\"");
                             Log.d(TAG_NET, "[PHOTO_ONLY] before dismiss: panelShowing=" + isShowingMoreSuggestionPanel() + ", stripVis=" + mSuggestionsStrip.getVisibility());
@@ -589,10 +568,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                 dismissMoreSuggestionsPanel();
                                 Log.d(TAG_NET, "[PHOTO_ONLY] after dismiss: panelShowing=" + isShowingMoreSuggestionPanel());
                             }
-
-                            // ── 사진 모드: 썸네일 바에 사진만 표시
-//                                    mSearchPanel.clearLoadingBubble();
-
                             // 기존 텍스트·제안 줄 숨기기
                             mSuggestionsStrip.setVisibility(GONE);
                             mSuggestionsStrip.setClickable(false);
@@ -603,7 +578,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             mSearchStatus.setVisibility(GONE);
                             mFetchClipboardKey.setVisibility(GONE);   // ← 사진 모드일 땐 숨김
 
-//                                    mInputContainer.setVisibility(GONE);
                             mSearchAnswer.setVisibility(GONE);
                             mKeywordKey.setVisibility(GONE);
 
@@ -625,7 +599,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                     iv.setOnClickListener(v -> {
                                         ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                                         cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-//                                        Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
                                         InputConnection ic = mMainKeyboardView.getInputConnection();
                                         if (ic != null) {
                                             // 컴포지션 확정
@@ -695,15 +668,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         });
 
     }
-
-    public boolean isInSearchMode() {
-        return mInSearchMode;
-    }
-
-
 // =====================================================================
-
-
     /**
      * A connection back to the input method.
      *
@@ -1128,7 +1093,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         // This may be overriden by showing suggestions later, if applicable.
     }
 
-
     // SuggestionStripView 내부
     private void showSearchPanel() {
         if (mMainKeyboardView == null) {
@@ -1198,7 +1162,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 iv.setOnClickListener(v -> {
                     ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                     cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-//                                        Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
                     InputConnection ic = mMainKeyboardView.getInputConnection();
                     if (ic != null) {
                         // 컴포지션 확정
