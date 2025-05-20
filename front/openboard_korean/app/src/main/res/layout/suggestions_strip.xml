@@ -20,6 +20,42 @@
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- ① 키워드+썸네일 바 (맨 위에 추가) -->
+    <LinearLayout
+        android:id="@+id/keyword_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:padding="4dp">
+
+        <TextView
+            android:id="@+id/keyword_text_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="검색어"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:padding="4dp"
+            android:paddingStart="45dp"
+            android:textColor="@android:color/black"/>
+
+        <HorizontalScrollView
+            android:id="@+id/suggestions_strip_photo_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="2dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/photo_bar_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+    </LinearLayout>
+
+
     <LinearLayout
         android:id="@+id/suggestions_strip_wrapper"
         android:layout_width="match_parent"
@@ -81,22 +117,6 @@
             android:contentDescription="@string/fetch_clipboard"
             android:src="@drawable/history" />
 
-
-        <!-- ① 사진 바: 기본적으로 GONE -->
-        <HorizontalScrollView
-            android:id="@+id/suggestions_strip_photo_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="4dp"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:id="@+id/photo_bar_container"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" />
-        </HorizontalScrollView>
-
         <LinearLayout
             android:id="@+id/suggestions_strip"
             android:layout_width="wrap_content"
@@ -104,6 +124,7 @@
             android:layout_weight="1"
             android:hapticFeedbackEnabled="false"
             android:maxWidth="100dp"
+            android:visibility="gone"
             android:orientation="horizontal"
             android:soundEffectsEnabled="false" />
     </LinearLayout>

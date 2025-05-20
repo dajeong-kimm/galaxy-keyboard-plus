@@ -119,6 +119,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private LottieAnimationView mSearchKey;
     private LottieAnimationView mKeywordKey;
     private String mLastKeywordWithImages = null;
+    private LinearLayout mKeywordBar;
+    private TextView mKeywordTextView;
+
+    private boolean isKeywordCloseMode = false;
     private ImageButton mVoiceKey;       // 마이크(= 클립보드 키 자리에 있던 버튼)
     //    private LinearLayout mInputContainer;// EditText+Send 래퍼
 //    private EditText mSearchInput;       // 검색어 입력창
@@ -265,9 +269,43 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             throw new IllegalStateException(
                     "suggestions_strip_keyword_key not found in current layout variant");
         }
+        mKeywordBar=findViewById(R.id.keyword_bar);
+        mKeywordTextView=findViewById(R.id.keyword_text_view);
         mKeywordKey.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (isKeywordCloseMode) {
+                    // X 클릭: strip 등 복구, 키워드 바/포토 바 숨김, 버튼 복원
+                    mKeywordBar.setVisibility(View.GONE);
+                    mPhotoBar.setVisibility(View.GONE);
+                    mKeywordTextView.setVisibility(View.GONE);
+
+                    // ── height 복원
+                    if (mDefaultHeight > 0) {
+                        ViewGroup.LayoutParams rootLp2 = getLayoutParams();
+                        rootLp2.height = mDefaultHeight;
+                        setLayoutParams(rootLp2);
+                    }
+
+                    mSuggestionsStrip.setVisibility(VISIBLE);
+
+                    // strip, 보조버튼 복원
+                    mSearchKey.setVisibility(View.VISIBLE);
+                    mVoiceKey.setVisibility(View.VISIBLE);
+                    mClipboardKey.setVisibility(Settings.getInstance().getCurrent().mShowsClipboardKey ? View.VISIBLE : (mVoiceKey.getVisibility() == View.GONE ? View.INVISIBLE : View.GONE));
+                    mFetchClipboardKey.setVisibility(View.VISIBLE);
+
+                    // 버튼 다시 "검색 아이콘"으로 (Lottie/Drawable 둘 다 가능)
+                    mKeywordKey.setAnimation("keyword_highlight.json");
+                    mKeywordKey.playAnimation();
+                    mKeywordKey.setProgress(0f);
+                    mKeywordKey.setRepeatCount(0);
+                    isKeywordCloseMode = false;
+                    return;
+                }
+
+
+
                 Log.d("KeywordSearch", "사진(키워드) 버튼 클릭됨");
 
                 if (mLastKeywordWithImages == null) {
@@ -283,6 +321,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                         if (response.isSuccessful() && response.body() != null) {
                             List<String> imageIds = response.body().imageIds;
                             Log.d("KeywordSearch", "이미지 API 응답 성공, 이미지 개수: " + (imageIds != null ? imageIds.size() : 0));
+                            // ▶▶ UI 업데이트 함수 호출
+                            showKeywordImages(mLastKeywordWithImages, imageIds);
+
+                            // (여기서 버튼을 X로 교체)
+                            mKeywordKey.clearAnimation();
+                            mKeywordKey.setRepeatCount(0);
+                            mKeywordKey.setImageDrawable(mIconClose);
+                            isKeywordCloseMode = true;
+
                         } else {
                             Log.d("KeywordSearch", "이미지 API 응답 실패 또는 결과 없음 → 패널에 '이미지가 없습니다' 표시");
                         }
@@ -412,6 +459,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         // 음성·클립보드 버튼은 그대로 노출
         mVoiceKey.setVisibility(VISIBLE);
         mClipboardKey.setVisibility(Settings.getInstance().getCurrent().mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
+        mKeywordKey.setVisibility(VISIBLE);
         // photoBar는 검색 중엔 안 쓰이니 숨겨두고,
         mPhotoBar.setVisibility(GONE);
 
@@ -557,6 +605,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
 //                                    mInputContainer.setVisibility(GONE);
                             mSearchAnswer.setVisibility(GONE);
+                            mKeywordKey.setVisibility(GONE);
 
                             // photo bar 초기화 및 채우기
                             mPhotoBarContainer.removeAllViews();
@@ -612,8 +661,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             /* 3) 부모 레이아웃 재측정/재배치 */
                             requestLayout();
 
-
-                            mPhotoBar.setVisibility(VISIBLE);
+                            mKeywordBar.setVisibility(View.VISIBLE);
+                            mPhotoBar.setVisibility(View.VISIBLE);
 
                             // 검색 아이콘 → ❌ 로 변경
                             mSearchKey.clearAnimation();
@@ -998,6 +1047,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 mVoiceKey.setVisibility(VISIBLE);
                 mClipboardKey.setVisibility(Settings.getInstance().getCurrent().mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
                 mFetchClipboardKey.setVisibility(VISIBLE);
+                mKeywordKey.setVisibility(VISIBLE);
 
                 // 3) 검색키 애니메이션/아이콘 원복
                 mSearchKey.clearAnimation();
@@ -1113,43 +1163,84 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     // 이미지 패널 표시
     private void showKeywordImages(String keyword, List<String> imageIds) {
-        mSearchAnswer.setText("\"" + keyword + "\" 관련 사진");
-        mSearchAnswer.setVisibility(VISIBLE);
 
+        // 기존 텍스트·제안 줄 숨기기
+        mSuggestionsStrip.setVisibility(GONE);
+        mSuggestionsStrip.setClickable(false);
+        mSuggestionsStrip.setEnabled(false);
+
+        mVoiceKey.setVisibility(GONE);
+        mClipboardKey.setVisibility(GONE);
+        mSearchStatus.setVisibility(GONE);
+        mFetchClipboardKey.setVisibility(GONE);
+        mSearchAnswer.setVisibility(GONE);
+        mSearchKey.setVisibility(GONE);
+
+
+        // 1. 키워드 표시 뷰를 VISIBLE로, 텍스트 세팅
+
+        // 2. 기존 썸네일 뷰 모두 제거
+        // photo bar 초기화 및 채우기
         mPhotoBarContainer.removeAllViews();
-        if (imageIds == null || imageIds.isEmpty()) {
-            showNoImagesPanel(keyword);
-            return;
-        }
+        int barSize = dpToPx(96);
         for (String idStr : imageIds) {
             try {
                 long id = Long.parseLong(idStr);
-                Uri uri = ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-
+                Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(getContext().getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
                 ImageView iv = new ImageView(getContext());
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(barSize, barSize);
                 lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
                 iv.setLayoutParams(lp);
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
-                // Glide로 캐싱/로딩
-                Glide.with(getContext())
-                        .load(uri)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .thumbnail(0.2f)
-                        .into(iv);
-
-                // 복사 기능
+                iv.setImageBitmap(thumb);
+                // 클릭 시 클립보드 복사
+                Uri uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
                 iv.setOnClickListener(v -> {
                     ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                     cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-                    Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
+//                                        Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
+                    InputConnection ic = mMainKeyboardView.getInputConnection();
+                    if (ic != null) {
+                        // 컴포지션 확정
+                        ic.finishComposingText();
+                        // 최대한 많은 텍스트 요청
+                        ExtractedTextRequest req = new ExtractedTextRequest();
+                        req.hintMaxChars = Integer.MAX_VALUE;
+                        req.hintMaxLines = Integer.MAX_VALUE;
+                        ExtractedText et = ic.getExtractedText(req, 0);
+                        if (et != null && et.text != null) {
+                            int len = et.text.length();
+                            ic.beginBatchEdit();
+                            ic.setSelection(0, len);
+                            ic.commitText("", 1);
+                            ic.endBatchEdit();
+                        }
+                    }
                 });
                 mPhotoBarContainer.addView(iv);
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
-        mPhotoBar.setVisibility(VISIBLE);
+
+        /* 1) 썸네일 바 높이 지정 */
+        ViewGroup.LayoutParams barLp = mPhotoBar.getLayoutParams();
+        barLp.height = barSize;
+        mPhotoBar.setLayoutParams(barLp);
+
+        /* 2) SuggestionStripView(자신) 높이 = barSize + gapBottom */
+        ViewGroup.LayoutParams rootLp = getLayoutParams();
+        rootLp.height = barSize + dpToPx(6);
+        setLayoutParams(rootLp);
+
+        /* 3) 부모 레이아웃 재측정/재배치 */
+        requestLayout();
+
+        // 3. 썸네일 바, 키워드 바 보이게
+        mKeywordBar.setVisibility(View.VISIBLE); // (키워드 바가 별도라면)
+        mPhotoBar.setVisibility(View.VISIBLE);
+        mKeywordTextView.setText(keyword);
+        mKeywordTextView.setVisibility(View.VISIBLE);
+
     }
 
     private void showNoKeywordPanel() {
