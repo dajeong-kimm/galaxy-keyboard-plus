@@ -10,10 +10,14 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.InputConnection;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -470,6 +474,30 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
                     getContext().getSystemService(Context.CLIPBOARD_SERVICE);
             cm.setPrimaryClip(ClipData.newPlainText("tvContent", fullText));
             Toast.makeText(getContext(), "클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
+            Log.d("clipboard", "clipboard 저장");
+
+            // 2) 호스트 앱 편집창 전체 텍스트를 요청
+            if (mKeyboardView != null) {
+                InputConnection ic = mKeyboardView.getInputConnection();
+                if (ic != null) {
+                    // 요청 크기 한도 늘리기 (전체 텍스트 확보용)
+                    ExtractedTextRequest req = new ExtractedTextRequest();
+                    req.hintMaxChars = Integer.MAX_VALUE;
+                    req.hintMaxLines = Integer.MAX_VALUE;
+                    // 컴포지션 중인 텍스트 먼저 확정
+                    ic.finishComposingText();
+                    // 실제 텍스트 가져오기
+                    ExtractedText et = ic.getExtractedText(req, 0);
+                    if (et != null && et.text != null) {
+                        int len = et.text.length();
+                        // 전체 선택 후 빈 문자열로 덮어쓰기
+                        ic.beginBatchEdit();
+                        ic.setSelection(0, len);
+                        ic.commitText("", 1);
+                        ic.endBatchEdit();
+                    }
+                }
+            }
         });
 
         // ─────── 여기서 photosContainer 한 번만 선언 ───────
@@ -509,6 +537,27 @@ public class SearchResultView extends FrameLayout implements MoreKeysPanel {
                         Toast.makeText(getContext(),
                                 "이미지가 클립보드에 복사되었습니다",
                                 Toast.LENGTH_SHORT).show();
+                        if (mKeyboardView != null) {
+                            InputConnection ic = mKeyboardView.getInputConnection();
+                            if (ic != null) {
+                                // 요청 크기 한도 늘리기 (전체 텍스트 확보용)
+                                ExtractedTextRequest req = new ExtractedTextRequest();
+                                req.hintMaxChars = Integer.MAX_VALUE;
+                                req.hintMaxLines = Integer.MAX_VALUE;
+                                // 컴포지션 중인 텍스트 먼저 확정
+                                ic.finishComposingText();
+                                // 실제 텍스트 가져오기
+                                ExtractedText et = ic.getExtractedText(req, 0);
+                                if (et != null && et.text != null) {
+                                    int len = et.text.length();
+                                    // 전체 선택 후 빈 문자열로 덮어쓰기
+                                    ic.beginBatchEdit();
+                                    ic.setSelection(0, len);
+                                    ic.commitText("", 1);
+                                    ic.endBatchEdit();
+                                }
+                            }
+                        }
                     });
                 } catch (NumberFormatException ignored) { }
             }

@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 기존 테마·스타일이 이미 있다면 그대로 두고, 새 블록만 추가해 줍니다 -->
+    <style name="SuggestionIconStyle">
+        <item name="android:background">@drawable/bg_icon_circle</item>
+        <item name="android:padding">@dimen/icon_inner_padding</item> <!-- 안쪽 패딩 -->
+        <!-- 버튼 간 간격 -->
+        <item name="android:layout_marginStart">@dimen/icon_outer_margin</item>
+        <item name="android:layout_marginEnd">@dimen/icon_outer_margin</item>
+    </style>
+
     <!-- Toss 느낌 기본 팔레트 -->
     <color name="toss_primary">#3182F6</color>
     <color name="toss_primary_20">#333182F6</color>
