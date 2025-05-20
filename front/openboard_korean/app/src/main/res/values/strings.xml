@@ -621,6 +621,8 @@ disposition rather than other common dispositions for Latin languages. [CHAR LIM
     <!--  검색 페이지  -->
     <string name="settings_screen_search">Search Page</string>
     <string name="settings_search_summary">Navigate to the new search page</string>
+
+    <string name="kakao_login_progress">now login...</string>
     <string name="fetch_clipboard">클립보드 내용 가져오기</string>
 
 </resources>

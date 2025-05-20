@@ -53,6 +53,9 @@ import androidx.work.WorkManager;
 import org.dslul.openboard.inputmethod.backup.FullBackupWorker;
 import org.dslul.openboard.inputmethod.backup.IncrementalBackupWorker;
 import org.dslul.openboard.inputmethod.latin.R;
+import org.dslul.openboard.inputmethod.latin.auth.AuthCallback;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
+import org.dslul.openboard.inputmethod.latin.data.SecureStorage;
 import org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity;
 import org.dslul.openboard.inputmethod.latin.search.SearchActivity;
 import org.dslul.openboard.inputmethod.latin.utils.LeakGuardHandlerWrapper;
@@ -196,6 +199,8 @@ public final class SetupWizardActivity extends Activity {
 
     private SettingsPoolingHandler mHandler;
 
+    private AuthManager mAuthManager;
+    private SecureStorage mSecureStorage;
     private static final class SettingsPoolingHandler
             extends LeakGuardHandlerWrapper<SetupWizardActivity> {
         private static final int MSG_POLLING_IME_SETTINGS = 0;
@@ -253,6 +258,9 @@ public final class SetupWizardActivity extends Activity {
             mStepNumber = STEP_1;          // 입력 방법 전환 단계로
             updateSetupStepView();
         });
+
+        mAuthManager   = AuthManager.getInstance(this);
+        mSecureStorage = SecureStorage.getInstance(this);
 
         // 1) 게이지바 먼저 꺼내기
 
@@ -355,11 +363,7 @@ public final class SetupWizardActivity extends Activity {
                 0,                                     // 완료(instruction) 없음
                 R.string.setup_step4_action            // “카카오 로그인”
         );
-        step4.setAction(() -> {
-            // 카카오 로그인 화면으로 이동
-            Intent intent = new Intent(SetupWizardActivity.this, KakaoLoginActivity.class);
-            startActivityForResult(intent, REQ_KAKAO_LOGIN);
-        });
+        step4.setAction(() -> startKakaoLoginFromWizard());
         mSetupStepGroup.addStep(step4);
 
         // ────────── 추가: STEP_5 - 사진 접근 권한 요청 ──────────
@@ -396,25 +400,44 @@ public final class SetupWizardActivity extends Activity {
         mSetupStepGroup.addStep(step7);
     }
 
+    private void startKakaoLoginFromWizard() {
+        // 1) UI: 버튼·프로그레스 처리
+        mBtnNext.setEnabled(false);
+        mBtnNext.setText(R.string.kakao_login_progress); // “로그인 중…”
+
+        // 2) 카카오 로그인 요청
+        mAuthManager.loginWithKakao(new AuthCallback() {
+            @Override public void onLoginSuccess(final String userId) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SetupWizardActivity.this,
+                            "로그인 성공: " + userId, Toast.LENGTH_SHORT).show();
+
+
+//                    mBtnNext.setEnabled(true);
+                    // 3) 5단계(사진 권한)로 진행
+                    mStepNumber = STEP_5;
+                    updateSetupStepView();
+                });
+            }
+
+            @Override public void onLoginFailure(final String error) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SetupWizardActivity.this,
+                            "로그인 실패: " + error, Toast.LENGTH_LONG).show();
+                    // 버튼 복구
+                    mBtnNext.setEnabled(true);
+                    mBtnNext.setText(R.string.setup_step4_action); // “카카오 로그인”
+                });
+            }
+
+            @Override public void onLogoutSuccess() { /* not used here */ }
+        });
+    }
+
+
     private void ensureInstructionTopBound() {
         if (mTvInstructionTop == null) {
             mTvInstructionTop = findViewById(R.id.tv_step_instruction_top);
-        }
-    }
-
-    // onActivityResult 추가
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_KAKAO_LOGIN) {
-            if (resultCode == RESULT_OK) {
-                // 로그인 성공 → 5단계(사진 권한)로 이동
-                mStepNumber = STEP_5;
-                updateSetupStepView();
-            } else {
-                // 로그인 실패나 취소 → 필요하면 토스트
-                Toast.makeText(this, "로그인이 취소되었습니다.", Toast.LENGTH_SHORT).show();
-            }
         }
     }
 
@@ -667,6 +690,7 @@ public final class SetupWizardActivity extends Activity {
         mBtnAux.setVisibility(View.GONE);
         mBtnNext.setVisibility(View.GONE);
 
+
         switch (step) {
             /* 1단계 – ‘시작하기’ */
             case STEP_WELCOME:    // = 앱 최초 실행
@@ -702,16 +726,14 @@ public final class SetupWizardActivity extends Activity {
             case STEP_4:
                 mBtnNext.setVisibility(View.VISIBLE);
                 mBtnNext.setText(R.string.setup_step4_action);
-                mBtnNext.setOnClickListener(v -> {
-                    Intent i = new Intent(this, KakaoLoginActivity.class);
-                    startActivityForResult(i, REQ_KAKAO_LOGIN);
-                });
+                mBtnNext.setOnClickListener(v -> startKakaoLoginFromWizard());
                 break;
             /* 5단계 – 사진 권한 */
             case STEP_5:
                 mBtnNext.setVisibility(View.VISIBLE);
                 mBtnNext.setText(R.string.setup_step5_action);
                 mBtnNext.setOnClickListener(v -> ensureMediaPermission());
+                mBtnNext.setEnabled(true);
                 break;
             /* 6단계 – 알림 권한 */
             case STEP_6:

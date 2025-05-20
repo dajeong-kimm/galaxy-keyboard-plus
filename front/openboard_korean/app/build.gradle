@@ -111,6 +111,8 @@ dependencies {
 // ───────────────────────────────────────────────────
 // 마크다운 파서
     implementation 'io.noties.markwon:core:4.6.2' // Markdown 렌더링
+    implementation 'io.noties.markwon:linkify:4.6.2' // plain URL 자동 링크화용
+
 
 // ───────────────────────────────────────────────────
 // 애노테이션 (FindBugs, JSR-305)
