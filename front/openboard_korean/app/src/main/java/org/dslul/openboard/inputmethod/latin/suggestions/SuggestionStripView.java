@@ -41,8 +41,6 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
@@ -59,7 +57,6 @@ import android.widget.Toast;
 import org.dslul.openboard.inputmethod.accessibility.AccessibilityUtils;
 import org.dslul.openboard.inputmethod.keyboard.Keyboard;
 import org.dslul.openboard.inputmethod.keyboard.KeyboardActionListener;
-import org.dslul.openboard.inputmethod.keyboard.KeyboardSwitcher;
 import org.dslul.openboard.inputmethod.keyboard.MainKeyboardView;
 import org.dslul.openboard.inputmethod.keyboard.MoreKeysPanel;
 import org.dslul.openboard.inputmethod.latin.AudioAndHapticFeedbackManager;
@@ -71,9 +68,11 @@ import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
 import org.dslul.openboard.inputmethod.latin.common.Constants;
 import org.dslul.openboard.inputmethod.latin.define.DebugFlags;
 import org.dslul.openboard.inputmethod.latin.network.ApiClient;
-import org.dslul.openboard.inputmethod.latin.network.ApiService;
 import org.dslul.openboard.inputmethod.latin.network.ClipBoardResponse;
 import org.dslul.openboard.inputmethod.latin.network.ClipboardService;
+import org.dslul.openboard.inputmethod.latin.network.KeywordApi;
+import org.dslul.openboard.inputmethod.latin.network.KeywordExistsResponse;
+import org.dslul.openboard.inputmethod.latin.network.KeywordImagesResponse;
 import org.dslul.openboard.inputmethod.latin.network.MessageResponse;
 import org.dslul.openboard.inputmethod.latin.search.SearchResultView;
 import org.dslul.openboard.inputmethod.latin.settings.Settings;
@@ -81,15 +80,22 @@ import org.dslul.openboard.inputmethod.latin.settings.SettingsValues;
 import org.dslul.openboard.inputmethod.latin.suggestions.MoreSuggestionsView.MoreSuggestionsListener;
 
 import java.util.ArrayList;
-
+import java.util.List;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import retrofit2.Call;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+import org.dslul.openboard.inputmethod.event.HangulCommitEvent;
 
 public final class SuggestionStripView extends RelativeLayout implements OnClickListener, OnLongClickListener {
     public interface Listener {
@@ -111,6 +117,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private LinearLayout mPhotoBarContainer;
     private TextView mSearchAnswer;
     private LottieAnimationView mSearchKey;
+    private LottieAnimationView mKeywordKey;
+    private String mLastKeywordWithImages = null;
     private ImageButton mVoiceKey;       // 마이크(= 클립보드 키 자리에 있던 버튼)
     //    private LinearLayout mInputContainer;// EditText+Send 래퍼
 //    private EditText mSearchInput;       // 검색어 입력창
@@ -251,6 +259,42 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (mSearchKey == null) {
             throw new IllegalStateException("suggestions_strip_search_key not found in current layout variant");
         }
+
+        mKeywordKey = findViewById(R.id.suggestions_strip_keyword_key);
+        if (mKeywordKey == null) {
+            throw new IllegalStateException(
+                    "suggestions_strip_keyword_key not found in current layout variant");
+        }
+        mKeywordKey.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d("KeywordSearch", "사진(키워드) 버튼 클릭됨");
+
+                if (mLastKeywordWithImages == null) {
+                    Log.d("KeywordSearch", "검색할 키워드 없음 → 패널에 '검색할 키워드가 없습니다' 표시");
+                    return;
+                }
+                Log.d("KeywordSearch", "키워드 \"" + mLastKeywordWithImages + "\"에 대해 이미지 API 호출");
+                KeywordApi api = ApiClient.getKeywordApi();
+                Call<KeywordImagesResponse> call = api.getImages(DEFAULT_USER_ID, mLastKeywordWithImages, 1, 20);
+                call.enqueue(new retrofit2.Callback<KeywordImagesResponse>() {
+                    @Override
+                    public void onResponse(Call<KeywordImagesResponse> call, retrofit2.Response<KeywordImagesResponse> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            List<String> imageIds = response.body().imageIds;
+                            Log.d("KeywordSearch", "이미지 API 응답 성공, 이미지 개수: " + (imageIds != null ? imageIds.size() : 0));
+                        } else {
+                            Log.d("KeywordSearch", "이미지 API 응답 실패 또는 결과 없음 → 패널에 '이미지가 없습니다' 표시");
+                        }
+                    }
+                    @Override
+                    public void onFailure(Call<KeywordImagesResponse> call, Throwable t) {
+                        Log.e("KeywordSearch", "이미지 API 호출 실패: " + t.getMessage(), t);
+                    }
+                });
+            }
+        });
+
 //        mInputContainer = findViewById(R.id.suggestions_strip_input_container);
 //        mSearchInput = findViewById(R.id.suggestions_strip_search_input);
 //        mCopyKey = findViewById(R.id.suggestions_strip_copy_key);
@@ -287,6 +331,69 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
         });
     }
+
+    /* ▼ EventBus로 HangulCommitEvent 이벤트 구독 --------------------------------------------------- */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onHangulCommitEvent(HangulCommitEvent event) {
+        Log.d("KeywordSearch", "받은 HangulCommitEvent: type=" + event.type + ", text=" + event.text);
+
+        // 실제 동작 예시
+        if (event.type == HangulCommitEvent.TYPE_SYLLABLE) {
+            // 1. 입력창에서 최근 100자 이내 텍스트 가져오기
+            // String input = getSearchInput().getText().toString();
+            String input = event.text != null ? event.text : "";
+
+            if (input.length() > 100) {
+                input = input.substring(input.length() - 100);
+            }
+
+            // 2. 띄어쓰기(split)해서 마지막 단어 추출
+            String[] tokens = input.split("\\s+"); // 여러 공백도 대응
+            if (tokens.length == 0) return;        // 아무 단어도 없으면 중단
+
+            String lastWord = tokens[tokens.length - 1];
+            if (lastWord.isEmpty()) return;        // 마지막이 공백일 경우도 방지
+
+            // 3. (예시) user_id를 준비 (실제 값에 맞게)
+            String userId = DEFAULT_USER_ID; // 실제 구현에서는 세션 등에서 받아오기
+
+            // 4. exists API 호출 (Retrofit2 사용)
+            KeywordApi api = ApiClient.getKeywordApi();
+            Call<KeywordExistsResponse> call = api.exists(userId, lastWord);
+
+            // 5. 비동기 호출 및 결과 처리
+            call.enqueue(new retrofit2.Callback<KeywordExistsResponse>() {
+                @Override
+                public void onResponse(Call<KeywordExistsResponse> call, retrofit2.Response<KeywordExistsResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        boolean exists = response.body().exists;
+                        Log.d("KeywordSearch", "[API] 단어 \"" + lastWord  + "\" 존재여부: " + exists);
+
+                        if (exists && mKeywordKey != null) {
+                            if (!mKeywordKey.isAnimating()) {
+                                mKeywordKey.setRepeatCount(LottieDrawable.INFINITE);
+                                mKeywordKey.setAnimation("keyword_highlight.json");
+                                mKeywordKey.playAnimation();
+                                mLastKeywordWithImages = lastWord;
+                            }
+                        }
+                    } else {
+                        Log.e("KeywordSearch", "API 응답 실패: " + response.code());
+                    }
+                }
+                @Override
+                public void onFailure(Call<KeywordExistsResponse> call, Throwable t) {
+                    Log.e("KeywordSearch", "API 호출 에러: ", t);
+                }
+            });
+        } else if (event.type == HangulCommitEvent.TYPE_END) {
+            if (mKeywordKey != null && mKeywordKey.isAnimating()) {
+                mKeywordKey.pauseAnimation();     // 일시정지
+                mKeywordKey.setProgress(0f);      // 초기 상태로(선택)
+            }
+        }
+    }
+
 
     // ========== Search Mode helpers ======================================
     private void enterSearchMode() {
@@ -949,8 +1056,19 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     }
 
     @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this);
+        }
+    }
+
+    @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
+        }
         dismissMoreSuggestionsPanel();
     }
 
@@ -991,6 +1109,61 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     private int dpToPx(int dp) {
         return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    // 이미지 패널 표시
+    private void showKeywordImages(String keyword, List<String> imageIds) {
+        mSearchAnswer.setText("\"" + keyword + "\" 관련 사진");
+        mSearchAnswer.setVisibility(VISIBLE);
+
+        mPhotoBarContainer.removeAllViews();
+        if (imageIds == null || imageIds.isEmpty()) {
+            showNoImagesPanel(keyword);
+            return;
+        }
+        for (String idStr : imageIds) {
+            try {
+                long id = Long.parseLong(idStr);
+                Uri uri = ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+
+                ImageView iv = new ImageView(getContext());
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
+                lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
+                iv.setLayoutParams(lp);
+                iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+                // Glide로 캐싱/로딩
+                Glide.with(getContext())
+                        .load(uri)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .thumbnail(0.2f)
+                        .into(iv);
+
+                // 복사 기능
+                iv.setOnClickListener(v -> {
+                    ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
+                    Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
+                });
+                mPhotoBarContainer.addView(iv);
+            } catch (NumberFormatException ignored) {}
+        }
+        mPhotoBar.setVisibility(VISIBLE);
+    }
+
+    private void showNoKeywordPanel() {
+        mSearchAnswer.setText("검색할 키워드가 없습니다.");
+        mSearchAnswer.setVisibility(VISIBLE);
+        mPhotoBarContainer.removeAllViews();
+        mPhotoBar.setVisibility(VISIBLE);
+    }
+
+    private void showNoImagesPanel(String keyword) {
+        mSearchAnswer.setText("\"" + keyword + "\"에 해당하는 사진이 없습니다.");
+        mSearchAnswer.setVisibility(VISIBLE);
+        mPhotoBarContainer.removeAllViews();
+        mPhotoBar.setVisibility(VISIBLE);
     }
 
     private void applyStripTypefaceRecursively(View v) {

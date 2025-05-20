@@ -4,6 +4,9 @@ import android.util.Log
 import org.dslul.openboard.inputmethod.latin.common.Constants
 import java.lang.StringBuilder
 import java.util.ArrayList
+import org.greenrobot.eventbus.EventBus
+import org.dslul.openboard.inputmethod.event.HangulCommitEvent
+
 
 class HangulCombiner : Combiner {
 
@@ -21,12 +24,20 @@ class HangulCombiner : Combiner {
             Log.d("HangulCombiner", "EARLY RETURN: keyCode==CODE_SHIFT, skipping composition")
             return event
         }
-        if(Character.isWhitespace(event.mCodePoint)) {
+        if (Character.isWhitespace(event.mCodePoint)) {
             val text = combiningStateFeedback
+            /* ▼ EventBus 공백/줄바꿈 이벤트 발생 -----------*/
+            Log.d("KeywordSearch", "공백/줄바꿈 입력됨: \"$text\"")
+            EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_END, text.toString()))
             reset()
             return createEventChainFromSequence(text, event)
-        } else if(event.isFunctionalKeyEvent) {
+        }else if(event.isFunctionalKeyEvent) {
             if(event.mKeyCode == Constants.CODE_DELETE) {
+                val text = combiningStateFeedback
+                /* ▼ EventBus delete 키 이벤트 발생 -----------*/
+                Log.d("KeywordSearch", "delete 입력됨")
+                EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_END, text.toString()))
+
                 return when {
                     history.size == 1 && composingWord.isEmpty() ||
                             history.isEmpty() && composingWord.length == 1 -> {
@@ -50,6 +61,7 @@ class HangulCombiner : Combiner {
         } else {
             val currentSyllable = syllable ?: HangulSyllable()
             val jamo = HangulJamo.of(event.mCodePoint)
+
 //            if(!event.isCombining || jamo is HangulJamo.NonHangul) {
             if (jamo is HangulJamo.NonHangul) {
                 composingWord.append(currentSyllable.string)
@@ -170,6 +182,14 @@ class HangulCombiner : Combiner {
                         }
                     }
                 }
+            }
+            /* ▼ EventBus 한글 키 입력 이벤트 발생 -----------*/
+            if (jamo is HangulJamo.Consonant || jamo is HangulJamo.Vowel ||
+                jamo is HangulJamo.Initial || jamo is HangulJamo.Medial || jamo is HangulJamo.Final) {
+
+                val text = combiningStateFeedback
+                Log.d("KeywordSearch", "한글 자음/모음 입력됨(입력 반영 후): \"$text\"")
+                EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_SYLLABLE, text.toString()))
             }
         }
         Log.d("HangulCombiner", "EXIT   processEvent: combiningStateFeedback=\"$combiningStateFeedback\"")
