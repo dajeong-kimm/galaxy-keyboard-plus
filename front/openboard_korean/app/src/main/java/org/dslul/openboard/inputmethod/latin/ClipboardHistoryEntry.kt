@@ -1,9 +1,12 @@
 package org.dslul.openboard.inputmethod.latin
 
+import android.net.Uri
+
 data class ClipboardHistoryEntry (
-        var timeStamp: Long,
-        val content: CharSequence,
-        var isPinned: Boolean = false
+    var timeStamp: Long,
+    val content: CharSequence,
+    var uri: Uri? = null,
+    var isPinned: Boolean = false
 ) : Comparable<ClipboardHistoryEntry> {
 
     override fun compareTo(other: ClipboardHistoryEntry): Int {

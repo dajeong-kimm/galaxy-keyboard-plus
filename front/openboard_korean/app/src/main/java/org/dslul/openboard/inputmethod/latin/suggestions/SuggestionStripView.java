@@ -424,7 +424,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (mSearchPanel != null && mSearchPanel.isShowingInParent()) {
             mSearchPanel.dismissMoreKeysPanel();
         }
-
     }
 
     private void dispatchSearchQuery() {
@@ -444,7 +443,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         } else {
             query = "";
         }
-        if (query.isEmpty()) return;
 
         mLastQuery = query;  // ◀ 사용자가 입력한 원본 질문 보관
         Log.d("SugStrip", "dispatchSearchQuery: mLastQuery = \"" + mLastQuery + "\"");
@@ -978,6 +976,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
             // 1) 검색 모드가 아니면 진입
             if (!mInSearchMode) {
+                if (isSearchInputEmpty()) {
+                    showEmptyToast();
+                    return;
+                }
                 enterSearchMode();
                 return;
             }
@@ -1017,6 +1019,19 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             final SuggestedWordInfo wordInfo = mSuggestedWords.getInfo(index);
             mListener.pickSuggestionManually(wordInfo);
         }
+    }
+    private boolean isSearchInputEmpty() {
+        InputConnection ic = mMainKeyboardView.getInputConnection();
+        ExtractedText et = ic == null ? null : ic.getExtractedText(new ExtractedTextRequest(), 0);
+        String q = (et != null && et.text != null) ? et.text.toString().trim() : "";
+        return q.isEmpty();
+    }
+
+    private void showEmptyToast() {
+        Toast.makeText(getContext(),
+                        "활성화된 앱 입력창에 질문을 입력해주세요.",
+                        Toast.LENGTH_SHORT)
+                .show();
     }
 
     @Override
