@@ -13,7 +13,7 @@ spring:
   application:
     name: auth
   datasource:
-    url: jdbc:postgresql://3.38.95.110:5432/${POSTGRES_AUTH_DB_NAME}
+    url: jdbc:postgresql://postgres-auth/${POSTGRES_AUTH_DB_NAME}
     username: ${POSTGRES_AUTH_USER}
     password: ${POSTGRES_AUTH_PASSWORD}
     driver-class-name: org.postgresql.Driver

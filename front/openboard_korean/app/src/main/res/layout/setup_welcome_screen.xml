@@ -22,6 +22,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
-    <include layout="@layout/setup_welcome_title" />
-    <include layout="@layout/setup_welcome_video" />
+    <include
+        layout="@layout/setup_welcome_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <!-- 비디오 뷰는 화면 절반 정도만 차지하도록 weight=1 설정 -->
+    <include
+        layout="@layout/setup_welcome_video"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 </LinearLayout>

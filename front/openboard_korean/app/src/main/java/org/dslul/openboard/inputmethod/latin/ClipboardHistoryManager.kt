@@ -2,6 +2,7 @@ package org.dslul.openboard.inputmethod.latin
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.text.TextUtils
 import android.util.Base64
 import android.util.Log
@@ -52,24 +53,54 @@ class ClipboardHistoryManager(
     private fun fetchPrimaryClip() {
         val clipData = clipboardManager.primaryClip ?: return
         if (clipData.itemCount == 0) return
-        clipData.getItemAt(0)?.let { clipItem ->
-            // Starting from API 30, onPrimaryClipChanged() can be called multiple times
-            // for the same clip. We can identify clips with their timestamps since API 26.
-            // We use that to prevent unwanted duplicates.
-            val timeStamp = ClipboardManagerCompat.getClipTimestamp(clipData)?.also { stamp ->
-                if (historyEntries.any { it.timeStamp == stamp }) return
-            } ?: System.currentTimeMillis()
+        val clipItem = clipData.getItemAt(0) ?: return
 
-            val content = clipItem.coerceToText(latinIME)
-            if (TextUtils.isEmpty(content)) return
+        // --- URI 버전 중복 검사 ---
+        clipItem.uri?.let { uri ->
+            if (historyEntries.any { it.uri == uri }) return
+            // (아래에 추가 로직 계속...)
+        }
 
-            val entry = ClipboardHistoryEntry(timeStamp, content)
+        // --- 텍스트 버전 중복 검사 ---
+        val text = clipItem.coerceToText(latinIME).toString()
+        if (text.isBlank()) return
+        if (historyEntries.any { it.content == text }) return
+
+        // 타임스탬프
+        val timeStamp = System.currentTimeMillis()
+
+        // 1) 이미지 URI가 있으면, content 대신 uri 필드에 담아서 히스토리에 추가
+        clipItem.uri?.let { uri ->
+            // 읽기 권한 부여 (FileProvider 등 ACL 필요시)
+            latinIME.grantUriPermission("*", uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+            val entry = ClipboardHistoryEntry(
+                timeStamp = timeStamp,
+                content   = "",     // 텍스트는 비워두고
+                uri       = uri     // 여기에 URI 저장
+            )
             historyEntries.add(entry)
             sortHistoryEntries()
             val at = historyEntries.indexOf(entry)
             onHistoryChangeListener?.onClipboardHistoryEntryAdded(at)
+            return
         }
+
+        // 2) URI가 없으면 기존대로 텍스트 처리
+        val content = clipItem.coerceToText(latinIME)?.toString()
+        if (content.isNullOrEmpty()) return
+
+        val entry = ClipboardHistoryEntry(
+            timeStamp = timeStamp,
+            content   = content,
+            uri       = null
+        )
+        historyEntries.add(entry)
+        sortHistoryEntries()
+        val at = historyEntries.indexOf(entry)
+        onHistoryChangeListener?.onClipboardHistoryEntryAdded(at)
     }
+
 
     fun toggleClipPinned(ts: Long) {
         val from = historyEntries.indexOfFirst { it.timeStamp == ts }
@@ -113,7 +144,9 @@ class ClipboardHistoryManager(
 
     fun getHistoryEntry(position: Int) = historyEntries[position]
 
-    fun getHistoryEntryContent(timeStamp: Long) = historyEntries.first { it.timeStamp == timeStamp }
+    fun getHistoryEntryContent(timeStamp: Long): ClipboardHistoryEntry? {
+        return historyEntries.first { it.timeStamp == timeStamp }
+    }
 
     fun setHistoryChangeListener(l: OnHistoryChangeListener?) {
         onHistoryChangeListener = l
@@ -176,6 +209,20 @@ class ClipboardHistoryManager(
         } catch (e: Exception) {
             Log.w(TAG, "Couldn't write to $pinnedHistoryClipsFile", e)
         }
+    }
+
+    /**
+     * 클릭된 항목(ts)에 해당하는 historyEntries 내부 순서를
+     * 맨 앞으로 옮기고 표시 위치도 갱신해 줍니다.
+     */
+    fun refreshEntry(ts: Long) {
+        val from = historyEntries.indexOfFirst { it.timeStamp == ts }
+        if (from == -1) return
+        val entry = historyEntries.removeAt(from)
+        entry.timeStamp = System.currentTimeMillis()
+        historyEntries.add(0, entry)
+        onHistoryChangeListener?.onClipboardHistoryEntryMoved(from, 0)
+        startSavePinnedClipsToDisk()
     }
 
     interface OnHistoryChangeListener {

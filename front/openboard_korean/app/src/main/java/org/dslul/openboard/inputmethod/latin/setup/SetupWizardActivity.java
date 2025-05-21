@@ -687,10 +687,15 @@ public final class SetupWizardActivity extends Activity {
 
 
         switch (step) {
-            /* 1단계 – ‘시작하기’ */
+            /* 0단계 */
             case STEP_WELCOME:    // = 앱 최초 실행
                 mBtnNext.setVisibility(View.GONE);
-                mBtnAux.setVisibility(View.GONE);
+                mBtnNext.setText("시작하기");
+                mBtnNext.setOnClickListener(v -> {
+                    mStepNumber = STEP_1;
+                    updateSetupStepView();
+                });
+//                mBtnAux.setVisibility(View.GONE);
                 break;
             /* 1단계 – 입력 방법 전환 */
             case STEP_1:
