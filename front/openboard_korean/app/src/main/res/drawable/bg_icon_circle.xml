@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/ripple_pressed">   <!-- 터치 리플 색 -->
+    <!-- 실제 원형 배경 -->
+    <item>
+        <shape android:shape="oval">
+            <!-- 필요하면 @color/gray_200 등을 따로 정의해서 사용 -->
+            <solid android:color="#EBEBEB" />      <!-- 연회색 -->
+            <!-- 지름이 고정이면 size 지정, 가변이면 생략 -->
+            <size android:width="@dimen/icon_btn_size"
+                android:height="@dimen/icon_btn_size"/>
+
+        </shape>
+    </item>
+</ripple>

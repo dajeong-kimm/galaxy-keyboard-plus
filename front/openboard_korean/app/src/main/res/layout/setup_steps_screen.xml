@@ -1,27 +1,131 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-/*
-**
-** Copyright 2013, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
--->
-
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/setup_steps_screen"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
-    <include layout="@layout/setup_steps_title" />
-    <include layout="@layout/setup_steps_cards" />
-</LinearLayout>
+    android:background="@color/setup_background">
+
+    <!-- ── (❶) 단계 Instruction – 화면 맨 위 ───────────────────── -->
+    <TextView
+        android:id="@+id/tv_step_instruction_top"
+        style="@style/setupStepInstructionStyle.Large"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:gravity="center"
+        android:paddingBottom="@dimen/setup_step_vertical_padding"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- ── (❷) 앱 애니메이션 로고 – 화면 중앙 ─────────────────── -->
+    <ImageView
+        android:id="@+id/app_logo"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:contentDescription="@string/app_name"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_app_logo_animated"
+        app:layout_constraintBottom_toTopOf="@id/setup_step_gauge"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_step_instruction_top" />
+
+    <!-- ── (❸) 게이지바 – 로고 아래 ───────────────────────────── -->
+    <org.dslul.openboard.inputmethod.latin.setup.StepGaugeView
+        android:id="@+id/setup_step_gauge"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/gauge_height"
+        android:layout_marginTop="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/app_logo"
+        app:sgv_currentStep="0"
+        app:sgv_totalSteps="7" />
+
+    <!-- ── (❹) 숨겨질 ‘카드’ 뷰들은 그대로 두되 부모만 Top을 게이지로 ─ -->
+    <FrameLayout
+        android:id="@+id/step_content_pane"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/setup_step_gauge">
+
+        <include
+            android:id="@+id/setup_step1"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <include
+            android:id="@+id/setup_step2"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <include
+            android:id="@+id/setup_step3"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <include
+            android:id="@+id/setup_step4"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <include
+            android:id="@+id/setup_step5"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <include
+            android:id="@+id/setup_step6"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+
+        <include
+            android:id="@+id/setup_step7"
+            layout="@layout/setup_step"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+    </FrameLayout>
+
+    <!-- ── (❺) CTA 버튼 컨테이너 – 항상 하단 고정 ───────────────── -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/cta_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/btn_aux"
+            style="@style/TossCTA.Outline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_step3_aux_label"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Button
+            android:id="@+id/btn_next"
+            style="@style/TossCTA"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_next_action"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

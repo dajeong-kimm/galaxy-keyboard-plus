@@ -17,16 +17,16 @@
 ** limitations under the License.
 */
 --><resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="english_ime_name" translatable="false">PhoKey</string>
+    <string name="english_ime_name" translatable="false">Galaxy Keyboard Plus</string>
     <!-- Name of Android spell checker service. AOSP(Android Open Source Project) should not be translated.
          This resource should be copied from msgid="511950477199948048" -->
-    <string name="spell_checker_service_name">PhoKey Spell Checker</string>
+    <string name="spell_checker_service_name">Galaxy Keyboard+ Spell Checker</string>
     <!-- Title for IME settings screen.
          This resource should be copied from msgid="423615877174850267" -->
-    <string name="ime_settings">PhoKey Settings</string>
+    <string name="ime_settings">Galaxy Keyboard+ Settings</string>
     <!-- Title for the spell checking service settings screen. AOSP(Android Open Source Project) should not be translated.
          This resource should be copied from msgid="2970535894327288421" -->
-    <string name="android_spell_checker_settings">PhoKey Spell Checker Settings</string>
+    <string name="android_spell_checker_settings">Galaxy Keyboard+ Spell Checker Settings</string>
     <!-- Title for Latin keyboard input options dialog [CHAR LIMIT=25] -->
     <string name="english_ime_input_options">Input options</string>
     <!-- Title for the spell checker option to turn on/off contact names lookup [CHAR LIMIT=25] -->
@@ -455,6 +455,7 @@ disposition rather than other common dispositions for Latin languages. [CHAR LIM
     <string name="setup_step3_instruction">Now you can type in all your favorite apps with <xliff:g id="APPLICATION_NAME" example="Android Keyboard">%s</xliff:g>.</string>
     <!-- The label of the button that triggers the screen for configuaring additional languages of the keyboard. [CHAR_LIMIT=64] -->
     <string name="setup_step3_action">Configure additional languages</string>
+    <string name="setup_step3_aux_label">추가 언어 설정</string>
     <!-- Ordinal number of the 4th step in the setup wizard. [CHAR LIMIT=5] -->
     <!-- STEP 4: 카카오 로그인 -->
     <string name="setup_step4_bullet" translatable="false">4</string>
@@ -620,4 +621,9 @@ disposition rather than other common dispositions for Latin languages. [CHAR LIM
     <!--  검색 페이지  -->
     <string name="settings_screen_search">Search Page</string>
     <string name="settings_search_summary">Navigate to the new search page</string>
+    <!-- 키워드 이미지 버튼 contentDescription -->
+    <string name="keyword_button">키워드 이미지 버튼</string>
+
+    <string name="kakao_login_progress">now login...</string>
+    <string name="fetch_clipboard">클립보드 내용 가져오기</string>
 </resources>

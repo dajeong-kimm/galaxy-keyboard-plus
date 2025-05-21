@@ -35,6 +35,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputConnection;
 
+import androidx.core.content.ContextCompat;
+
 import org.dslul.openboard.inputmethod.accessibility.AccessibilityUtils;
 import org.dslul.openboard.inputmethod.accessibility.MainKeyboardAccessibilityDelegate;
 import org.dslul.openboard.inputmethod.annotations.ExternallyReferenced;
@@ -256,6 +258,7 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         mSlidingKeyInputDrawingPreview = new SlidingKeyInputDrawingPreview(mainKeyboardViewAttr);
         mSlidingKeyInputDrawingPreview.setDrawingView(drawingPreviewPlacerView);
         mainKeyboardViewAttr.recycle();
+        setBackgroundColor(ContextCompat.getColor(context, R.color.phokey_keyboard_bg));
 
         mDrawingPreviewPlacerView = drawingPreviewPlacerView;
 

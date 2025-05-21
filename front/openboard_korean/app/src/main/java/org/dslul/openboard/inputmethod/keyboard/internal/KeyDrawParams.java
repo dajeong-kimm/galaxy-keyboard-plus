@@ -16,8 +16,12 @@
 
 package org.dslul.openboard.inputmethod.keyboard.internal;
 
+import android.content.Context;
 import android.graphics.Typeface;
 
+import androidx.core.content.res.ResourcesCompat;
+
+import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.utils.ResourceUtils;
 
 import javax.annotation.Nonnull;
@@ -26,6 +30,8 @@ import javax.annotation.Nullable;
 public final class KeyDrawParams {
     @Nonnull
     public Typeface mTypeface = Typeface.DEFAULT;
+
+    private static final String FALLBACK_FONT_FAMILY = "samsung_one"; // system 에 없으면 아래에서 ttf 로더 사용
 
     public int mLetterSize;
     public int mLabelSize;
@@ -51,7 +57,18 @@ public final class KeyDrawParams {
 
     public int mAnimAlpha;
 
-    public KeyDrawParams() {}
+    public KeyDrawParams() {
+        /*
+         * 우선 system-font 에 같은 family 가 있으면 그대로 쓰고,
+         * 없으면 앱 리소스(res/font/)에 넣어 둔 TTF 파일을 불러온다.
+         *  - res/font/nanum_bold.ttf  (ex)
+         *  - res/values/fonts.xml     (optional)
+         */
+        final Typeface system = Typeface.create(FALLBACK_FONT_FAMILY, Typeface.NORMAL);
+        if (system != null) {
+            mTypeface = system;
+        } // else → updateParams()에서 Context 통해 로드
+    }
 
     private KeyDrawParams(@Nonnull final KeyDrawParams copyFrom) {
         mTypeface = copyFrom.mTypeface;
@@ -88,12 +105,26 @@ public final class KeyDrawParams {
 
         if (attr.mTypeface != null) {
             mTypeface = attr.mTypeface;
+        } else {
+            // KeyVisualAttributes 쪽(Typeface)도 없고, 아직 DEFAULT라면
+            // 시스템에 설치된 동일 family 글꼴을 써본다.
+            if (mTypeface == Typeface.DEFAULT) {
+                mTypeface = Typeface.create(FALLBACK_FONT_FAMILY, Typeface.NORMAL);
+            }
         }
 
-        mLetterSize = selectTextSizeFromDimensionOrRatio(keyHeight,
-                attr.mLetterSize, attr.mLetterRatio, mLetterSize);
-        mLabelSize = selectTextSizeFromDimensionOrRatio(keyHeight,
-                attr.mLabelSize, attr.mLabelRatio, mLabelSize);
+//        mLetterSize = selectTextSizeFromDimensionOrRatio(keyHeight,
+//                attr.mLetterSize, attr.mLetterRatio, mLetterSize);
+//        mLabelSize = selectTextSizeFromDimensionOrRatio(keyHeight,
+//                attr.mLabelSize, attr.mLabelRatio, mLabelSize);
+        final float GLOBAL_SCALE = 0.90f; // 15 % 키우기(원하면 0.90f 등으로 조정)
+
+        mLetterSize = (int)(GLOBAL_SCALE * selectTextSizeFromDimensionOrRatio(
+                keyHeight, attr.mLetterSize, attr.mLetterRatio, mLetterSize));
+
+        mLabelSize = (int)(GLOBAL_SCALE * selectTextSizeFromDimensionOrRatio(
+                keyHeight, attr.mLabelSize, attr.mLabelRatio, mLabelSize));
+
         mLargeLetterSize = selectTextSize(keyHeight, attr.mLargeLetterRatio, mLargeLetterSize);
         mHintLetterSize = selectTextSize(keyHeight, attr.mHintLetterRatio, mHintLetterSize);
         mShiftedLetterHintSize = selectTextSize(keyHeight,

@@ -18,24 +18,15 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 로딩 스피너: 응답 대기 중에만 보임 -->
-    <com.airbnb.lottie.LottieAnimationView
-        android:id="@+id/avLoading"
+    <org.dslul.openboard.inputmethod.latin.search.LightPulseView
+        android:id="@+id/customLightSpinner"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="600dp"
         android:visibility="gone"
-
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/tvStatus"
-
-        app:lottie_fileName="loadingSpinner.json"
-        app:lottie_autoPlay="false"
-        app:lottie_loop="true"
-        app:lottie_speed="2.0"
-
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter"
-        />
+        app:layout_constraintBottom_toTopOf="@id/inputBar"
+        android:layout_marginBottom="0dp"/>
 
     <!-- 3. 로딩/에러 텍스트: 라이트 테마의 Secondary 텍스트 색 -->
     <TextView
@@ -88,9 +79,22 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:fontFamily="@font/samsung_one"
             android:hint="메시지를 입력하세요…"
             android:paddingLeft="14dp"
-            android:paddingRight="14dp" />
+            android:paddingRight="14dp"
+            android:backgroundTint="@color/edit_text_underline_tint"
+            android:backgroundTintMode="src_in"
+            />
+<!--        <org.dslul.openboard.inputmethod.latin.search.SpinnerUnderlineEditText-->
+<!--            android:id="@+id/etMessage"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_weight="1"-->
+<!--            android:fontFamily="@font/samsung_one"-->
+<!--            android:hint="메시지를 입력하세요…"-->
+<!--            android:paddingLeft="14dp"-->
+<!--            android:paddingRight="14dp"/>-->
 
         <!-- 전송 버튼: 클릭 이펙트는 라이트 오버레이 경계형 -->
         <ImageButton

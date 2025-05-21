@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 기존 테마·스타일이 이미 있다면 그대로 두고, 새 블록만 추가해 줍니다 -->
+    <style name="SuggestionIconStyle">
+        <item name="android:background">@drawable/bg_icon_circle</item>
+        <item name="android:padding">@dimen/icon_inner_padding</item> <!-- 안쪽 패딩 -->
+        <!-- 버튼 간 간격 -->
+        <item name="android:layout_marginStart">@dimen/icon_outer_margin</item>
+        <item name="android:layout_marginEnd">@dimen/icon_outer_margin</item>
+    </style>
+
+    <!-- Toss 느낌 기본 팔레트 -->
+    <color name="toss_primary">#3182F6</color>
+    <color name="toss_primary_20">#333182F6</color>
+    <color name="toss_gray_900">#111111</color>
+
+    <!-- 게이지 높이 등 치수 -->
+    <dimen name="gauge_height">4dp</dimen>
+
+    <!-- 텍스트 & CTA 스타일 예시 -->
+    <style name="TossTitle">
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/toss_primary</item>
+    </style>
+
+    <style name="TossBody">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/toss_gray_900</item>
+    </style>
+
+    <style name="TossCTA">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:background">@color/toss_primary</item>
+        <item name="android:paddingLeft">20dp</item>
+        <item name="android:paddingRight">20dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="TossCTA.Outline" parent="TossCTA">
+        <item name="android:background">@drawable/cta_outline_bg</item>
+        <item name="android:textColor">@color/toss_primary</item>
+    </style>
+
+    <style name="TossStepCTA">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/setup_step_action_height</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:paddingLeft">20dp</item>
+        <item name="android:paddingRight">20dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/bg_toss_cta_filled</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <style name="setupStepInstructionStyle.Large" parent="setupStepInstructionStyle">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

@@ -30,7 +30,6 @@ import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.widget.NestedScrollView;
@@ -45,10 +44,11 @@ import com.bumptech.glide.request.target.Target;
 import org.commonmark.node.Node;
 import org.dslul.openboard.inputmethod.latin.R;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import io.noties.markwon.Markwon;
+import io.noties.markwon.core.CorePlugin;
+import io.noties.markwon.linkify.LinkifyPlugin;
 
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VIEW_TYPE_USER = 0;
@@ -89,11 +89,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         } else if (holder instanceof BotViewHolder) {
             BotViewHolder botHolder = (BotViewHolder) holder;
-
-            // 1) 메시지 텍스트 설정
-            botHolder.tvMessage.setText(msg.getText());
-            // 2) 텍스트 선택 가능하게
-            botHolder.tvMessage.setTextIsSelectable(true);
 
             // 3) 복사 버튼 보이기/동작 설정
             botHolder.btnCopy.setVisibility(View.VISIBLE);
@@ -138,10 +133,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             btnCopy = v.findViewById(R.id.btnCopy);
             glImages = v.findViewById(R.id.glBotImages);
 
-            markwon = Markwon.create(v.getContext());
+            markwon = Markwon.builder(v.getContext())
+                    .usePlugin(CorePlugin.create())         // 기본 Markdown 파싱
+                    .usePlugin(LinkifyPlugin.create())     // plain URL 자동 링크화
+                    .build();
 
             // 링크 자동 인식·클릭 활성화
-            tvMessage.setAutoLinkMask(Linkify.WEB_URLS);
             tvMessage.setMovementMethod(LinkMovementMethod.getInstance());
         }
 

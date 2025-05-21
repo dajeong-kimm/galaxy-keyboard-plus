@@ -101,7 +101,7 @@ public final class PreferencesSettingsFragment extends SubScreenFragment {
                                 getActivity().runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        Toast.makeText(getActivity(), "로그아웃 성공", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(getActivity(), "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show();
                                         updateKakaoLoginStatus(kakaoLoginPref);
                                     }
                                 });

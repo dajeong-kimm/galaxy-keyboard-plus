@@ -43,7 +43,7 @@
 
     <!-- Color resources for LXX_Light theme.
          15%:0x26 70%:0xB3 75%:0xC0 80%:0xCC 85%:0xD9 90%:0xE6 -->
-    <color name="key_text_color_lxx_light">#37474F</color>
+    <color name="key_text_color_lxx_light">#232323</color>
     <color name="key_functional_text_color_lxx_light">#CC37474F</color>
     <color name="key_text_inactive_color_lxx_light">#B337474F</color>
     <color name="key_hint_letter_color_lxx_light">#B337474F</color>
@@ -54,10 +54,11 @@
     <color name="suggested_word_color_lxx_light">#B337474F</color>
     <color name="gesture_trail_color_lxx_light">#1A73E8</color>
     <color name="sliding_key_input_preview_color_lxx_light">#1457af</color>
-    <color name="key_background_lxx_light">#ECEFF1</color>
-    <color name="key_background_pressed_lxx_light">#2637474F</color>
-    <color name="action_key_background_lxx_light">#1A73E8</color>
-    <color name="action_key_background_pressed_lxx_light">#3683e8</color>
+
+    <color name="key_background_lxx_light">#E4E4E4</color>
+    <color name="key_background_pressed_lxx_light">#A5A5A5</color>
+    <color name="action_key_background_lxx_light">#CFCFCF</color>
+    <color name="action_key_background_pressed_lxx_light">#878787</color>
     <color name="suggested_word_background_selected_lxx_light">#2637474F</color>
     <color name="gesture_floating_preview_color_lxx_light">#E6ECEFF1</color>
     <color name="emoji_tab_page_indicator_background_lxx_light">#E4E7E9</color>
@@ -106,11 +107,18 @@
     <color name="popup_background_material_dark_theme">#ff3c474c</color>
 
     <!-- Color resources for setup wizard and tutorial -->
-    <color name="setup_background">#FFEBEBEB</color>
-    <color name="setup_text_dark">#FF707070</color>
+    <color name="setup_background">#FFFFFF</color>
+    <color name="setup_text_dark">#FF000000</color>
     <color name="setup_text_action">@android:color/holo_blue_light</color>
     <color name="setup_step_background">@android:color/background_light</color>
     <color name="setup_welcome_video_margin_color">#FFCCCCCC</color>
     <!-- Accent color for the notification. We need to match this to the OS build -->
     <color name="notification_accent_color">#FF607D8B</color>
+
+    <color name="phokey_strip_bg">#F4F4F4</color>
+    <color name="phokey_keyboard_bg">#E3E3E3</color>
+    <color name="phokey_icon_tint">#292929</color>
+    <color name="ripple_pressed">#C7C7C7</color> <!-- 원하는 눌림색 -->
+
+
 </resources>

@@ -34,4 +34,8 @@
     <color name="action_key_background_lxx_dark">@color/highlight_color_lxx_dark</color>
     <color name="action_key_background_pressed_lxx_dark">@android:color/system_accent1_200</color>
     <color name="icon_tint_system_accent_lxx_dark">@color/highlight_color_lxx_dark</color>
+
+    <color name="toss_primary">#3182F6</color>
+    <color name="toss_primary_10">#1A3182F6</color>
+    <color name="toss_cta_ripple">#CCCCE3FF</color>
 </resources>

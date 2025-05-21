@@ -26,19 +26,31 @@
         android:layout_height="match_parent"
         android:hapticFeedbackEnabled="false"
         android:orientation="horizontal"
+        android:layout_marginTop="5dp"
         android:soundEffectsEnabled="false">
         <!-- Provide audio and haptic feedback by ourselves based on the keyboard settings.
              We just need to ignore the system's audio and haptic feedback settings. -->
 
         <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/suggestions_strip_search_key"
-            style="?attr/suggestionWordStyle"
+            style="@style/SuggestionIconStyle"
+            android:layout_width="@dimen/icon_btn_size"
+            android:layout_height="@dimen/icon_btn_size"
+            android:contentDescription="@string/search"
             app:lottie_autoPlay="false"
-            app:lottie_fileName="search_loading.json"
-            app:lottie_loop="false"
-            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
-            android:layout_height="match_parent"
-            android:contentDescription="@string/search" />
+            app:lottie_fileName="ic_search.json"
+            app:lottie_loop="false" />
+
+        <!-- keyword 검색 버튼 -->
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/suggestions_strip_keyword_key"
+            style="@style/SuggestionIconStyle"
+            app:lottie_autoPlay="false"
+            app:lottie_fileName="keyword_highlight.json"
+            app:lottie_loop="true"
+            android:layout_width="@dimen/icon_btn_size"
+            android:layout_height="@dimen/icon_btn_size"
+            android:contentDescription="@string/keyword_button" />
 
         <!-- ImageButton(search_key) 아래나 옆에 -->
         <Button
@@ -48,78 +60,41 @@
             android:layout_height="wrap_content"
             android:visibility="gone" />
 
-        <LinearLayout
-            android:id="@+id/suggestions_strip_input_container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:visibility="gone">
-
-            <EditText
-                android:id="@+id/suggestions_strip_search_input"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:cursorVisible="true"
-                android:layout_marginHorizontal="8dp"
-                android:minWidth="120dp"
-                android:imeOptions="actionSearch|flagNoExtractUi"
-                android:inputType="text"
-                android:maxLines="1" />
-
-            <ImageButton
-                android:id="@+id/suggestions_strip_send_key"
-                style="?attr/suggestionWordStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:contentDescription="@string/send"
-                android:src="@drawable/ic_send" />
-
-            <ImageButton
-                android:id="@+id/suggestions_strip_copy_key"
-                style="?attr/suggestionWordStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:src="@drawable/ic_copy" />
-
-        </LinearLayout>
-
-        <!--        <ImageButton-->
-        <!--            android:id="@+id/suggestions_strip_other_key"-->
-        <!--            style="?attr/suggestionWordStyle"-->
-        <!--            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"-->
-        <!--            android:layout_height="fill_parent"-->
-        <!--            android:layout_weight="0"-->
-        <!--            android:contentDescription="@string/more_keys_strip_description" />-->
-        <!-- Provide audio and haptic feedback by ourselves based on the keyboard settings.
-             We just need to ignore the system's audio and haptic feedback settings. -->
         <ImageButton
             android:id="@+id/suggestions_strip_voice_key"
-            style="?attr/suggestionWordStyle"
-            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
-            android:layout_height="fill_parent"
+            style="@style/SuggestionIconStyle"
+            android:layout_width="@dimen/icon_btn_size"
+            android:layout_height="@dimen/icon_btn_size"
             android:contentDescription="@string/spoken_description_mic" />
 
         <ImageButton
             android:id="@+id/suggestions_strip_clipboard_key"
-            style="?attr/suggestionWordStyle"
-            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
-            android:layout_height="fill_parent" />
+            style="@style/SuggestionIconStyle"
+            android:layout_width="@dimen/icon_btn_size"
+            android:layout_height="@dimen/icon_btn_size" />
+
+        <ImageButton
+            android:id="@+id/suggestions_strip_fetch_clipboard"
+            style="@style/SuggestionIconStyle"
+            android:layout_width="@dimen/icon_btn_size"
+            android:layout_height="@dimen/icon_btn_size"
+            android:contentDescription="@string/fetch_clipboard"
+            android:src="@drawable/history" />
+
 
         <!-- ① 사진 바: 기본적으로 GONE -->
         <HorizontalScrollView
             android:id="@+id/suggestions_strip_photo_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:padding="4dp">
+            android:padding="4dp"
+            android:visibility="gone">
+
             <LinearLayout
                 android:id="@+id/photo_bar_container"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"/>
+                android:orientation="horizontal" />
         </HorizontalScrollView>
 
         <LinearLayout
@@ -143,5 +118,4 @@
         android:textColor="@android:color/white"
         android:textSize="14sp"
         android:visibility="gone" />
-
 </merge>

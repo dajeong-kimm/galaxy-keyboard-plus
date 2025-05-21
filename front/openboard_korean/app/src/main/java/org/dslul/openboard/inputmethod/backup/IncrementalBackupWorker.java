@@ -32,7 +32,7 @@ public class IncrementalBackupWorker extends Worker {
     private static final String TAG = "IncrementalBackupWorker";
     private static final String CHANNEL_ID = "backup_upload_channel";
     private static final int NOTIF_ID = 1001;
-    private static final long DELAY_SEC = 5;
+    private static final long DELAY_SEC = 1;
 
     public IncrementalBackupWorker(
             @NonNull Context context,
@@ -83,7 +83,7 @@ public class IncrementalBackupWorker extends Worker {
                     totalHolder.set(total);
                     builder[0] = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                             .setSmallIcon(R.drawable.ic_upload)
-                            .setContentTitle("포키가 사진을 안전하게 저장하고 있어요.")
+                            .setContentTitle("사진을 안전하게 보관할게요.")
                             .setContentText("0/" + totalHolder.get())
                             .setOnlyAlertOnce(true)
                             .setOngoing(true)
@@ -110,7 +110,7 @@ public class IncrementalBackupWorker extends Worker {
                         builder[0]
                                 .setProgress(0, 0, false)
                                 .setContentTitle("모든 사진이 안전하게 보관되었어요! 🎉")
-                                .setContentText("포키에서 사진을 검색해보세요")
+                                .setContentText("Galaxy Search Plus에서 사진을 검색해보세요")
                                 .setOngoing(false)
                                 .setAutoCancel(true)
                                 .setSmallIcon(R.drawable.ic_upload_done);

@@ -35,6 +35,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -52,6 +53,9 @@ import androidx.work.WorkManager;
 import org.dslul.openboard.inputmethod.backup.FullBackupWorker;
 import org.dslul.openboard.inputmethod.backup.IncrementalBackupWorker;
 import org.dslul.openboard.inputmethod.latin.R;
+import org.dslul.openboard.inputmethod.latin.auth.AuthCallback;
+import org.dslul.openboard.inputmethod.latin.auth.AuthManager;
+import org.dslul.openboard.inputmethod.latin.data.SecureStorage;
 import org.dslul.openboard.inputmethod.latin.login.KakaoLoginActivity;
 import org.dslul.openboard.inputmethod.latin.search.SearchActivity;
 import org.dslul.openboard.inputmethod.latin.utils.LeakGuardHandlerWrapper;
@@ -63,7 +67,7 @@ import java.util.ArrayList;
 import javax.annotation.Nonnull;
 
 // TODO: Use Fragment to implement welcome screen and setup steps.
-public final class SetupWizardActivity extends Activity implements View.OnClickListener {
+public final class SetupWizardActivity extends Activity {
 
     // ────────── 퍼미션 관련 상수 ──────────
     private static final int REQ_MEDIA_PERMS = 0x31;
@@ -92,7 +96,9 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 return;   // 요청했으니 결과 콜백 기다림
             }
         }
-//        ensureNotificationPermission();
+        //이미 권한이 있을 경우 다음 단계로
+        mStepNumber = STEP_6;
+        updateSetupStepView();
     }
 
     private void ensureNotificationPermission() {
@@ -104,48 +110,9 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                 return;
             }
         }
-        // 권한이 이미 있거나 API < 33
-        onNotificationPermissionGranted();
-    }
-
-    private void onNotificationPermissionGranted() {
-        // 1) WorkManager 제약 설정: 네트워크가 연결된 상태에서만 실행
-        Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build();
-
-        // 2) 권한 직후 전체 백업 (한 번만)
-        OneTimeWorkRequest fullReq =
-                new OneTimeWorkRequest.Builder(FullBackupWorker.class)
-                        .setConstraints(constraints)
-                        .build();
-        WorkManager.getInstance(this)
-                .enqueueUniqueWork(
-                        "full_backup",
-                        ExistingWorkPolicy.KEEP,
-                        fullReq
-                );
-
-        // 3) 이후 새 사진마다 실행될 증분 백업 워커 등록
-        Constraints incCons = new Constraints.Builder()
-                .addContentUriTrigger(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                        true
-                )
-                .setTriggerContentUpdateDelay(Duration.ofSeconds(5))
-                // (선택) 네트워크 제약도 추가하려면 아래 한 줄 더
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build();
-        OneTimeWorkRequest incReq =
-                new OneTimeWorkRequest.Builder(IncrementalBackupWorker.class)
-                        .setConstraints(incCons)
-                        .build();
-        WorkManager.getInstance(this)
-                .enqueueUniqueWork(
-                        "incremental_backup",
-                        ExistingWorkPolicy.REPLACE,
-                        incReq
-                );
+        //이미 권한이 있을 경우 다음 단계로
+        mStepNumber = STEP_7;
+        updateSetupStepView();
     }
 
     @Override
@@ -164,7 +131,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
             }
             if (granted) {
                 // 사진 권한 허용 → 6단계(알림 권한) 화면으로 전환
-                mStepNumber = STEP_6_REQUEST_NOTIF_PERM;
+                mStepNumber = STEP_6;
                 updateSetupStepView();
             } else {
                 Toast.makeText(this,
@@ -178,7 +145,7 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (granted) {
                 // 알림 권한 허용 → 7단계(백업)로 이동
-                mStepNumber = STEP_7_RUN_BACKUP_WORKER;
+                mStepNumber = STEP_7;
                 updateSetupStepView();
             } else {
                 Toast.makeText(this,
@@ -204,11 +171,10 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
     private Uri mWelcomeVideoUri;
     private VideoView mWelcomeVideoView;
     private ImageView mWelcomeImageView;
-    private View mActionStart;
-    private View mActionNext;
-    private TextView mStep1Bullet;
-    private TextView mActionFinish;
     private SetupStepGroup mSetupStepGroup;
+    private TextView mTvInstructionTop;
+    private Button mBtnAux;    // 좌측(보조) : step3(언어설정) 등
+    private Button mBtnNext;   // 우측(메인) : 다음 / 권한요청 등
     private static final String STATE_STEP = "step";
     private int mStepNumber;
     private boolean mNeedsToAdjustStepNumberToSystemState;
@@ -216,10 +182,10 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
     private static final int STEP_1 = 1;
     private static final int STEP_2 = 2;
     private static final int STEP_3 = 3;
-    private static final int STEP_4_LOGIN = 4; // 카카오 로그인
-    private static final int STEP_5_REQUEST_PHOTO_PERM = 5; // 사진 권한
-    private static final int STEP_6_REQUEST_NOTIF_PERM = 6; // 알림 권한
-    private static final int STEP_7_RUN_BACKUP_WORKER = 7; // 백업 실행
+    private static final int STEP_4 = 4; // 카카오 로그인
+    private static final int STEP_5 = 5; // 사진 권한
+    private static final int STEP_6 = 6; // 알림 권한
+    private static final int STEP_7 = 7; // 백업 실행
     private static final long STEP_7_DELAY_MS = 5_000L;      // 5초 딜레이
 
     private static final int STEP_LAUNCHING_IME_SETTINGS = 8;
@@ -227,8 +193,14 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
 
     private static final int REQ_KAKAO_LOGIN = 100;
 
+    private boolean mStartedBackup = false;
+    private View mContentPane;
+    private StepGaugeView mGauge;
+
     private SettingsPoolingHandler mHandler;
 
+    private AuthManager mAuthManager;
+    private SecureStorage mSecureStorage;
     private static final class SettingsPoolingHandler
             extends LeakGuardHandlerWrapper<SetupWizardActivity> {
         private static final int MSG_POLLING_IME_SETTINGS = 0;
@@ -279,6 +251,25 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         mHandler = new SettingsPoolingHandler(this, mImm);
 
         setContentView(R.layout.setup_wizard);
+
+        // Welcome 전용 시작 버튼 바인딩
+        Button btnStart = findViewById(R.id.btn_start_welcome);
+        btnStart.setOnClickListener(v -> {
+            mStepNumber = STEP_1;          // 입력 방법 전환 단계로
+            updateSetupStepView();
+        });
+
+        mAuthManager   = AuthManager.getInstance(this);
+        mSecureStorage = SecureStorage.getInstance(this);
+
+        // 1) 게이지바 먼저 꺼내기
+
+        mGauge = findViewById(R.id.setup_step_gauge);
+        mContentPane = findViewById(R.id.step_content_pane);
+
+        // 2) 게이지바를 넘겨 SetupStepGroup 생성
+        mSetupStepGroup = new SetupStepGroup(mGauge);
+
         mSetupWizard = findViewById(R.id.setup_wizard);
 
         if (savedInstanceState == null) {
@@ -290,57 +281,42 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         final String applicationName = getResources().getString(getApplicationInfo().labelRes);
         mWelcomeScreen = findViewById(R.id.setup_welcome_screen);
         final TextView welcomeTitle = findViewById(R.id.setup_welcome_title);
-        welcomeTitle.setText(getString(R.string.setup_welcome_title, applicationName));
+        if (welcomeTitle != null) {
+            welcomeTitle.setText(getString(R.string.setup_welcome_title, applicationName));
+        }
 
         mSetupScreen = findViewById(R.id.setup_steps_screen);
         final TextView stepsTitle = findViewById(R.id.setup_title);
-        stepsTitle.setText(getString(R.string.setup_steps_title, applicationName));
+        if (stepsTitle != null) {
+            stepsTitle.setText(getString(R.string.setup_steps_title, applicationName));
+        }
 
-        final SetupStepIndicatorView indicatorView =
-                findViewById(R.id.setup_step_indicator);
-        mSetupStepGroup = new SetupStepGroup(indicatorView);
-
-        mStep1Bullet = findViewById(R.id.setup_step1_bullet);
-        mStep1Bullet.setOnClickListener(this);
-        final SetupStep step1 = new SetupStep(STEP_1, applicationName,
-                mStep1Bullet, findViewById(R.id.setup_step1),
-                R.string.setup_step1_title, R.string.setup_step1_instruction,
-                R.string.setup_step1_finished_instruction, R.drawable.ic_setup_step1,
+        // 3) 그다음부터 addStep() 호출
+        final SetupStep step1 = new SetupStep(
+                STEP_1, applicationName,
+                findViewById(R.id.setup_step1),
+                R.string.setup_step1_instruction,
+                R.string.setup_step1_finished_instruction,
                 R.string.setup_step1_action);
-        final SettingsPoolingHandler handler = mHandler;
-        step1.setAction(new Runnable() {
-            @Override
-            public void run() {
-                invokeLanguageAndInputSettings();
-                handler.startPollingImeSettings();
-            }
-        });
+        step1.setAction(this::invokeLanguageAndInputSettings);
         mSetupStepGroup.addStep(step1);
 
-        final SetupStep step2 = new SetupStep(STEP_2, applicationName,
-                (TextView) findViewById(R.id.setup_step2_bullet), findViewById(R.id.setup_step2),
-                R.string.setup_step2_title, R.string.setup_step2_instruction,
-                0 /* finishedInstruction */, R.drawable.ic_setup_step2,
+        final SetupStep step2 = new SetupStep(
+                STEP_2, applicationName,
+                findViewById(R.id.setup_step2),
+                R.string.setup_step2_instruction,
+                0,
                 R.string.setup_step2_action);
-        step2.setAction(new Runnable() {
-            @Override
-            public void run() {
-                invokeInputMethodPicker();
-            }
-        });
+        step2.setAction(this::invokeInputMethodPicker);
         mSetupStepGroup.addStep(step2);
 
-        final SetupStep step3 = new SetupStep(STEP_3, applicationName,
-                (TextView) findViewById(R.id.setup_step3_bullet), findViewById(R.id.setup_step3),
-                R.string.setup_step3_title, R.string.setup_step3_instruction,
-                0 /* finishedInstruction */, R.drawable.ic_setup_step3,
+        final SetupStep step3 = new SetupStep(
+                STEP_3, applicationName,
+                findViewById(R.id.setup_step3),
+                R.string.setup_step3_instruction,
+                0,
                 R.string.setup_step3_action);
-        step3.setAction(new Runnable() {
-            @Override
-            public void run() {
-                invokeSubtypeEnablerOfThisIme();
-            }
-        });
+        step3.setAction(this::invokeSubtypeEnablerOfThisIme);
         mSetupStepGroup.addStep(step3);
 
         mWelcomeVideoUri = new Uri.Builder()
@@ -369,171 +345,94 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
         mWelcomeVideoView = welcomeVideoView;
         mWelcomeImageView = findViewById(R.id.setup_welcome_image);
 
-        mActionStart = findViewById(R.id.setup_start_label);
-        mActionStart.setOnClickListener(this);
-        mActionNext = findViewById(R.id.setup_next);
-        mActionNext.setOnClickListener(this);
-        mActionFinish = findViewById(R.id.setup_finish);
-        mActionFinish.setCompoundDrawablesRelativeWithIntrinsicBounds(getResources().getDrawable(R.drawable.ic_setup_finish),
-                null, null, null);
-        mActionFinish.setOnClickListener(this);
+        // CTA 버튼 바인딩
+        mBtnAux = findViewById(R.id.btn_aux);
+        mBtnNext = findViewById(R.id.btn_next);
+
+        // 메인(오른쪽) 버튼은 공통 처리 → onClick 안에서 step++ 하도록
+        mBtnNext.setOnClickListener(v -> {
+            mStepNumber++;
+            updateSetupStepView();
+        });
 
         // ────────── 추가: STEP_4 - 카카오 로그인 ──────────
         final SetupStep step4 = new SetupStep(
-                STEP_4_LOGIN, applicationName,
-                findViewById(R.id.setup_step4_bullet),
+                STEP_4, applicationName,
                 findViewById(R.id.setup_step4),
-                R.string.setup_step4_title,           // “로그인”
                 R.string.setup_step4_instruction,     // “버튼을 눌러 카카오 로그인 페이지로 이동합니다.”
                 0,                                     // 완료(instruction) 없음
-                R.drawable.ic_setup_step4,            // 아이콘
                 R.string.setup_step4_action            // “카카오 로그인”
         );
-        step4.setAction(new Runnable() {
-            @Override
-            public void run() {
-                // 카카오 로그인 화면으로 이동
-                Intent intent = new Intent(SetupWizardActivity.this, KakaoLoginActivity.class);
-                startActivityForResult(intent, REQ_KAKAO_LOGIN);
-            }
-        });
-
-
+        step4.setAction(() -> startKakaoLoginFromWizard());
         mSetupStepGroup.addStep(step4);
 
         // ────────── 추가: STEP_5 - 사진 접근 권한 요청 ──────────
         final SetupStep step5 = new SetupStep(
-                STEP_5_REQUEST_PHOTO_PERM, applicationName,
-                findViewById(R.id.setup_step5_bullet),
+                STEP_5, applicationName,
                 findViewById(R.id.setup_step5),
-                R.string.setup_step5_title,           // “사진 접근 권한 설정”
                 R.string.setup_step5_instruction,     // “버튼을 눌러 사진 권한을 요청합니다.”
                 0,
-                R.drawable.ic_setup_step5,
                 R.string.setup_step5_action           // “사진 권한 요청”
         );
-        step5.setAction(new Runnable() {
-            @Override
-            public void run() {
-                // 기존 ensureMediaPermission() 호출
-                ensureMediaPermission();
-            }
-        });
+        // 기존 ensureMediaPermission() 호출
+        step5.setAction(this::ensureMediaPermission);
         mSetupStepGroup.addStep(step5);
 
         // ────────── 추가: STEP_6 - 알림 권한 요청 ──────────
         final SetupStep step6 = new SetupStep(
-                STEP_6_REQUEST_NOTIF_PERM, applicationName,
-                findViewById(R.id.setup_step6_bullet),
+                STEP_6, applicationName,
                 findViewById(R.id.setup_step6),
-                R.string.setup_step6_title,           // “알림 권한 설정”
                 R.string.setup_step6_instruction,     // “버튼을 눌러 알림 권한을 요청합니다.”
                 0,
-                R.drawable.ic_setup_step6,
                 R.string.setup_step6_action           // “알림 권한 요청”
         );
-        step6.setAction(new Runnable() {
-            @Override
-            public void run() {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    ActivityCompat.requestPermissions(
-                            SetupWizardActivity.this,
-                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                            REQ_NOTIF_PERMS
-                    );
-                } else {
-                    // API<33 이면 바로 7단계로
-                    mStepNumber = STEP_7_RUN_BACKUP_WORKER;
-                    updateSetupStepView();
-                }
-            }
-        });
+        step6.setAction(this::ensureNotificationPermission);
         mSetupStepGroup.addStep(step6);
 
         // ────────── 추가: STEP_7 - Backup WorkManager 실행 ──────────
         final SetupStep step7 = new SetupStep(
-                STEP_7_RUN_BACKUP_WORKER, applicationName,
-                findViewById(R.id.setup_step7_bullet),
+                STEP_7, applicationName,
                 findViewById(R.id.setup_step7),
-                R.string.setup_step7_title,           // “백업 시작”
                 R.string.setup_step7_instruction,     // “5초 뒤 메인 페이지로 이동합니다.”
                 0,
-                R.drawable.ic_setup_step7,
                 R.string.setup_step7_action           // “백업 실행”
         );
-        step7.setAction(new Runnable() {
-            @Override
-            public void run() {
-                // WorkManager 제약 설정 후 enqueue
-                Constraints constraints = new Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build();
-                OneTimeWorkRequest req = new OneTimeWorkRequest.Builder(FullBackupWorker.class)
-                        .setConstraints(constraints)
-                        .build();
-                WorkManager.getInstance(getApplicationContext()).enqueue(req);
-
-                // 5초 딜레이 후 메인(SearchActivity)로 이동
-                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        startActivity(new Intent(SetupWizardActivity.this, SearchActivity.class));
-                        finish();
-                    }
-                }, STEP_7_DELAY_MS);
-            }
-        });
         mSetupStepGroup.addStep(step7);
-
     }
 
-    // onActivityResult 추가
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_KAKAO_LOGIN) {
-            if (resultCode == RESULT_OK) {
-                // 로그인 성공 → 5단계(사진 권한)로 이동
-                mStepNumber = STEP_5_REQUEST_PHOTO_PERM;
-                updateSetupStepView();
-            } else {
-                // 로그인 실패나 취소 → 필요하면 토스트
-                Toast.makeText(this, "로그인이 취소되었습니다.", Toast.LENGTH_SHORT).show();
+    private void startKakaoLoginFromWizard() {
+        // 1) UI: 버튼·프로그레스 처리
+        mBtnNext.setEnabled(false);
+        mBtnNext.setText(R.string.kakao_login_progress); // “로그인 중…”
+
+        // 2) 카카오 로그인 요청
+        mAuthManager.loginWithKakao(new AuthCallback() {
+            @Override public void onLoginSuccess(final String userId) {
+                runOnUiThread(() -> {
+                    // 3) 5단계(사진 권한)로 진행
+                    mStepNumber = STEP_5;
+                    updateSetupStepView();
+                });
             }
-        }
+
+            @Override public void onLoginFailure(final String error) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SetupWizardActivity.this,
+                            "로그인 실패", Toast.LENGTH_LONG).show();
+                    // 버튼 복구
+                    mBtnNext.setEnabled(true);
+                    mBtnNext.setText(R.string.setup_step4_action); // “카카오 로그인”
+                });
+            }
+
+            @Override public void onLogoutSuccess() { /* not used here */ }
+        });
     }
 
-    @Override
-    public void onClick(final View v) {
-//        if (v == mActionFinish) {
-//            finish();
-//            return;
-//        }
-        if (v == mActionFinish) {
-            if (mStepNumber == STEP_3) {
-                // 3단계 완료 시 4단계(로그인)로 이동
-                mStepNumber = STEP_4_LOGIN;
-                updateSetupStepView();
-            } else {
-                // 나머지는 원래대로 종료
-                finish();
-            }
-            return;
-        }
-        final int currentStep = determineSetupStepNumber();
-        final int nextStep;
-        if (v == mActionStart) {
-            nextStep = STEP_1;
-        } else if (v == mActionNext) {
-            nextStep = mStepNumber + 1;
-        } else if (v == mStep1Bullet && currentStep == STEP_2) {
-            nextStep = STEP_1;
-        } else {
-            nextStep = mStepNumber;
-        }
-        if (mStepNumber != nextStep) {
-            mStepNumber = nextStep;
-            updateSetupStepView();
+
+    private void ensureInstructionTopBound() {
+        if (mTvInstructionTop == null) {
+            mTvInstructionTop = findViewById(R.id.tv_step_instruction_top);
         }
     }
 
@@ -709,80 +608,182 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
     }
 
     private void updateSetupStepView() {
-        mSetupWizard.setVisibility(View.VISIBLE);
-        final boolean welcomeScreen = (mStepNumber == STEP_WELCOME);
-        mWelcomeScreen.setVisibility(welcomeScreen ? View.VISIBLE : View.GONE);
-        mSetupScreen.setVisibility(welcomeScreen ? View.GONE : View.VISIBLE);
-        if (welcomeScreen) {
-            if (ENABLE_WELCOME_VIDEO) {
-                showAndStartWelcomeVideo();
-            } else {
-                hideWelcomeVideoAndShowWelcomeImage();
-            }
+        // welcome 화면에는 상단 안내문 뷰가 없으므로 null 보호
+        if (mStepNumber != STEP_WELCOME) {
+            ensureInstructionTopBound();
+            mTvInstructionTop.setText(
+                    mSetupStepGroup.getInstructionText(mStepNumber, /*done=*/false));
+        }
+
+        // ── 0. WelCome 화면 처리 ────────────────────────────────
+        boolean welcome = (mStepNumber == STEP_WELCOME);
+        mWelcomeScreen.setVisibility(welcome ? View.VISIBLE : View.GONE);
+        mSetupScreen.setVisibility(welcome ? View.GONE : View.VISIBLE);
+
+        if (welcome) {
+            if (ENABLE_WELCOME_VIDEO) showAndStartWelcomeVideo();
+            else hideWelcomeVideoAndShowWelcomeImage();
+
+            updateCTA(STEP_WELCOME);
             return;
         }
-//        hideAndStopWelcomeVideo();
-//        final boolean isStepActionAlreadyDone = mStepNumber < determineSetupStepNumber();
-//        mSetupStepGroup.enableStep(mStepNumber, isStepActionAlreadyDone);
-//        mActionNext.setVisibility(isStepActionAlreadyDone ? View.VISIBLE : View.GONE);
-//        mActionFinish.setVisibility((mStepNumber == STEP_3) ? View.VISIBLE : View.GONE);
         hideAndStopWelcomeVideo();
 
-        // 기존 시스템 상태 기반 완료 판정은 유지하되,
-        // STEP_3 에선 “다음”만, “완료”는 숨김
-        boolean isDone = mStepNumber < determineSetupStepNumber();
-        mSetupStepGroup.enableStep(mStepNumber, isDone);
-        if (mStepNumber == STEP_3) {
-            mActionNext.setVisibility(View.VISIBLE);
-            mActionFinish.setVisibility(View.GONE);
-        } else {
-            mActionNext.setVisibility(isDone ? View.VISIBLE : View.GONE);
-            mActionFinish.setVisibility(View.GONE);
+        // ── 1. 게이지 & 단계 카드 갱신 ──────────────────────────
+        boolean done = mStepNumber < determineSetupStepNumber();
+        mSetupStepGroup.enableStep(mStepNumber, done);
+
+        // ── 2. CTA(버튼) 상태 갱신  ────────────────────────────
+        updateCTA(mStepNumber);
+
+        // ── 3. 7단계(백업 시작) 자동 실행 ──────────────────────
+        if (mStepNumber == STEP_7 && !mStartedBackup) {
+            mStartedBackup = true;
+
+            /* 공통 제약 : 네트워크 연결 */
+            Constraints netConn = new Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build();
+
+            /* ① 전체 백업 : 단 1회 */
+            OneTimeWorkRequest fullReq =
+                    new OneTimeWorkRequest.Builder(FullBackupWorker.class)
+                            .setConstraints(netConn)
+                            .build();
+            WorkManager.getInstance(this)
+                    .enqueueUniqueWork("full_backup", ExistingWorkPolicy.KEEP, fullReq);
+
+            /* ② 증분 백업 : 새 사진마다 */
+            Constraints incCons = new Constraints.Builder()
+                    .addContentUriTrigger(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true)
+                    .setTriggerContentUpdateDelay(Duration.ofSeconds(5))
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build();
+
+            OneTimeWorkRequest incReq =
+                    new OneTimeWorkRequest.Builder(IncrementalBackupWorker.class)
+                            .setConstraints(incCons)
+                            .build();
+            WorkManager.getInstance(this)
+                    .enqueueUniqueWork("incremental_backup",
+                            ExistingWorkPolicy.REPLACE, incReq);
+
+            new Handler(Looper.getMainLooper()).postDelayed(
+                    () -> {
+                        startActivity(new Intent(this, SearchActivity.class));
+                        finish();
+                    },
+                    STEP_7_DELAY_MS);
+        }
+
+        // ── 4. 카드 슬라이드 애니메이션 ─────────────────────────
+        playStepSlideAnim();
+    }
+
+    private void updateCTA(int step) {
+        // 모두 숨긴 뒤 필요한 것만 노출
+        mBtnAux.setVisibility(View.GONE);
+        mBtnNext.setVisibility(View.GONE);
+
+
+        switch (step) {
+            /* 0단계 */
+            case STEP_WELCOME:    // = 앱 최초 실행
+                mBtnNext.setVisibility(View.GONE);
+                mBtnNext.setText("시작하기");
+                mBtnNext.setOnClickListener(v -> {
+                    mStepNumber = STEP_1;
+                    updateSetupStepView();
+                });
+//                mBtnAux.setVisibility(View.GONE);
+                break;
+            /* 1단계 – 입력 방법 전환 */
+            case STEP_1:
+                mBtnNext.setVisibility(View.VISIBLE);
+                mBtnNext.setText(R.string.setup_step1_action);
+                mBtnNext.setOnClickListener(v -> invokeLanguageAndInputSettings());
+                break;
+            /* 2단계 – 입력 방법 전환 */
+            case STEP_2:
+                mBtnNext.setVisibility(View.VISIBLE);
+                mBtnNext.setText(R.string.setup_step2_action);
+                mBtnNext.setOnClickListener(v -> invokeInputMethodPicker());
+                break;
+            /* 3단계 – 추가 언어 + 다음 */
+            case STEP_3:
+                mBtnAux.setVisibility(View.VISIBLE);
+                mBtnAux.setText(R.string.setup_step3_aux_label);
+                mBtnAux.setOnClickListener(v -> invokeSubtypeEnablerOfThisIme());
+
+                mBtnNext.setVisibility(View.VISIBLE);
+                mBtnNext.setText(R.string.setup_next_action);
+                mBtnNext.setOnClickListener(v -> {
+                    mStepNumber = STEP_4;
+                    updateSetupStepView();
+                });
+                break;
+            /* 4단계 – 로그인 */
+            case STEP_4:
+                mBtnNext.setVisibility(View.VISIBLE);
+                mBtnNext.setText(R.string.setup_step4_action);
+                mBtnNext.setOnClickListener(v -> startKakaoLoginFromWizard());
+                break;
+            /* 5단계 – 사진 권한 */
+            case STEP_5:
+                mBtnNext.setVisibility(View.VISIBLE);
+                mBtnNext.setText(R.string.setup_step5_action);
+                mBtnNext.setOnClickListener(v -> ensureMediaPermission());
+                mBtnNext.setEnabled(true);
+                break;
+            /* 6단계 – 알림 권한 */
+            case STEP_6:
+                mBtnNext.setVisibility(View.VISIBLE);
+                mBtnNext.setText(R.string.setup_step6_action);
+                mBtnNext.setOnClickListener(v -> ensureNotificationPermission());
+                break;
+
+            /* 7단계 – 버튼 없음 */
+            case STEP_7:
+                // 두 버튼 모두 숨김 (이미 기본값이 숨김)
+                break;
         }
     }
 
     static final class SetupStep implements View.OnClickListener {
-        public final int mStepNo;
+        // ── 필드 ───────────────────────────────────────────────
+        final int mStepNo;
         private final View mStepView;
-        private final TextView mBulletView;
-        private final int mActivatedColor;
-        private final int mDeactivatedColor;
         private final String mInstruction;
         private final String mFinishedInstruction;
         private final TextView mActionLabel;
-        private Runnable mAction;
+        private Runnable mAction;          // null   → 클릭 불가
 
-        public SetupStep(final int stepNo, final String applicationName, final TextView bulletView,
-                         final View stepView, final int title, final int instruction,
-                         final int finishedInstruction, final int actionIcon, final int actionLabel) {
+        /**
+         * title·icon 은 안 쓰므로 매개변수 3개만 받도록 단순화
+         */
+        SetupStep(int stepNo,
+                  String appName,
+                  View stepView,
+                  int instructionRes,            // %1$s 로 앱 이름을 받을 수도 있음
+                  int finishedInstructionRes,
+                  int actionLabelRes) {
+
             mStepNo = stepNo;
             mStepView = stepView;
-            mBulletView = bulletView;
-            final Resources res = stepView.getResources();
-            mActivatedColor = res.getColor(R.color.setup_text_action);
-            mDeactivatedColor = res.getColor(R.color.setup_text_dark);
 
-            final TextView titleView = mStepView.findViewById(R.id.setup_step_title);
-            titleView.setText(res.getString(title, applicationName));
-            mInstruction = (instruction == 0) ? null
-                    : res.getString(instruction, applicationName);
-            mFinishedInstruction = (finishedInstruction == 0) ? null
-                    : res.getString(finishedInstruction, applicationName);
+            Resources res = stepView.getResources();
+            mInstruction = instructionRes == 0 ? null
+                    : res.getString(instructionRes, appName);
+            mFinishedInstruction = finishedInstructionRes == 0 ? null
+                    : res.getString(finishedInstructionRes, appName);
 
-            mActionLabel = mStepView.findViewById(R.id.setup_step_action_label);
-            mActionLabel.setText(res.getString(actionLabel));
-            if (actionIcon == 0) {
-                final int paddingEnd = mActionLabel.getPaddingEnd();
-                mActionLabel.setPaddingRelative(paddingEnd, 0, paddingEnd, 0);
-            } else {
-                mActionLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                        res.getDrawable(actionIcon), null, null, null);
-            }
+            mActionLabel = stepView.findViewById(R.id.setup_step_action_label);
+            mActionLabel.setText(res.getString(actionLabelRes));
         }
 
         public void setEnabled(final boolean enabled, final boolean isStepActionAlreadyDone) {
             mStepView.setVisibility(enabled ? View.VISIBLE : View.GONE);
-            mBulletView.setTextColor(enabled ? mActivatedColor : mDeactivatedColor);
+
             final TextView instructionView = mStepView.findViewById(
                     R.id.setup_step_instruction);
             instructionView.setText(isStepActionAlreadyDone ? mFinishedInstruction : mInstruction);
@@ -804,22 +805,57 @@ public final class SetupWizardActivity extends Activity implements View.OnClickL
     }
 
     static final class SetupStepGroup {
-        private final SetupStepIndicatorView mIndicatorView;
+        private final StepGaugeView mGauge;           // ⬅︎ 게이지바 참조
         private final ArrayList<SetupStep> mGroup = new ArrayList<>();
 
-        public SetupStepGroup(final SetupStepIndicatorView indicatorView) {
-            mIndicatorView = indicatorView;
+        /**
+         * gaugeView = R.id.setup_step_gauge
+         */
+        SetupStepGroup(StepGaugeView gaugeView) {
+            mGauge = gaugeView;
         }
 
-        public void addStep(final SetupStep step) {
+        void addStep(SetupStep step) {
             mGroup.add(step);
         }
 
-        public void enableStep(final int enableStepNo, final boolean isStepActionAlreadyDone) {
-            for (final SetupStep step : mGroup) {
-                step.setEnabled(step.mStepNo == enableStepNo, isStepActionAlreadyDone);
-            }
-            mIndicatorView.setIndicatorPosition(enableStepNo - STEP_1, mGroup.size());
+        /**
+         * @param no   지금 보여줄 단계 번호
+         * @param done true면 단계 액션을 이미 완료함
+         */
+        void enableStep(int no, boolean done) {
+            for (SetupStep s : mGroup)
+                s.setEnabled(s.mStepNo == no, done);
+            mGauge.setStep(no);
         }
+
+        /**
+         * 상단 안내문 출력을 위해 현재 단계의 문구를 돌려준다
+         */
+        String getInstructionText(int stepNo, boolean done) {
+            for (SetupStep s : mGroup) {
+                if (s.mStepNo == stepNo) {
+                    return done ? s.mFinishedInstruction : s.mInstruction;
+                }
+            }
+            return "";
+        }
+    }
+
+    // ───────────────── Toss-style 슬라이드 애니메이션 ─────────────────
+    private void playStepSlideAnim() {
+        // ③ 헤더를 고정하고 "단계 카드 영역"만 슬라이드
+        View pane = mContentPane;
+
+        // 시작 위치 : 화면 오른쪽 25% → 0%
+        pane.setTranslationX(pane.getWidth() * 0.25f);
+        pane.setAlpha(0f);
+
+        pane.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(240)
+                .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+                .start();
     }
 }

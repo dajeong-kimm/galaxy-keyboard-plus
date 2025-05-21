@@ -10,7 +10,7 @@
         android:layout_height="wrap_content"
         android:layout_margin="4dp"
 
-        app:cardBackgroundColor="#333333"
+        app:cardBackgroundColor="#3A7BF3"
         app:cardCornerRadius="12dp"
 
         app:cardPreventCornerOverlap="true"
@@ -23,6 +23,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:maxWidth="240dp"
+            android:fontFamily="@font/samsung_one"
             android:textColor="#FFFFFF"
             android:textSize="15sp"
             android:textIsSelectable="true"

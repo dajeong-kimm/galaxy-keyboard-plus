@@ -20,7 +20,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="english_ime_name" translatable="false">포키</string>
+    <string name="english_ime_name" translatable="false">Galaxy Keyboard Plus</string>
     <string name="english_ime_input_options" msgid="3909945612939668554">"입력 옵션"</string>
     <string name="use_contacts_for_spellchecking_option_title" msgid="5374120998125353898">"연락처 이름 조회"</string>
     <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"맞춤법 검사기가 연락처 목록의 항목을 사용합니다."</string>
@@ -203,23 +203,23 @@
     <string name="autospace_after_punctuation_summary">"문장부호 입력 후 자동으로 띄어쓰기를 추가합니다."</string>
 
     <string name="button_default" msgid="3988017840431881491">"기본값"</string>
-    <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>에 오신 것을 환영합니다."</string>
+    <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"제스처 타이핑 사용"</string>
     <string name="setup_start_action" msgid="8936036460897347708">"시작하기"</string>
     <string name="setup_next_action" msgid="371821437915144603">"다음 단계"</string>
     <string name="setup_steps_title" msgid="6400373034871816182">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> 설정"</string>
-    <string name="setup_step1_title" msgid="3147967630253462315">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> 사용 설정"</string>
-    <string name="setup_step1_instruction" msgid="4295448056733329661">"언어 및 입력 설정에서 \'<xliff:g id="APPLICATION_NAME">%s</xliff:g>\'을(를) 확인하세요. 앱을 기기에서 실행할 수 있도록 승인합니다."</string>
+<!--    <string name="setup_step1_title" msgid="3147967630253462315">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> 사용 설정"</string>-->
+<!--    <string name="setup_step1_instruction" msgid="4295448056733329661">"언어 및 입력 설정에서 \'<xliff:g id="APPLICATION_NAME">%s</xliff:g>\'을(를) 확인하세요. 앱을 기기에서 실행할 수 있도록 승인합니다."</string>-->
     <string name="setup_step1_finished_instruction" msgid="8701441895377434947">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>은(는) 언어 및 입력 설정에서 이미 사용하도록 설정되어 있으므로 이 단계는 완료되었습니다. 다음 단계로 이동하세요."</string>
     <string name="setup_step1_action" msgid="4366513534999901728">"\'설정\'에서 사용 설정"</string>
-    <string name="setup_step2_title" msgid="6860725447906690594">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>(으)로 전환"</string>
-    <string name="setup_step2_instruction" msgid="9141481964870023336">"그런 다음, 텍스트 입력 방법으로 \'<xliff:g id="APPLICATION_NAME">%s</xliff:g>\'을(를) 선택합니다."</string>
+<!--    <string name="setup_step2_title" msgid="6860725447906690594">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>(으)로 전환"</string>-->
+<!--    <string name="setup_step2_instruction" msgid="9141481964870023336">"그런 다음, 텍스트 입력 방법으로 \'<xliff:g id="APPLICATION_NAME">%s</xliff:g>\'을(를) 선택합니다."</string>-->
     <string name="setup_step2_action" msgid="1660330307159824337">"입력 방법 전환"</string>
-    <string name="setup_step3_title" msgid="3154757183631490281">"모든 설정이 완료되었습니다."</string>
-    <string name="setup_step3_instruction" msgid="8025981829605426000">"이제 즐겨찾는 앱을 <xliff:g id="APPLICATION_NAME">%s</xliff:g>에 입력할 수 있습니다."</string>
+<!--    <string name="setup_step3_title" msgid="3154757183631490281">"모든 설정이 완료되었습니다."</string>-->
+<!--    <string name="setup_step3_instruction" msgid="8025981829605426000">"이제 즐겨찾는 앱을 <xliff:g id="APPLICATION_NAME">%s</xliff:g>에 입력할 수 있습니다."</string>-->
     <string name="setup_step3_action" msgid="600879797256942259">"추가 언어 설정"</string>
     <string name="setup_finish_action" msgid="276559243409465389">"완료됨"</string>
-    <string name="app_name" msgid="6320102637491234792">"포키"</string>
+    <string name="app_name" msgid="6320102637491234792">"Galaxy Keyboard&#x207A;"</string>
     <string name="dictionary_provider_name" msgid="3027315045397363079">"사전 제공업체"</string>
     <string name="dictionary_service_name" msgid="6237472350693511448">"사전 서비스"</string>
     <string name="download_description" msgid="6014835283119198591">"사전 업데이트 정보"</string>
@@ -263,4 +263,33 @@
     <string name="user_dict_settings_more_languages" msgid="7131268499685180461">"더보기…"</string>
     <string name="user_dict_settings_delete" msgid="110413335187193859">"삭제"</string>
     <string name="user_dict_fast_scroll_alphabet" msgid="5431919401558285473">" ABCDEFGHIJKLMNOPQRSTUVWXYZ"</string>
+
+    <!-- 1~3단계 (임의) -->
+    <string name="setup_step1_title">키보드를 활성화해 주세요</string>
+    <string name="setup_step1_instruction">설정 화면으로 이동하여 Galaxy Keyboard+를 활성화해 주세요.</string>
+
+    <string name="setup_step2_title">Galaxy Keyboard+를를 기본 키보드로 설정</string>
+    <string name="setup_step2_instruction">Galaxy Keyboard+를 기본 입력기로 선택해야 해요.</string>
+
+    <string name="setup_step3_title">언어 &amp; 테마 맞춤</string>
+    <string name="setup_step3_instruction">원하는 입력 언어를 선택해 보세요.</string>
+
+    <!-- 4~7단계 (요구사항) -->
+    <string name="setup_step4_title">로그인이 필요해요</string>
+    <string name="setup_step4_instruction">Galaxy Keyboard+의 개인화 서비스를 이용하기 위해 로그인이 필요해요.</string>
+
+    <string name="setup_step5_title">사진 접근 권한</string>
+    <string name="setup_step5_instruction">사진에 접근하기 위한 권한이 필요해요.\nGalaxy Keyboard+가 정보를 안전하게 보관할게요.</string>
+
+    <string name="setup_step6_title">알림 권한</string>
+    <string name="setup_step6_instruction">Galaxy Keyboard+가 필요한 알림을 드리기 위해 권한이 필요해요.</string>
+
+    <string name="setup_step7_title">업로드를 준비 중이에요</string>
+    <string name="setup_step7_instruction">사진 정보를 안전하게 보관하기 위해 압축 중이에요.\n이후 진행 상황은 상태바에서 확인할 수 있어요.</string>
+
+    <string name="setup_step4_action">로그인하기</string>
+    <string name="setup_step5_action">권한 부여</string>
+    <string name="setup_step6_action">권한 부여</string>
+
+    <string name="kakao_login_progress">로그인 중…</string>
 </resources>
