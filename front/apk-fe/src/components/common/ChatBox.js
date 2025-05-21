@@ -9,11 +9,10 @@ import axiosInstance from "@/lib/axiosInstance";
 
 // 전체 프롬프트 리스트
 const ALL_PROMPTS = [
-  "회색 네일아트 사진",
+  "네일아트 사진",
   "하품하는 고양이 사진",
   "백두산 영화 본 날 언제야",
   "책 사진",
-  "기프티콘 사진",
   "영화 티켓 사진",
   "공모전 포스터 사진",
   "헬로키티 사진",
@@ -21,6 +20,8 @@ const ALL_PROMPTS = [
   "홍길동 명함 사진",
   "동성로 봄봄 와이파이 사진",
   "프로젝트 과제 사진",
+  "예매했던 버스 영수증 사진",
+  "싸피에서 받은 기프티콘 사진"
 ];
 
 export default function ChatBox() {
@@ -206,7 +207,7 @@ export default function ChatBox() {
 
           {/* 입력 영역 */}
           <div className="flex items-center h-12 gap-2">
-            <input
+            {/* <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -215,14 +216,15 @@ export default function ChatBox() {
               }}
               placeholder="찾고 싶은 사진 또는 정보를 입력하세요"
               className="flex-1 h-full px-4 py-3 text-sm text-black border rounded-lg"
-            />
-            <button
+              disabled
+            /> */}
+            {/* <button
               onClick={handleSend}
               className="flex items-center justify-center w-12 h-full text-white rounded-lg group bg-cyan-400 hover:bg-[#86efac]"
             >
               <div className="w-3 h-3 bg-white rounded-full group-hover:hidden" />
               <span className="hidden text-sm font-semibold group-hover:inline">전송</span>
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

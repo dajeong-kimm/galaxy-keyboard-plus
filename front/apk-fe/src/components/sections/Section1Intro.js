@@ -95,9 +95,9 @@ export default function Section1Intro() {
   }, []);
 
   const handleDownloadClick = () => {
-    setShowQR(true);
-    gsap.to(".title", { scale: 0.7, x: -30, y: 20 });
-    gsap.to(".qr-container", { opacity: 1, scale: 1, duration: 0.8, delay: 0.2 });
+    // setShowQR(true);
+    // gsap.to(".title", { scale: 0.7, x: -30, y: 20 });
+    // gsap.to(".qr-container", { opacity: 1, scale: 1, duration: 0.8, delay: 0.2 });
   };
 
   const scrollToExperience = () => {
@@ -134,8 +134,8 @@ export default function Section1Intro() {
 
         <div className="flex flex-col items-start justify-start mr-32 gap-y-8">
           <div className="relative w-full h-[100px]">
-            <h1 className="absolute top-0 left-0 text-6xl font-bold text-black title">Phokey</h1>
-            {!showQR && <p className="absolute text-xl font-semibold text-gray-600 top-16">서비스 한 줄 설명</p>}
+            <h1 className="absolute top-0 left-0 text-6xl font-bold text-black title">Galaxy Keyboard+</h1>
+            {/* {!showQR && <p className="absolute text-xl font-semibold text-gray-600 top-16">서비스 한 줄 설명</p>} */}
           </div>
 
           <button
