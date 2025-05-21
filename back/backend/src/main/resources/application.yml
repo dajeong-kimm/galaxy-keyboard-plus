@@ -6,7 +6,7 @@ spring:
     name: backend
 
   datasource:
-    url: jdbc:postgresql://3.38.95.110:5433/${POSTGRES_SCHED_DB_NAME}
+    url: jdbc:postgresql://postgres-sched/${POSTGRES_SCHED_DB_NAME}
     username: ${POSTGRES_SCHED_USER}
     password: ${POSTGRES_SCHED_PASSWORD}
     driver-class-name: org.postgresql.Driver
