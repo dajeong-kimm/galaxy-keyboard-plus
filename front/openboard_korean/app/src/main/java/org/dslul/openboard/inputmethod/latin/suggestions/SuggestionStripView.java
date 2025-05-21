@@ -92,6 +92,7 @@ import com.google.gson.Gson;
 
 import retrofit2.Call;
 
+import org.dslul.openboard.inputmethod.latin.widgets.ClickableImageView;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -587,33 +588,58 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                 try {
                                     long id = Long.parseLong(idStr);
                                     Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(getContext().getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
-                                    ImageView iv = new ImageView(getContext());
+
+                                    final Uri uri = ContentUris.withAppendedId(
+                                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+
+                                    ImageView iv = new ClickableImageView(getContext());
                                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(barSize, barSize);
                                     lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
                                     iv.setLayoutParams(lp);
                                     iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                                     iv.setImageBitmap(thumb);
-                                    // 클릭 시 클립보드 복사
-                                    Uri uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                                    iv.setOnClickListener(v -> {
-                                        ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                                        cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-                                        InputConnection ic = mMainKeyboardView.getInputConnection();
-                                        if (ic != null) {
-                                            // 컴포지션 확정
-                                            ic.finishComposingText();
-                                            // 최대한 많은 텍스트 요청
-                                            ExtractedTextRequest req = new ExtractedTextRequest();
-                                            req.hintMaxChars = Integer.MAX_VALUE;
-                                            req.hintMaxLines = Integer.MAX_VALUE;
-                                            ExtractedText et = ic.getExtractedText(req, 0);
-                                            if (et != null && et.text != null) {
-                                                int len = et.text.length();
-                                                ic.beginBatchEdit();
-                                                ic.setSelection(0, len);
-                                                ic.commitText("", 1);
-                                                ic.endBatchEdit();
+                                    // 터치 분기: 탭은 복사, 가로 드래그는 스크롤
+                                    iv.setOnTouchListener(new View.OnTouchListener() {
+                                        private float startX;
+                                        @Override
+                                        public boolean onTouch(View v, MotionEvent ev) {
+                                            ViewParent parent = v.getParent();
+                                            switch (ev.getActionMasked()) {
+                                                case MotionEvent.ACTION_DOWN:
+                                                    startX = ev.getX();
+                                                    parent.requestDisallowInterceptTouchEvent(true);
+                                                    return true;
+                                                case MotionEvent.ACTION_MOVE:
+                                                    if (Math.abs(ev.getX() - startX) > dpToPx(8)) {
+                                                        parent.requestDisallowInterceptTouchEvent(false);
+                                                        return false;  // 부모(HorizontalScrollView)로 스크롤 이벤트 전달
+                                                    }
+                                                    break;
+                                                case MotionEvent.ACTION_UP:
+                                                    // **접근성/클릭 이벤트 핸들러 호출**
+                                                    v.performClick();
+                                                    // 탭(클릭)으로 간주될 때만 클립보드 복사 + 입력창 지우기
+                                                    ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                                    cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
+                                                    InputConnection ic = mMainKeyboardView.getInputConnection();
+                                                    if (ic != null) {
+                                                        ic.finishComposingText();
+                                                        ExtractedTextRequest req = new ExtractedTextRequest();
+                                                        req.hintMaxChars = Integer.MAX_VALUE;
+                                                        req.hintMaxLines = Integer.MAX_VALUE;
+                                                        ExtractedText et = ic.getExtractedText(req, 0);
+                                                        if (et != null && et.text != null) {
+                                                            int len = et.text.length();
+                                                            ic.beginBatchEdit();
+                                                            ic.setSelection(0, len);
+                                                            ic.commitText("", 1);
+                                                            ic.endBatchEdit();
+                                                        }
+                                                    }
+                                                    parent.requestDisallowInterceptTouchEvent(false);
+                                                    break;
                                             }
+                                            return true;
                                         }
                                     });
                                     mPhotoBarContainer.addView(iv);
@@ -1166,37 +1192,88 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         for (String idStr : imageIds) {
             try {
                 long id = Long.parseLong(idStr);
-                Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(getContext().getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
-                ImageView iv = new ImageView(getContext());
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(barSize, barSize);
+                Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(
+                        getContext().getContentResolver(),
+                        id,
+                        MediaStore.Images.Thumbnails.MINI_KIND,
+                        null);
+
+                // AppCompatImageView 기반의 클릭 가능 뷰
+                ClickableImageView iv = new ClickableImageView(getContext());
+                LinearLayout.LayoutParams lp =
+                        new LinearLayout.LayoutParams(barSize, barSize);
                 lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
                 iv.setLayoutParams(lp);
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 iv.setImageBitmap(thumb);
-                // 클릭 시 클립보드 복사
-                Uri uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                iv.setOnClickListener(v -> {
-                    ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-                    //Toast.makeText(getContext(), "이미지가 클립보드에 복사되었습니다", Toast.LENGTH_SHORT).show();
-                    InputConnection ic = mMainKeyboardView.getInputConnection();
-                    if (ic != null) {
-                        // 컴포지션 확정
-                        ic.finishComposingText();
-                        // 최대한 많은 텍스트 요청
-                        ExtractedTextRequest req = new ExtractedTextRequest();
-                        req.hintMaxChars = Integer.MAX_VALUE;
-                        req.hintMaxLines = Integer.MAX_VALUE;
-                        ExtractedText et = ic.getExtractedText(req, 0);
-                        if (et != null && et.text != null) {
-                            int len = et.text.length();
-                            ic.beginBatchEdit();
-                            ic.setSelection(0, len);
-                            ic.commitText("", 1);
-                            ic.endBatchEdit();
+
+                // final 로 선언해야 람다(익명 클래스) 안에서 사용 가능
+                final Uri uri = ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+
+                iv.setOnTouchListener(new View.OnTouchListener() {
+                    private float startX;
+                    @Override
+                    public boolean onTouch(View v, MotionEvent ev) {
+                        ViewParent parent = v.getParent();
+                        switch (ev.getActionMasked()) {
+                            case MotionEvent.ACTION_DOWN:
+                                // 터치 시작 좌표 저장 후, 부모 스크롤 방지
+                                startX = ev.getX();
+                                parent.requestDisallowInterceptTouchEvent(true);
+                                return true;
+
+                            case MotionEvent.ACTION_MOVE:
+                                // 가로로 8dp 이상 움직이면 드래그로 간주
+                                if (Math.abs(ev.getX() - startX) > dpToPx(8)) {
+                                    // 부모(HorizontalScrollView)에게 스크롤 이벤트 넘기기
+                                    parent.requestDisallowInterceptTouchEvent(false);
+                                    return false;
+                                }
+                                break;
+
+                            case MotionEvent.ACTION_UP:
+                                // 클릭 처리
+                                v.performClick();
+
+                                // 1) 클립보드에 이미지 URI 복사
+                                ClipboardManager cm =
+                                        (ClipboardManager) getContext()
+                                                .getSystemService(Context.CLIPBOARD_SERVICE);
+                                cm.setPrimaryClip(ClipData.newUri(
+                                        getContext().getContentResolver(),
+                                        "Image", uri));
+
+                                // 2) 입력창 내용 지우기
+                                InputConnection ic = mMainKeyboardView.getInputConnection();
+                                if (ic != null) {
+                                    // 컴포지션 중인 텍스트 확정
+                                    ic.finishComposingText();
+
+                                    // 가능한 최대치로 텍스트 가져오기
+                                    ExtractedTextRequest req = new ExtractedTextRequest();
+                                    req.hintMaxChars = Integer.MAX_VALUE;
+                                    req.hintMaxLines = Integer.MAX_VALUE;
+                                    ExtractedText et = ic.getExtractedText(req, 0);
+
+                                    if (et != null && et.text != null) {
+                                        int len = et.text.length();
+                                        // 전체 선택 후 빈 문자열로 덮어쓰기
+                                        ic.beginBatchEdit();
+                                        ic.setSelection(0, len);
+                                        ic.commitText("", 1);
+                                        ic.endBatchEdit();
+                                    }
+                                }
+
+                                // 터치 인터셉트 해제
+                                parent.requestDisallowInterceptTouchEvent(false);
+                                break;
                         }
+                        return true;
                     }
                 });
+
                 mPhotoBarContainer.addView(iv);
             } catch (NumberFormatException ignored) {
             }
