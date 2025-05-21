@@ -16,10 +16,12 @@
 
 package org.dslul.openboard.inputmethod.latin.utils;
 
+import android.net.Uri;
 import android.text.TextUtils;
 import android.util.JsonReader;
 import android.util.JsonWriter;
 import android.util.Log;
+
 import org.dslul.openboard.inputmethod.latin.ClipboardHistoryEntry;
 
 import java.io.ByteArrayInputStream;
@@ -83,9 +85,9 @@ public final class JsonUtils {
             for (final Object o : list) {
                 writer.beginObject();
                 if (o instanceof Integer) {
-                    writer.name(INTEGER_CLASS_NAME).value((Integer)o);
+                    writer.name(INTEGER_CLASS_NAME).value((Integer) o);
                 } else if (o instanceof String) {
-                    writer.name(STRING_CLASS_NAME).value((String)o);
+                    writer.name(STRING_CLASS_NAME).value((String) o);
                 }
                 writer.endObject();
             }
@@ -107,19 +109,27 @@ public final class JsonUtils {
                 reader.beginObject();
                 long id = 0;
                 String content = EMPTY_STRING;
+                String uriString = null;
+                boolean pinned = false;
                 while (reader.hasNext()) {
                     final String name = reader.nextName();
                     if (name.equals(CLIPBOARD_HISTORY_ENTRY_ID_KEY)) {
                         id = reader.nextLong();
                     } else if (name.equals(CLIPBOARD_HISTORY_ENTRY_CONTENT_KEY)) {
                         content = reader.nextString();
+                    } else if (name.equals("uri")) {
+                        uriString = reader.nextString();
+                    } else if (name.equals("pinned")) {
+                        pinned = reader.nextBoolean();
                     } else {
                         Log.w(TAG, "Invalid name: " + name);
                         reader.skipValue();
                     }
                 }
+                // URI 파싱
+                Uri uri = TextUtils.isEmpty(uriString) ? null : Uri.parse(uriString);
                 if (id > 0 && !TextUtils.isEmpty(content)) {
-                    list.add(new ClipboardHistoryEntry(id, content, true));
+                    list.add(new ClipboardHistoryEntry(id, content, uri, pinned));
                 }
                 reader.endObject();
             }
@@ -144,6 +154,10 @@ public final class JsonUtils {
                 writer.beginObject();
                 writer.name(CLIPBOARD_HISTORY_ENTRY_ID_KEY).value(e.getTimeStamp());
                 writer.name(CLIPBOARD_HISTORY_ENTRY_CONTENT_KEY).value(e.getContent().toString());
+                writer.name("uri")
+                        .value(e.getUri() == null ? "" : e.getUri().toString());
+                writer.name("pinned")
+                        .value(e.isPinned());
                 writer.endObject();
             }
             writer.endArray();

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:padding="4dp">
+
+    <!-- 썸네일을 좀 더 크게 띄우기 위해 96dp x 96dp -->
+    <ImageView
+        android:id="@+id/clipboard_entry_image"
+        android:layout_width="128dp"
+        android:layout_height="128dp"
+        android:scaleType="centerCrop" />
+
+    <!-- 핀 아이콘 (텍스트 레이아웃과 동일하게 어댑터에서 채워줌) -->
+    <ImageView
+        android:id="@+id/clipboard_entry_pinned_icon"
+        android:layout_width="@dimen/config_clipboard_pinned_icon_size"
+        android:layout_height="@dimen/config_clipboard_pinned_icon_size"
+        android:layout_gravity="end|top"
+        android:visibility="gone" />
+
+</FrameLayout>

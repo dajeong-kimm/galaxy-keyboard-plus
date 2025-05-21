@@ -119,7 +119,7 @@ export default function Section12Experience() {
       </button> */}
 
       <div className="flex flex-col items-center">
-        <h2 className="mb-4 text-3xl font-bold text-black">포키, 체험해보세요</h2>
+        <h2 className="mb-4 text-3xl font-bold text-black">대화하듯이 검색해보세요</h2>
 
         <div
           className="absolute bottom-0 w-[1080px] h-[600px] p-8 rounded-3xl"
