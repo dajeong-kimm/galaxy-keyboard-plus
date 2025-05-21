@@ -10,50 +10,50 @@ import org.dslul.openboard.inputmethod.event.HangulCommitEvent
 
 class HangulCombiner : Combiner {
 
-    val composingWord = StringBuilder()
-
     val history: MutableList<HangulSyllable> = mutableListOf()
     val syllable: HangulSyllable? get() = history.lastOrNull()
 
     override fun processEvent(previousEvents: ArrayList<Event>?, event: Event?): Event? {
         Log.d("HangulCombiner", "ENTER  processEvent: mKeyCode=${event?.mKeyCode} " +
                 "mCodePoint=${event?.mCodePoint} " +
-                "composingWord=\"$composingWord\" " +
                 "history=$history")
         if(event == null || event.mKeyCode == Constants.CODE_SHIFT) {
             Log.d("HangulCombiner", "EARLY RETURN: keyCode==CODE_SHIFT, skipping composition")
             return event
         }
         if (Character.isWhitespace(event.mCodePoint)) {
-            val text = combiningStateFeedback
-            /* ▼ EventBus 공백/줄바꿈 이벤트 발생 -----------*/
-            Log.d("KeywordSearch", "공백/줄바꿈 입력됨: \"$text\"")
-            EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_END, text.toString()))
-            reset()
-            return createEventChainFromSequence(text, event)
+            // ① 현재 음절만 커밋
+            val syllableText = syllable?.string ?: ""
+            EventBus.getDefault()
+                .post(HangulCommitEvent(HangulCommitEvent.TYPE_END, syllableText))
+
+            // ② 음절 상태만 초기화
+            history.clear()
+
+            // ③ 공백키(스페이스) 이벤트는 원래대로 전달
+            return Event.createHardwareKeypressEvent(
+                event.mCodePoint,       // 공백 코드포인트
+                event.mKeyCode,         // Constants.CODE_SPACE
+                null,
+                event.isKeyRepeat
+            )
         }else if(event.isFunctionalKeyEvent) {
             if(event.mKeyCode == Constants.CODE_DELETE) {
-                val text = combiningStateFeedback
-                /* ▼ EventBus delete 키 이벤트 발생 -----------*/
-                Log.d("KeywordSearch", "delete 입력됨")
-                EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_END, text.toString()))
+                // ① 현재 음절만 커밋 취소
+                val syllableText = syllable?.string ?: ""
+                EventBus.getDefault()
+                    .post(HangulCommitEvent(HangulCommitEvent.TYPE_END, syllableText))
 
-                return when {
-                    history.size == 1 && composingWord.isEmpty() ||
-                            history.isEmpty() && composingWord.length == 1 -> {
-                        reset()
-                        Event.createHardwareKeypressEvent(0x20, Constants.CODE_SPACE, event, event.isKeyRepeat)
-                    }
-                    history.isNotEmpty() -> {
-                        history.removeAt(history.lastIndex)
-                        Event.createConsumedEvent(event)
-                    }
-                    composingWord.isNotEmpty() -> {
-                        composingWord.deleteCharAt(composingWord.lastIndex)
-                        Event.createConsumedEvent(event)
-                    }
-                    else -> event
-                }
+                // ② state 초기화 (다음 음절부터 새로 조합)
+                reset()
+
+                // ③ 실제 삭제 이벤트 전달
+                return Event.createHardwareKeypressEvent(
+                    Event.NOT_A_CODE_POINT,   // codePoint 없이
+                    Constants.CODE_DELETE,    // delete 키코드
+                    null,
+                    event.isKeyRepeat
+                )
             }
             val text = combiningStateFeedback
             reset()
@@ -64,9 +64,18 @@ class HangulCombiner : Combiner {
 
 //            if(!event.isCombining || jamo is HangulJamo.NonHangul) {
             if (jamo is HangulJamo.NonHangul) {
-                composingWord.append(currentSyllable.string)
-                composingWord.append(jamo.string)
+                // 이전 음절 커밋
+                val prev = combiningStateFeedback.toString()
+                EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_SYLLABLE, prev))
+
+                // NonHangul 문자도 함께 커밋
+                EventBus.getDefault().post(HangulCommitEvent(HangulCommitEvent.TYPE_SYLLABLE, jamo.string))
+
+                // 상태 초기화
                 history.clear()
+
+                // 두 음절(이전 + NonHangul) 한번에 내보내기
+                return createEventChainFromSequence(prev + jamo.string, event)
             } else {
                 when(jamo) {
                     is HangulJamo.Consonant -> {
@@ -197,10 +206,9 @@ class HangulCombiner : Combiner {
     }
 
     override val combiningStateFeedback: CharSequence
-        get() = composingWord.toString() + (syllable?.string ?: "")
+        get() = syllable?.string ?: ""
 
     override fun reset() {
-        composingWord.setLength(0)
         history.clear()
     }
 
