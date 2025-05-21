@@ -204,7 +204,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         super(context, attrs, defStyle);
 
         // AuthManager에 들어있는 userId를 사용.
-        DEFAULT_USER_ID = AuthManager.getInstance(context).getUserId();
+        //DEFAULT_USER_ID = AuthManager.getInstance(context).getUserId();
+        DEFAULT_USER_ID = "36648ad3-ed4b-4eb0-bcf1-1dc66fa5d258";
 
         final LayoutInflater inflater = LayoutInflater.from(context);
         inflater.inflate(R.layout.suggestions_strip, this);
