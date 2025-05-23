@@ -352,6 +352,28 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             KeywordApi api = ApiClient.getKeywordApi();
             Call<KeywordExistsResponse> call = api.exists(userId, lastWord);
 
+
+
+//            if (lastWord.equals("테스트")) {
+//                if (!mSearchKey.isAnimating()) {
+//                    mSearchKey.setRepeatCount(LottieDrawable.INFINITE);
+////                    mSearchKey.setAnimation();
+//                    mSearchKey.setAnimation("keyword_highlight.json");
+//                    mSearchKey.playAnimation();
+//                    mLastKeywordWithImages = lastWord;
+//                }
+//            } else {
+//                // "테스트"가 아닌 다른 단어일 때 애니메이션 정지
+//                if (mSearchKey.isAnimating()) {
+//                    mSearchKey.pauseAnimation();
+//                    mSearchKey.setAnimation("ic_search.json");
+//                    mSearchKey.setProgress(0f);
+//                }
+//                // 상태 초기화
+//                mLastKeywordWithImages = null;
+//            }
+
+
             // 5. 비동기 호출 및 결과 처리
             call.enqueue(new retrofit2.Callback<KeywordExistsResponse>() {
                 @Override
@@ -360,14 +382,23 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                         boolean exists = response.body().exists;
                         Log.d("KeywordSearch", "[API] 단어 \"" + lastWord  + "\" 존재여부: " + exists);
 
-                        if (exists && mKeywordKey != null) {
+//                        if (exists && mKeywordKey != null) {
+//                            if (!mKeywordKey.isAnimating()) {
+//                                mKeywordKey.setRepeatCount(LottieDrawable.INFINITE);
+//                                mKeywordKey.setAnimation("keyword_highlight.json");
+//                                mKeywordKey.playAnimation();
+//                                mLastKeywordWithImages = lastWord;
+//                            }
+//                        }
+                        if (exists && mSearchKey != null) {
                             if (!mKeywordKey.isAnimating()) {
-                                mKeywordKey.setRepeatCount(LottieDrawable.INFINITE);
-                                mKeywordKey.setAnimation("keyword_highlight.json");
-                                mKeywordKey.playAnimation();
+                                mSearchKey.setAnimation(LottieDrawable.INFINITE);
+                                mSearchKey.setAnimation("keyword_highlight.json");
+                                mSearchKey.playAnimation();
                                 mLastKeywordWithImages = lastWord;
                             }
                         }
+
                     } else {
                         Log.e("KeywordSearch", "API 응답 실패: " + response.code());
                     }
@@ -378,10 +409,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 }
             });
         } else if (event.type == HangulCommitEvent.TYPE_END) {
-            if (mKeywordKey != null && mKeywordKey.isAnimating()) {
-                mKeywordKey.pauseAnimation();     // 일시정지
-                mKeywordKey.setProgress(0f);      // 초기 상태로(선택)
+//            if (mKeywordKey != null && mKeywordKey.isAnimating()) {
+//                mKeywordKey.pauseAnimation();     // 일시정지
+//                mKeywordKey.setProgress(0f);      // 초기 상태로(선택)
+//            }
+            if (mSearchKey != null && mSearchKey.isAnimating()) {
+                mSearchKey.pauseAnimation();     // 일시정지
+                mSearchKey.setProgress(0f);      // 초기 상태로(선택)
             }
+
         }
     }
     // ========== Search Mode helpers ======================================
