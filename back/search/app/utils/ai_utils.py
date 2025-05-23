@@ -204,8 +204,18 @@ JSON 배열로만 반환하세요.
         # 3. 키워드와 날짜 합치기
         final_keywords = keywords + date_keywords
 
-        # 중복 제거
-        return list(set(final_keywords))
+        final_keywords_clean = []
+        for item in final_keywords:
+            if isinstance(item, str):
+                final_keywords_clean.append(item.strip())
+            elif isinstance(item, list):
+                # 중첩된 리스트인 경우 평면화
+                for subitem in item:
+                    if isinstance(subitem, str):
+                        final_keywords_clean.append(subitem.strip())
+
+        # 빈 문자열 제거 후 중복 제거
+        return list(set([kw for kw in final_keywords_clean if kw]))
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, sync_extract_keywords)

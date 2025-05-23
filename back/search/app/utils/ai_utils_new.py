@@ -330,7 +330,7 @@ async def generate_enhanced_info_answer(
                 context_texts.append(f"{i+1}. {text}")
 
         context_text = "\n".join(context_texts)
-        
+
         # 사용된 컨텍스트 인덱스를 추적하기 위한 프롬프트 추가
         if context_text:
             prompt = f"""
@@ -376,31 +376,34 @@ async def generate_enhanced_info_answer(
         )
 
         answer = response.choices[0].message.content.strip()
-        
+
         # 사용된 컨텍스트 인덱스 추출
         used_indices = []
         if context_text:  # 컨텍스트가 있었을 때만 추출
             # 답변 끝부분에서 번호 목록 추출
-            indices_pattern = r'\b([0-9]+(?:,\s*[0-9]+)*)\b'
-            indices_matches = re.findall(indices_pattern, answer.split('\n')[-1])
-            
+            indices_pattern = r"\b([0-9]+(?:,\s*[0-9]+)*)\b"
+            indices_matches = re.findall(indices_pattern, answer.split("\n")[-1])
+
             if indices_matches:
                 # 마지막 변에서 받은 것이 리스트의 형태로 도출되면 그걸 사용
                 last_match = indices_matches[-1]
-                for idx_str in last_match.split(','):
+                for idx_str in last_match.split(","):
                     try:
                         idx = int(idx_str.strip()) - 1  # 1-based -> 0-based
                         if 0 <= idx < len(context_info):
                             used_indices.append(idx)
                     except ValueError:
                         continue
-            
+
             # 수처리된 마지막 행을 제거 (외부에서 보이지 않게)
-            if used_indices and '\n' in answer:
-                lines = answer.split('\n')
-                if any(all(c in '0123456789, ' for c in line.strip()) for line in lines[-2:]):
-                    answer = '\n'.join(lines[:-1]).strip()
-        
+            if used_indices and "\n" in answer:
+                lines = answer.split("\n")
+                if any(
+                    all(c in "0123456789, " for c in line.strip())
+                    for line in lines[-2:]
+                ):
+                    answer = "\n".join(lines[:-1]).strip()
+
         return answer, used_indices
 
     loop = asyncio.get_event_loop()
@@ -459,9 +462,9 @@ async def generate_contextualized_conversation_response(
             text = chat.get("text", "")
             if text:
                 formatted_history.append(f"{i+1}. [{role}] {text}")
-        
+
         context_text = "\n".join(formatted_history)
-        
+
         # 응답 생성을 위한 프롬프트
         prompt = f"""
 사용자의 질문에 대해 이전 대화 기록을 고려하여 답변하세요.
@@ -495,30 +498,34 @@ async def generate_contextualized_conversation_response(
         )
 
         answer = response.choices[0].message.content.strip()
-        
+
         # 사용된 채팅 기록 인덱스 추출
         used_history = []
-        indices_pattern = r'\b([0-9]+(?:,\s*[0-9]+)*)\b'
-        indices_matches = re.findall(indices_pattern, answer.split('\n')[-1])
-        
+        indices_pattern = r"\b([0-9]+(?:,\s*[0-9]+)*)\b"
+        indices_matches = re.findall(indices_pattern, answer.split("\n")[-1])
+
         if indices_matches:
             # 마지막 일치하는 것을 인덱스 목록으로 간주
             last_match = indices_matches[-1]
-            for idx_str in last_match.split(','):
+            for idx_str in last_match.split(","):
                 try:
                     idx = int(idx_str.strip()) - 1  # 1-based -> 0-based
                     if 0 <= idx < len(chat_history):
                         used_history.append(chat_history[idx])
                 except ValueError:
                     continue
-        
+
         # 수처리된 마지막 행을 제거 (외부에서 보이지 않게)
-        if used_history and '\n' in answer:
-            lines = answer.split('\n')
-            if any(all(c in '0123456789, ' for c in line.strip()) for line in lines[-2:]):
-                answer = '\n'.join(lines[:-1]).strip()
-        
+        if used_history and "\n" in answer:
+            lines = answer.split("\n")
+            if any(
+                all(c in "0123456789, " for c in line.strip()) for line in lines[-2:]
+            ):
+                answer = "\n".join(lines[:-1]).strip()
+
         return answer, used_history
 
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, sync_generate_contextualized_conversation)
+    return await loop.run_in_executor(
+        executor, sync_generate_contextualized_conversation
+    )
