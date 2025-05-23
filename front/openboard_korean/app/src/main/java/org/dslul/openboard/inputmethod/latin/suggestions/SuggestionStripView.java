@@ -414,8 +414,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 //                mKeywordKey.setProgress(0f);      // 초기 상태로(선택)
 //            }
             if (mSearchKey != null && mSearchKey.isAnimating()) {
-                mSearchKey.pauseAnimation();     // 일시정지
-                mSearchKey.setProgress(0f);      // 초기 상태로(선택)
+                mSearchKey.pauseAnimation();
+                mSearchKey.setAnimation("ic_search.json");
+                mSearchKey.setProgress(0f);
             }
 
         }
