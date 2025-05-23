@@ -117,6 +117,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private LinearLayout mPhotoBarContainer;
     private TextView mSearchAnswer;
     private LottieAnimationView mSearchKey;
+
+    private LottieAnimationView mBackgroundAnimation;
+
+
     private LottieAnimationView mKeywordKey;
     private String mLastKeywordWithImages = null;
     private ImageButton mVoiceKey;       // 마이크
@@ -296,6 +300,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
         });
 
+        mBackgroundAnimation = new LottieAnimationView(getContext());
+        mBackgroundAnimation = findViewById(R.id.suggestions_strip_search_background);
+
         mSearchKey.setOnClickListener(this);
         mSearchStatus.setOnClickListener(this);
 
@@ -391,9 +398,16 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 //                            }
 //                        }
                         if (exists && mSearchKey != null) {
-                            if (!mKeywordKey.isAnimating()) {
-                                mSearchKey.setAnimation(LottieDrawable.INFINITE);
-                                mSearchKey.setAnimation("keyword_highlight.json");
+                            if (!mSearchKey.isAnimating()) {
+//                                mBackgroundAnimation.setZ(mSearchKey.getZ() - 1f);  // 뒤쪽 레이어
+//                                mBackgroundAnimation.setRepeatCount(LottieDrawable.INFINITE);
+//                                mBackgroundAnimation.setAnimation("gradient_animation.json");
+//                                mBackgroundAnimation.setAlpha(0.7f);
+//                                mBackgroundAnimation.setScaleX(1.1f);
+//                                mBackgroundAnimation.setScaleY(1.1f);
+//                                mBackgroundAnimation.playAnimation();
+                                mSearchKey.setRepeatCount(LottieDrawable.INFINITE);
+                                mSearchKey.setAnimation("test.json");
                                 mSearchKey.playAnimation();
                                 mLastKeywordWithImages = lastWord;
                             }

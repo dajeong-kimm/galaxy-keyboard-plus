@@ -41,6 +41,20 @@
             app:lottie_fileName="ic_search.json"
             app:lottie_loop="false" />
 
+
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/suggestions_strip_search_background"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignLeft="@id/suggestions_strip_search_key"
+            android:layout_alignTop="@id/suggestions_strip_search_key"
+            android:layout_alignRight="@id/suggestions_strip_search_key"
+            android:layout_alignBottom="@id/suggestions_strip_search_key"
+            android:alpha="0.6"
+            android:scaleX="1.2"
+            android:scaleY="1.2"
+            android:visibility="gone" />
+
         <!-- keyword 검색 버튼 -->
         <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/suggestions_strip_keyword_key"
