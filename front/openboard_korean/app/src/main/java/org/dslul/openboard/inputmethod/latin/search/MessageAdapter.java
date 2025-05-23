@@ -265,9 +265,16 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                                     Object model,
                                                     Target<Drawable> target,
                                                     boolean isFirstResource) {
-                            // 로드 실패 시 iv만 제거 (텍스트 뷰 추가 없음)
+                            // 실패 → TextView로 대체
                             glImages.removeView(iv);
-                            return true;    // true를 반환해서 Glide에 더 이상 처리를 넘기지 않음
+                            TextView tv = new TextView(glImages.getContext());
+                            tv.setLayoutParams(lp);
+                            tv.setText("삭제된 사진입니다.");
+                            tv.setGravity(Gravity.CENTER);
+                            tv.setTextSize(12);
+                            tv.setTextColor(Color.parseColor("#9E9E9E"));
+                            glImages.addView(tv);
+                            return true;
                         }
 
                         @Override

@@ -119,9 +119,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private LottieAnimationView mSearchKey;
     private LottieAnimationView mKeywordKey;
     private String mLastKeywordWithImages = null;
-    private ImageButton mVoiceKey;       // 마이크(= 클립보드 키 자리에 있던 버튼)
-    //    private LinearLayout mInputContainer;// EditText+Send 래퍼
-//    private EditText mSearchInput;       // 검색어 입력창
+    private ImageButton mVoiceKey;       // 마이크
     private Button mSearchStatus;
     private boolean mInSearchMode = false;
     private String mLastQuery;
@@ -182,7 +180,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         }
 
         public void showSuggestionsStrip() {
-            mSuggestionsStrip.setVisibility(VISIBLE);
+            mSuggestionsStrip.setVisibility(GONE);
         }
     }
 
@@ -207,6 +205,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         setBackgroundColor(ContextCompat.getColor(context, R.color.phokey_strip_bg));
 
         mSuggestionsStrip = findViewById(R.id.suggestions_strip);
+        mSuggestionsStrip.setVisibility(View.GONE);
         mVoiceKey = findViewById(R.id.suggestions_strip_voice_key);
         mClipboardKey = findViewById(R.id.suggestions_strip_clipboard_key);
         mStripVisibilityGroup = new StripVisibilityGroup(this, mSuggestionsStrip);
@@ -401,29 +400,12 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         mSuggestionsStrip.setVisibility(GONE);
         // 음성·클립보드 버튼은 그대로 노출
         mVoiceKey.setVisibility(VISIBLE);
-        mClipboardKey.setVisibility(Settings.getInstance().getCurrent().mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
+        mClipboardKey.setVisibility(GONE);
         // photoBar는 검색 중엔 안 쓰이니 숨겨두고,
         mPhotoBar.setVisibility(GONE);
 
         // 3) 실제 API 호출
         dispatchSearchQuery();
-    }
-
-    public void exitSearchMode() {
-        if (!mInSearchMode) return;
-        mInSearchMode = false;
-
-        // ▼ 추가 : Listener(=LatinIME) 에 버퍼 초기화 요청
-        if (mListener instanceof LatinIME) {
-            ((LatinIME) mListener).resetSearchBuffers();
-        }
-
-        mSuggestionsStrip.setVisibility(VISIBLE);
-        updateVisibility(true /* strip */, false /* isFullscreen */); // 버튼들 복원
-
-        if (mSearchPanel != null && mSearchPanel.isShowingInParent()) {
-            mSearchPanel.dismissMoreKeysPanel();
-        }
     }
 
     private void dispatchSearchQuery() {
@@ -643,7 +625,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         final SettingsValues currentSettingsValues = Settings.getInstance().getCurrent();
 //        mVoiceKey.setVisibility(currentSettingsValues.mShowsVoiceInputKey ? VISIBLE : GONE);
         mVoiceKey.setVisibility(VISIBLE);
-        mClipboardKey.setVisibility(VISIBLE);
+        mClipboardKey.setVisibility(GONE);
 //        mClipboardKey.setVisibility(currentSettingsValues.mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
 //        mOtherKey.setVisibility(currentSettingsValues.mIncognitoModeEnabled ? VISIBLE : INVISIBLE);
         mSearchKey.setVisibility(VISIBLE);   // 항상 노출
@@ -956,9 +938,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 //                mCopyKey.setVisibility(GONE);
 
                 // 2) 제안 줄 & 버튼들 복원
-                mSuggestionsStrip.setVisibility(VISIBLE);
+                mSuggestionsStrip.setVisibility(GONE);
                 mVoiceKey.setVisibility(VISIBLE);
-                mClipboardKey.setVisibility(Settings.getInstance().getCurrent().mShowsClipboardKey ? VISIBLE : (mVoiceKey.getVisibility() == GONE ? INVISIBLE : GONE));
+                mClipboardKey.setVisibility(GONE);
                 mFetchClipboardKey.setVisibility(VISIBLE);
 
                 // 3) 검색키 애니메이션/아이콘 원복
@@ -1087,60 +1069,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     private int dpToPx(int dp) {
         return Math.round(dp * getResources().getDisplayMetrics().density);
-    }
-
-    // 이미지 패널 표시
-    private void showKeywordImages(String keyword, List<String> imageIds) {
-        mSearchAnswer.setText("\"" + keyword + "\" 관련 사진");
-        mSearchAnswer.setVisibility(VISIBLE);
-
-        mPhotoBarContainer.removeAllViews();
-        if (imageIds == null || imageIds.isEmpty()) {
-            showNoImagesPanel(keyword);
-            return;
-        }
-        for (String idStr : imageIds) {
-            try {
-                long id = Long.parseLong(idStr);
-                Uri uri = ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-
-                ImageView iv = new ImageView(getContext());
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
-                lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
-                iv.setLayoutParams(lp);
-                iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
-                // Glide로 캐싱/로딩
-                Glide.with(getContext())
-                        .load(uri)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .thumbnail(0.2f)
-                        .into(iv);
-
-                // 복사 기능
-                iv.setOnClickListener(v -> {
-                    ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    cm.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(), "Image", uri));
-                });
-                mPhotoBarContainer.addView(iv);
-            } catch (NumberFormatException ignored) {}
-        }
-        mPhotoBar.setVisibility(VISIBLE);
-    }
-
-    private void showNoKeywordPanel() {
-        mSearchAnswer.setText("검색할 키워드가 없습니다.");
-        mSearchAnswer.setVisibility(VISIBLE);
-        mPhotoBarContainer.removeAllViews();
-        mPhotoBar.setVisibility(VISIBLE);
-    }
-
-    private void showNoImagesPanel(String keyword) {
-        mSearchAnswer.setText("\"" + keyword + "\"에 해당하는 사진이 없습니다.");
-        mSearchAnswer.setVisibility(VISIBLE);
-        mPhotoBarContainer.removeAllViews();
-        mPhotoBar.setVisibility(VISIBLE);
     }
 
     private void applyStripTypefaceRecursively(View v) {
