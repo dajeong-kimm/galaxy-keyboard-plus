@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!--
+<?xml version="1.0" encoding="utf-8"?>
+<!--
 /*
 **
 ** Copyright 2011, The Android Open Source Project
@@ -28,7 +29,9 @@
         android:hapticFeedbackEnabled="false"
         android:orientation="horizontal"
         android:soundEffectsEnabled="false">
-        <!-- Provide audio and haptic feedback by ourselves based on the keyboard settings.
+        <!-- Provide audio\
+
+         and haptic feedback by ourselves based on the keyboard settings.
              We just need to ignore the system's audio and haptic feedback settings. -->
 
         <com.airbnb.lottie.LottieAnimationView
@@ -81,7 +84,6 @@
             android:layout_height="@dimen/icon_btn_size"
             android:contentDescription="@string/fetch_clipboard"
             android:src="@drawable/history" />
-
 
         <!-- ① 사진 바: 기본적으로 GONE -->
         <HorizontalScrollView

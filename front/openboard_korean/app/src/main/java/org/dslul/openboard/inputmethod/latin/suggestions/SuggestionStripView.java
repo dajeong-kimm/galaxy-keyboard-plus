@@ -16,17 +16,29 @@
 
 package org.dslul.openboard.inputmethod.latin.suggestions;
 
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentUris;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
+import android.graphics.BlurMaskFilter;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
 import android.graphics.PorterDuff;
+import android.graphics.RadialGradient;
+import android.graphics.Shader;
+import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.OvalShape;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.util.AttributeSet;
@@ -41,6 +53,8 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.animation.AnimationUtils;
+import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
@@ -81,8 +95,10 @@ import org.dslul.openboard.inputmethod.latin.suggestions.MoreSuggestionsView.Mor
 
 import java.util.ArrayList;
 import java.util.List;
+
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
@@ -114,6 +130,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private ImageButton mFetchClipboardKey;
     private int mDefaultHeight = 0;
     private HorizontalScrollView mPhotoBar;
+    private View mWrapper;
     private LinearLayout mPhotoBarContainer;
     private TextView mSearchAnswer;
     private LottieAnimationView mSearchKey;
@@ -162,6 +179,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     private final SuggestionStripLayoutHelper mLayoutHelper;
     private final StripVisibilityGroup mStripVisibilityGroup;
+
+    private ValueAnimator mBorderPulseAnimator;
+    private Drawable mOriginalSearchKeyBg;
 
     private static class StripVisibilityGroup {
         private final View mSuggestionStripView;
@@ -260,8 +280,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (mSearchKey == null) {
             throw new IllegalStateException("suggestions_strip_search_key not found in current layout variant");
         }
+        mOriginalSearchKeyBg = mSearchKey.getBackground();
 
         mKeywordKey = findViewById(R.id.suggestions_strip_keyword_key);
+        mKeywordKey.setVisibility(View.GONE);
         if (mKeywordKey == null) {
             throw new IllegalStateException(
                     "suggestions_strip_keyword_key not found in current layout variant");
@@ -288,6 +310,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             Log.d("KeywordSearch", "이미지 API 응답 실패 또는 결과 없음 → 패널에 '이미지가 없습니다' 표시");
                         }
                     }
+
                     @Override
                     public void onFailure(Call<KeywordImagesResponse> call, Throwable t) {
                         Log.e("KeywordSearch", "이미지 API 호출 실패: " + t.getMessage(), t);
@@ -312,6 +335,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         mFetchClipboardKey = findViewById(R.id.suggestions_strip_fetch_clipboard);
         mFetchClipboardKey.setOnClickListener(this);
 
+        mWrapper = findViewById(R.id.suggestions_strip_wrapper);
         mPhotoBar = findViewById(R.id.suggestions_strip_photo_bar);
         mPhotoBarContainer = findViewById(R.id.photo_bar_container);
         mSearchAnswer = findViewById(R.id.search_answer);
@@ -358,13 +382,43 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 public void onResponse(Call<KeywordExistsResponse> call, retrofit2.Response<KeywordExistsResponse> response) {
                     if (response.isSuccessful() && response.body() != null) {
                         boolean exists = response.body().exists;
-                        Log.d("KeywordSearch", "[API] 단어 \"" + lastWord  + "\" 존재여부: " + exists);
+                        Log.d("KeywordSearch", "[API] 단어 \"" + lastWord + "\" 존재여부: " + exists);
 
-                        if (exists && mKeywordKey != null) {
-                            if (!mKeywordKey.isAnimating()) {
-                                mKeywordKey.setRepeatCount(LottieDrawable.INFINITE);
-                                mKeywordKey.setAnimation("keyword_highlight.json");
-                                mKeywordKey.playAnimation();
+                        if (exists && mSearchKey != null) {
+                            if (!mSearchKey.isAnimating()) {
+                                int[] gradientColors = new int[]{
+                                        Color.parseColor("#DDA0FF"), // 연한 네온 바이올렛
+                                        Color.parseColor("#A0DFFF"), // 연한 네온 스카이블루
+                                        Color.parseColor("#A0FFD6")  // 연한 네온 민트
+                                };
+
+                                GradientDrawable glowBg = new GradientDrawable();
+                                glowBg.setShape(GradientDrawable.OVAL);
+                                // 그라데이션 타입을 RADIAL 로
+                                glowBg.setGradientType(GradientDrawable.LINEAR_GRADIENT);
+                                glowBg.setOrientation(GradientDrawable.Orientation.TL_BR);
+                                glowBg.setColors(gradientColors);
+                                // 부드러운 흐림 효과를 위해 외곽 스트로크를 반투명으로
+                                glowBg.setStroke(dpToPx(2), Color.argb(0x40, 255, 255, 255));
+
+                                // 2) 뷰 배경에 바로 적용
+                                mSearchKey.setBackground(glowBg);
+
+                                mSearchKey.setRepeatCount(LottieDrawable.INFINITE);
+                                mSearchKey.setAnimation("ic_search.json");
+                                mSearchKey.playAnimation();
+
+                                mBorderPulseAnimator = ValueAnimator.ofInt(1, 200);
+                                mBorderPulseAnimator.setDuration(500);
+                                mBorderPulseAnimator.setRepeatMode(ValueAnimator.REVERSE);
+                                mBorderPulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
+                                mBorderPulseAnimator.addUpdateListener(anim -> {
+                                    int alpha = (int) anim.getAnimatedValue();
+                                    // 전체 글로우 배경의 투명도 조절
+                                    glowBg.setAlpha(alpha);
+                                });
+                                mBorderPulseAnimator.start();
+
                                 mLastKeywordWithImages = lastWord;
                             }
                         }
@@ -372,18 +426,28 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                         Log.e("KeywordSearch", "API 응답 실패: " + response.code());
                     }
                 }
+
                 @Override
                 public void onFailure(Call<KeywordExistsResponse> call, Throwable t) {
                     Log.e("KeywordSearch", "API 호출 에러: ", t);
                 }
             });
         } else if (event.type == HangulCommitEvent.TYPE_END) {
-            if (mKeywordKey != null && mKeywordKey.isAnimating()) {
-                mKeywordKey.pauseAnimation();     // 일시정지
-                mKeywordKey.setProgress(0f);      // 초기 상태로(선택)
+            if (mSearchKey != null && mSearchKey.isAnimating()) {
+                mSearchKey.pauseAnimation();
+                mSearchKey.setProgress(0f);
+
+                if (mBorderPulseAnimator != null) {
+                    mBorderPulseAnimator.cancel();
+                    mBorderPulseAnimator = null;
+                }
+
+                mSearchKey.setBackground(mOriginalSearchKeyBg);
+                mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
             }
         }
     }
+
     // ========== Search Mode helpers ======================================
     private void enterSearchMode() {
         if (mInSearchMode) return;
@@ -489,6 +553,16 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             mSearchKey.setRepeatCount(0);
                             mSearchKey.setAnimation("ic_search_blue.json"); // 파랑 정지된 JSON
                             mSearchKey.setProgress(0f);
+
+                            if (mBorderPulseAnimator != null) {
+                                mBorderPulseAnimator.cancel();
+                                mBorderPulseAnimator = null;
+                            }
+                            // ② 원래 배경으로 복원
+                            mSearchKey.setBackground(mOriginalSearchKeyBg);
+                            // ③ (선택) 레이어 타입도 원래대로 돌려놓기
+                            mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
+
                             mKeyHighlighted = true;
                             break;
                         case PHOTO_ONLY:
@@ -515,7 +589,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             // photo bar 초기화 및 채우기
                             mPhotoBarContainer.removeAllViews();
                             int barSize = dpToPx(96);
-                            for (String idStr : body.getPhotoIds()) {
+                            List<String> photoIds = body.getPhotoIds();
+                            for (int i = 0; i < photoIds.size(); i++) {
+                                String idStr = photoIds.get(i);
                                 try {
                                     long id = Long.parseLong(idStr);
                                     Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(getContext().getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
@@ -548,7 +624,21 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                             }
                                         }
                                     });
+                                    // ① 추가: 뷰를 0배율에서 시작
+                                    iv.setScaleX(0f);
+                                    iv.setScaleY(0f);
+
+                                    // ② 컨테이너에 뷰 추가
                                     mPhotoBarContainer.addView(iv);
+
+                                    // ③ 순차적 스케일 애니메이션 (0 → 1.1 → 1.0)
+                                    iv.animate()
+                                            .scaleX(1f)
+                                            .scaleY(1f)
+                                            .setStartDelay(i * 100L)                // 각 아이템마다 100ms씩 딜레이
+                                            .setDuration(300L)                      // 300ms 동안 실행
+                                            .setInterpolator(new OvershootInterpolator()) // 오버슈트 바운스 효과
+                                            .start();
                                 } catch (NumberFormatException ignored) {
                                 }
                             }
@@ -557,10 +647,17 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             barLp.height = barSize;
                             mPhotoBar.setLayoutParams(barLp);
 
-                            /* 2) SuggestionStripView(자신) 높이 = barSize + gapBottom */
-                            ViewGroup.LayoutParams rootLp = getLayoutParams();
-                            rootLp.height = barSize + dpToPx(6);
-                            setLayoutParams(rootLp);
+                            final View strip = SuggestionStripView.this; // SuggestionStripView 자신
+                            final int startH = strip.getHeight();
+                            final int endH = barSize + dpToPx(6);
+                            ValueAnimator heightAnimator = ValueAnimator.ofInt(startH, endH);
+                            heightAnimator.addUpdateListener(anim -> {
+                                strip.getLayoutParams().height = (int) anim.getAnimatedValue();
+                                strip.requestLayout();
+                            });
+                            heightAnimator.setDuration(500);
+                            heightAnimator.setInterpolator(new FastOutSlowInInterpolator());
+                            heightAnimator.start();
 
                             /* 3) 부모 레이아웃 재측정/재배치 */
                             requestLayout();
@@ -578,7 +675,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                     Toast.makeText(getContext(), "검색 완료", Toast.LENGTH_SHORT).show();
                 });
                 Log.d(TAG_NET, "✅ 결과 수신");
-
             }
 
             @Override
@@ -599,6 +695,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     }
 // =====================================================================
+
     /**
      * A connection back to the input method.
      *
@@ -1002,6 +1099,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             mListener.pickSuggestionManually(wordInfo);
         }
     }
+
     private boolean isSearchInputEmpty() {
         InputConnection ic = mMainKeyboardView.getInputConnection();
         ExtractedText et = ic == null ? null : ic.getExtractedText(new ExtractedTextRequest(), 0);
