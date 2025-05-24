@@ -552,6 +552,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 );
 
                 post(() -> {
+
                     // ① **스피너 숨기기**
                     mLoadingSpinner.setVisibility(View.GONE);
                     mSearchKey.setVisibility(VISIBLE);
@@ -710,6 +711,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             @Override
             public void onFailure(Call<MessageResponse> call, Throwable t) {
                 post(() -> {
+                    stopKeyboardAnimation();
                     // ① **스피너 숨기기**
                     mLoadingSpinner.setVisibility(View.GONE);
 
@@ -899,6 +901,12 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private boolean mNeedsToTransformTouchEventToHoverEvent;
     private boolean mIsDispatchingHoverEventToMoreSuggestions;
     private final GestureDetector mMoreSuggestionsSlidingDetector;
+    
+    // 키보드 애니메이션 관련 변수
+    private Drawable mOriginalKeyboardBackground;
+    private ValueAnimator mKeyboardWaveAnimator;
+    private boolean mIsAnimatingKeyboard = false;
+
     private final GestureDetector.OnGestureListener mMoreSuggestionsSlidingListener = new GestureDetector.SimpleOnGestureListener() {
         @Override
         public boolean onScroll(MotionEvent down, MotionEvent me, float deltaX, float deltaY) {
@@ -1061,6 +1069,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             if (mResponseType == ResponseType.SHORT_TEXT || mResponseType == ResponseType.PHOTO_ONLY) {
                 final View strip = SuggestionStripView.this;
 
+                stopKeyboardAnimation();
+
                 // — PHOTO_ONLY 모드면 사진을 역순으로 축소 —
                 if (mResponseType == ResponseType.PHOTO_ONLY) {
                     int count = mPhotoBarContainer.getChildCount();
@@ -1130,6 +1140,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                     showEmptyToast();
                     return;
                 }
+
+                // 🎨 클릭 시 단발성 키보드 애니메이션 효과
+                showKeyboardClickAnimation();
                 enterSearchMode();
                 return;
             }
@@ -1146,6 +1159,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 mAnswerShown = true;
             } else {
                 // 세 번째 클릭(❌): 패널 닫고 키보드 복귀
+
+                stopKeyboardAnimation();
                 mSearchPanel.dismissMoreKeysPanel();
                 mSearchKey.setAnimation("ic_search.json");  // 흑 정지된 JSON
                 mSearchKey.setRepeatCount(0);
@@ -1252,4 +1267,170 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             }
         }
     }
+
+    /**
+     * 🎨 자연스럽고 적당히 보이는 그라디언트 웨이브 애니메이션
+     */
+    /**
+     * 🎨 검색 모드 동안 지속되는 키보드 웨이브 애니메이션
+     */
+    private void showKeyboardClickAnimation() {
+        if (mMainKeyboardView == null || mIsAnimatingKeyboard) return;
+
+        // 원본 배경 저장
+        if (mOriginalKeyboardBackground == null) {
+            mOriginalKeyboardBackground = mMainKeyboardView.getBackground();
+        }
+
+        mIsAnimatingKeyboard = true;
+
+        // 무한 반복되는 부드러운 웨이브 애니메이션
+        mKeyboardWaveAnimator = ValueAnimator.ofFloat(0f, 1f);
+        mKeyboardWaveAnimator.setDuration(2000); // 2초 주기
+        mKeyboardWaveAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        mKeyboardWaveAnimator.setRepeatMode(ValueAnimator.RESTART);
+        mKeyboardWaveAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
+
+        mKeyboardWaveAnimator.addUpdateListener(animation -> {
+            if (mIsAnimatingKeyboard) {
+                float progress = (float) animation.getAnimatedValue();
+                applyVisibleWaveEffect(progress);
+            }
+        });
+
+        mKeyboardWaveAnimator.start();
+        Log.d("KeyboardAnimation", "지속적인 웨이브 애니메이션 시작");
+    }
+
+    /**
+     * 🎨 키보드 애니메이션 중지 및 원상복구
+     */
+    private void stopKeyboardAnimation() {
+        if (mKeyboardWaveAnimator != null) {
+            mKeyboardWaveAnimator.cancel();
+            mKeyboardWaveAnimator = null;
+        }
+
+        mIsAnimatingKeyboard = false;
+        restoreKeyboardBackground();
+        Log.d("KeyboardAnimation", "키보드 애니메이션 중지 및 원상복구");
+    }
+
+
+
+    /**
+     * 🎨 키보드 애니메이션 빈 여백 제거 - 빠른 수정
+     * 기존 코드에서 이 부분만 교체하세요
+     */
+    private void applyVisibleWaveEffect(float progress) {
+        if (mMainKeyboardView == null) return;
+
+        // 자연스러운 물결 패턴
+        double mainWave = Math.sin(progress * Math.PI);
+        float wave1 = (float) Math.sin(progress * Math.PI * 3) * 0.2f;
+        float wave2 = (float) Math.sin(progress * Math.PI * 1.5f) * 0.15f;
+
+        float intensity = (float) (mainWave + wave1 + wave2);
+        intensity = Math.max(0f, Math.min(1f, intensity));
+
+        // 하늘색-보라색 계열
+        int[] skyPurpleColors = {
+                Color.parseColor("#87CEEB"), // 하늘색
+                Color.parseColor("#6495ED"), // 콘플라워 블루
+                Color.parseColor("#7B68EE"), // 미디엄 슬레이트 블루
+                Color.parseColor("#9370DB"), // 보라색
+                Color.parseColor("#BA68C8"), // 미디엄 오키드
+                Color.parseColor("#8A2BE2")  // 블루 바이올렛
+        };
+
+        int colorIndex = (int) (progress * 2) % skyPurpleColors.length;
+        int nextColorIndex = (colorIndex + 1) % skyPurpleColors.length;
+        float colorProgress = (progress * 2) % 1f;
+
+        int baseColor = interpolateColor(skyPurpleColors[colorIndex], skyPurpleColors[nextColorIndex], colorProgress);
+
+        GradientDrawable waveDrawable = new GradientDrawable();
+        waveDrawable.setShape(GradientDrawable.RECTANGLE);
+        waveDrawable.setOrientation(GradientDrawable.Orientation.BOTTOM_TOP);
+
+        int baseAlpha = (int) (intensity * 140);
+
+        // ✨ 핵심 수정: 더 넓은 범위의 그라디언트로 여백까지 커버
+        int[] gradientColors = new int[]{
+                Color.argb(baseAlpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),           // 100%
+                Color.argb(baseAlpha * 9/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 90%
+                Color.argb(baseAlpha * 8/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 80%
+                Color.argb(baseAlpha * 7/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 70%
+                Color.argb(baseAlpha * 6/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 60%
+                Color.argb(baseAlpha * 5/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 50%
+                Color.argb(baseAlpha * 4/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 40%
+                Color.argb(baseAlpha * 3/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 30%
+                Color.argb(baseAlpha * 2/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 20%
+                Color.argb(baseAlpha / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))      // 10%
+        };
+
+        waveDrawable.setColors(gradientColors);
+
+        // ✨ 핵심 수정: 코너를 완전히 제거하여 전체 영역 채우기
+        waveDrawable.setCornerRadius(0);
+
+        // ✨ 핵심 수정: 스트로크 제거 (테두리로 인한 여백 방지)
+        // 기존 스트로크 코드 주석 처리:
+        // if (baseAlpha > 30) {
+        //     int strokeColor = Color.argb(baseAlpha / 2, 255, 255, 255);
+        //     waveDrawable.setStroke(dpToPx(1), strokeColor);
+        // }
+
+        mMainKeyboardView.setBackground(waveDrawable);
+
+        // 미세한 투명도 변화
+        float breathingAlpha = 0.95f + (intensity * 0.05f);
+        mMainKeyboardView.setAlpha(breathingAlpha);
+    }
+
+    /**
+     * 🎨 두 색상 사이의 부드러운 보간
+     */
+    private int interpolateColor(int colorA, int colorB, float progress) {
+        int aA = Color.alpha(colorA);
+        int rA = Color.red(colorA);
+        int gA = Color.green(colorA);
+        int bA = Color.blue(colorA);
+
+        int aB = Color.alpha(colorB);
+        int rB = Color.red(colorB);
+        int gB = Color.green(colorB);
+        int bB = Color.blue(colorB);
+
+        return Color.argb(
+                (int) (aA + (aB - aA) * progress),
+                (int) (rA + (rB - rA) * progress),
+                (int) (gA + (gB - gA) * progress),
+                (int) (bA + (bB - bA) * progress)
+        );
+    }
+
+    /**
+     * 🎨 키보드 배경 원상복구 (스케일 복원 제거)
+     */
+    private void restoreKeyboardBackground() {
+        if (mMainKeyboardView != null) {
+            // ✨ 스케일 복원 제거 - 키보드 위치 건드리지 않음
+            // mMainKeyboardView.setScaleX(1f);  // 제거
+            // mMainKeyboardView.setScaleY(1f);  // 제거
+
+            // 투명도 원상복구
+            mMainKeyboardView.setAlpha(1f);
+
+            // 배경 원상복구
+            if (mOriginalKeyboardBackground != null) {
+                mMainKeyboardView.setBackground(mOriginalKeyboardBackground);
+            } else {
+                mMainKeyboardView.setBackground(null); // 투명 배경
+            }
+
+            Log.d("KeyboardAnimation", "키보드 배경 원상복구 완료 (위치 고정)");
+        }
+    }
+
 }
