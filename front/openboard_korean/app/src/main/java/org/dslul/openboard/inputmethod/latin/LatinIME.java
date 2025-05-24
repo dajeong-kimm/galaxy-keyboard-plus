@@ -117,6 +117,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     static final String TAG = LatinIME.class.getSimpleName();
 
     private MainKeyboardView mKeyboardView;
+    private EditorInfo mCurrentEditorInfo;
 
     private static final boolean TRACE = false;
 
@@ -870,6 +871,10 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         }
         mHandler.onStartInputView(editorInfo, restarting);
         mStatsUtilsManager.onStartInputView();
+
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.setEditorInfo(editorInfo);
+        }
     }
 
     @Override
@@ -899,6 +904,14 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     void onStartInputInternal(final EditorInfo editorInfo, final boolean restarting) {
         super.onStartInput(editorInfo, restarting);
+
+        // ① EditorInfo 저장
+        mCurrentEditorInfo = editorInfo;
+
+        // ② SuggestionStripView 에 전달
+        if (mSuggestionStripView != null) {
+            mSuggestionStripView.setEditorInfo(editorInfo);
+        }
 
         // If the primary hint language does not match the current subtype language, then try
         // to switch to the primary hint language.
@@ -964,21 +977,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mainKeyboardView == null) {
             return;
         }
-
-        // 키보드가 정상 표시되는 경우에만 백업 실행
-//        new Thread(() -> {
-//            try {
-//                Context appContext = getApplicationContext();
-//                Log.d("Backup", "✅ startBackup: 앱 컨텍스트 전달됨");
-//
-//                org.dslul.openboard.inputmethod.backup.BackupManager.startBackup(appContext);
-//
-//                Log.d("Backup", "✅ startBackup: 백업 실행 완료");
-//            } catch (Exception e) {
-//                Log.e("Backup", "✅ startBackup: 예외 발생", e);
-//            }
-//        }).start();
-
 
         // Update to a gesture consumer with the current editor and IME state.
         mGestureConsumer = GestureConsumer.newInstance(editorInfo,
@@ -2059,23 +2057,4 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                     visible ? Color.BLACK : Color.TRANSPARENT);
         }
     }
-
-    public HangulCombiner getSearchCombiner() {
-        return mSearchCombiner;
-    }
-
-    /**
-     * 검색 모드 조합기 초기화 용도로만 쓰입니다
-     */
-    public void resetSearchCombiner() {
-        mSearchCombiner.reset();
-    }
-
-    // LatinIME.java (public 메서드로 추가)
-    public void resetSearchBuffers() {
-        mSearchCommitted.setLength(0);
-        mSearchCombiner.reset();
-    }
-
-
 }
