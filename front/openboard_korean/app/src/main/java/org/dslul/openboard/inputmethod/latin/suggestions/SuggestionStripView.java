@@ -16,29 +16,19 @@
 
 package org.dslul.openboard.inputmethod.latin.suggestions;
 
-import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentUris;
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
-import android.graphics.BlurMaskFilter;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
 import android.graphics.PorterDuff;
-import android.graphics.RadialGradient;
-import android.graphics.Shader;
-import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.ShapeDrawable;
-import android.graphics.drawable.shapes.OvalShape;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.util.AttributeSet;
@@ -53,7 +43,6 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
-import android.view.animation.AnimationUtils;
 import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
@@ -73,7 +62,6 @@ import org.dslul.openboard.inputmethod.keyboard.KeyboardActionListener;
 import org.dslul.openboard.inputmethod.keyboard.MainKeyboardView;
 import org.dslul.openboard.inputmethod.keyboard.MoreKeysPanel;
 import org.dslul.openboard.inputmethod.latin.AudioAndHapticFeedbackManager;
-import org.dslul.openboard.inputmethod.latin.LatinIME;
 import org.dslul.openboard.inputmethod.latin.R;
 import org.dslul.openboard.inputmethod.latin.SuggestedWords;
 import org.dslul.openboard.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
@@ -103,7 +91,7 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.google.gson.Gson;
 
 import retrofit2.Call;
@@ -135,6 +123,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private TextView mSearchAnswer;
     private LottieAnimationView mSearchKey;
     private LottieAnimationView mKeywordKey;
+    private ImageView mLoadingSpinner;
     private String mLastKeywordWithImages = null;
     private ImageButton mVoiceKey;       // 마이크
     private Button mSearchStatus;
@@ -345,6 +334,28 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 mDefaultHeight = getHeight();
             }
         });
+
+        // 로딩 스피너 준비
+        mLoadingSpinner = new ImageView(context);
+        mLoadingSpinner.setVisibility(GONE);
+        mLoadingSpinner.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+
+        // 2) Glide로 GIF 로드
+        Glide.with(context)
+                .asGif()
+                .load(R.drawable.galaxyai_loading_spinner)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(mLoadingSpinner);
+
+        // 3) 레이아웃 파라미터 (CENTER_IN_PARENT)
+        RelativeLayout.LayoutParams lpSpinner =
+                new RelativeLayout.LayoutParams(
+                        LayoutParams.WRAP_CONTENT,
+                        LayoutParams.WRAP_CONTENT);
+        lpSpinner.addRule(RelativeLayout.CENTER_IN_PARENT);
+
+        // 4) 뷰 계층에 추가 (`this`는 RelativeLayout)
+        this.addView(mLoadingSpinner, lpSpinner);
     }
 
     /* ▼ EventBus로 HangulCommitEvent 이벤트 구독 --------------------------------------------------- */
@@ -453,20 +464,25 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (mInSearchMode) return;
         mInSearchMode = true;
 
-        // 1) 기존 검색 키 숨기고
-        mSearchKey.setVisibility(View.GONE);
-        mSearchKey.setVisibility(View.VISIBLE);
-        mSearchKey.setAnimation("ic_search.json");    // 움직이는 JSON
-        mSearchKey.setRepeatCount(LottieDrawable.INFINITE);
-        mSearchKey.playAnimation();
-
-        // 2) 검색중에는 제안 줄(빈 공간)도, 보조 버튼(마이크/클립보드)도 없애서
-        mSuggestionsStrip.setVisibility(GONE);
-        // 음성·클립보드 버튼은 그대로 노출
-        mVoiceKey.setVisibility(VISIBLE);
+        // 1) 모든 키/버튼 숨기기
+        mSearchKey.setVisibility(GONE);
+        mVoiceKey.setVisibility(GONE);
         mClipboardKey.setVisibility(GONE);
-        // photoBar는 검색 중엔 안 쓰이니 숨겨두고,
-        mPhotoBar.setVisibility(GONE);
+        mFetchClipboardKey.setVisibility(GONE);
+        mSearchStatus.setVisibility(GONE);
+        mSuggestionsStrip.setVisibility(GONE);
+
+        // 2) 뷰 높이를 사진 바 영역만큼 늘리기
+        int photoBarHeight = dpToPx(96) + dpToPx(6); // thumbnail 높이 + 여유
+        ViewGroup.LayoutParams lp = getLayoutParams();
+        lp.height = photoBarHeight;
+        setLayoutParams(lp);
+
+        // 3) 로딩 스피너 보이기
+        mLoadingSpinner.setScaleX(0.6f); // 60% 크기로 축소
+        mLoadingSpinner.setScaleY(0.6f);
+        mLoadingSpinner.setVisibility(VISIBLE);
+        mLoadingSpinner.bringToFront();
 
         // 3) 실제 API 호출
         dispatchSearchQuery();
@@ -536,6 +552,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 );
 
                 post(() -> {
+                    // ① **스피너 숨기기**
+                    mLoadingSpinner.setVisibility(View.GONE);
+                    mSearchKey.setVisibility(VISIBLE);
+
                     if (body.getType().equals("info_search") || body.getType().equals("conversation"))
                         mResponseType = ResponseType.LONG_TEXT;
                     else mResponseType = ResponseType.PHOTO_ONLY;
@@ -664,6 +684,16 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
                             mPhotoBar.setVisibility(VISIBLE);
 
+                            // ⬇️ “❌” 아이콘으로 바뀔 때 글로우 애니메이션 정리
+                            if (mBorderPulseAnimator != null) {
+                                mBorderPulseAnimator.cancel();
+                                mBorderPulseAnimator = null;
+                            }
+                            // 원래 배경으로 복원
+                            mSearchKey.setBackground(mOriginalSearchKeyBg);
+                            // 레이어 타입도 기본으로 되돌리기
+                            mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
+
                             // 검색 아이콘 → ❌ 로 변경
                             mSearchKey.clearAnimation();
                             mSearchKey.setRepeatCount(0);
@@ -680,6 +710,14 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             @Override
             public void onFailure(Call<MessageResponse> call, Throwable t) {
                 post(() -> {
+                    // ① **스피너 숨기기**
+                    mLoadingSpinner.setVisibility(View.GONE);
+
+                    // ② **높이 원복**
+                    ViewGroup.LayoutParams lp = getLayoutParams();
+                    lp.height = mDefaultHeight;
+                    setLayoutParams(lp);
+
                     mSearchPanel.clearLoadingBubble();
                     // 에러 시에도 버튼 복원
                     mSearchStatus.setVisibility(View.GONE);
@@ -1019,40 +1057,73 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (view == mSearchStatus) return;
 
         if (view == mSearchKey) {
-            // conversation 또는 photo 모드에서는 ❌ 클릭 시 원상복귀
+            // ❌ 클릭 시 닫기 애니메이션 (사진 역순 스케일 → strip 닫기)
             if (mResponseType == ResponseType.SHORT_TEXT || mResponseType == ResponseType.PHOTO_ONLY) {
+                final View strip = SuggestionStripView.this;
 
-                // ── height 복원
-                if (mDefaultHeight > 0) {
-                    ViewGroup.LayoutParams rootLp2 = getLayoutParams();
-                    rootLp2.height = mDefaultHeight;
-                    setLayoutParams(rootLp2);
+                // — PHOTO_ONLY 모드면 사진을 역순으로 축소 —
+                if (mResponseType == ResponseType.PHOTO_ONLY) {
+                    int count = mPhotoBarContainer.getChildCount();
+                    for (int i = count - 1; i >= 0; i--) {
+                        View iv = mPhotoBarContainer.getChildAt(i);
+                        iv.animate()
+                                .scaleX(0f).scaleY(0f)
+                                .setStartDelay(count - 1 - i)
+                                .setDuration(300)
+                                .setInterpolator(new FastOutSlowInInterpolator())
+                                .start();
+                    }
                 }
 
-                // 1) 숨겨뒀던 결과 영역 전부 감추기
-                mSearchAnswer.setVisibility(GONE);
-                mPhotoBar.setVisibility(GONE);
-//                mCopyKey.setVisibility(GONE);
+                // — 사진 애니메이션 끝난 뒤에 strip 닫기 —
+                long delay = (mResponseType == ResponseType.PHOTO_ONLY
+                        ? mPhotoBarContainer.getChildCount() + 300
+                        : 0);
+                strip.postDelayed(() -> {
+                    // 1) 높이 축소
+                    if (mDefaultHeight > 0) {
+                        int startH = strip.getHeight();
+                        int endH = mDefaultHeight;
+                        ValueAnimator collapse = ValueAnimator.ofInt(startH, endH);
+                        collapse.setDuration(300);
+                        collapse.setInterpolator(new FastOutSlowInInterpolator());
+                        collapse.addUpdateListener(anim -> {
+                            strip.getLayoutParams().height = (int) anim.getAnimatedValue();
+                            strip.requestLayout();
+                        });
+                        collapse.start();
+                    }
 
-                // 2) 제안 줄 & 버튼들 복원
-                mSuggestionsStrip.setVisibility(GONE);
-                mVoiceKey.setVisibility(VISIBLE);
-                mClipboardKey.setVisibility(GONE);
-                mFetchClipboardKey.setVisibility(VISIBLE);
+                    // 2) 페이드아웃
+                    strip.animate()
+                            .alpha(1f)
+                            .setDuration(200)
+                            .withEndAction(() -> {
+                                //— 완전히 닫힌 뒤 원상복구 —
+                                strip.getLayoutParams().height = mDefaultHeight;
+                                strip.requestLayout();
 
-                // 3) 검색키 애니메이션/아이콘 원복
-                mSearchKey.clearAnimation();
-                mSearchKey.setAnimation("ic_search.json");
-                mSearchKey.setProgress(0f);
-                mSearchKey.setRepeatCount(0);
+                                mSearchAnswer.setVisibility(GONE);
+                                mPhotoBar.setVisibility(GONE);
+                                mSuggestionsStrip.setVisibility(GONE);
+                                mVoiceKey.setVisibility(VISIBLE);
+                                mClipboardKey.setVisibility(GONE);
+                                mFetchClipboardKey.setVisibility(VISIBLE);
 
-                // 4) 상태 초기화
-                mInSearchMode = false;
-                mAnswerShown = false;
-                mResponseType = null;
-                mLastResponse = null;
+                                mSearchKey.clearAnimation();
+                                mSearchKey.setAnimation("ic_search.json");
+                                mSearchKey.setProgress(0f);
+                                mSearchKey.setRepeatCount(0);
+
+                                mInSearchMode = false;
+                                mAnswerShown = false;
+                                mResponseType = null;
+                                mLastResponse = null;
+                            });
+                }, delay);
                 return;
             }
+
             // 1) 검색 모드가 아니면 진입
             if (!mInSearchMode) {
                 if (isSearchInputEmpty()) {
