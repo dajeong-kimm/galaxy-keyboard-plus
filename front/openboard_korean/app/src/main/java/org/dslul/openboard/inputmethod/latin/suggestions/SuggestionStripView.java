@@ -149,7 +149,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private LatinIME mImeService = null;
 
     private boolean mIsDragging = false;
-    private int     mDragExtra  = 0;
+    private int mDragExtra = 0;
     private boolean mDragHover = false;
     private Paint mOverlayPaint;
     private Paint mOverlayPaintHover;
@@ -198,20 +198,22 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     private EditorInfo mEditorInfo;
     private Drawable mDropIcon;
-    private int      mDropIconSize;
+    private int mDropIconSize;
 
     private final int mPhotoBarSizePx;
     private final LinearLayout.LayoutParams mPhotoItemLp;
 
     private Drawable mOriginalStripBackground;
 
-    /** IME 서비스로부터 EditorInfo 를 전달받습니다 */
+    /**
+     * IME 서비스로부터 EditorInfo 를 전달받습니다
+     */
     public void setEditorInfo(EditorInfo info) {
         mEditorInfo = info;
 
         // 지원할 MIME 타입을 에디터에 등록
         // AndroidX EditorInfoCompat 사용
-        String[] mimeTypes = new String[] { "image/*" };
+        String[] mimeTypes = new String[]{"image/*"};
         EditorInfoCompat.setContentMimeTypes(info, mimeTypes);
     }
 
@@ -502,7 +504,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
         // 반투명 오버레이용 Paint
         mOverlayPaint = new Paint();
-        mOverlayPaintHover  = new Paint();
+        mOverlayPaintHover = new Paint();
         mOverlayPaint.setColor(Color.parseColor("#15000000"));
         mOverlayPaintHover.setColor(Color.parseColor("#40000000"));
     }
@@ -605,6 +607,14 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 mSearchKey.setBackground(mOriginalSearchKeyBg);
                 mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
             }
+
+            mKeyHighlighted = false;
+            mLastKeywordWithImages = null;
+            // 애니메이션 JSON도 원래대로 돌려놓기
+            mSearchKey.clearAnimation();
+            mSearchKey.setAnimation("ic_search.json");
+            mSearchKey.setRepeatCount(0);
+            mSearchKey.setProgress(0f);
         }
     }
 
@@ -761,6 +771,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
                             mVoiceKey.setVisibility(VISIBLE);
                             mFetchClipboardKey.setVisibility(VISIBLE);
+
+                            // ★ 키보드 웨이브 애니메이션 중지
+                            stopKeyboardAnimation();
 
                             break;
                         case PHOTO_ONLY:
@@ -944,7 +957,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 Log.e(TAG_NET, "❌ onFailure", t);
             }
         });
+    }
 
+    /**
+     * @return 현재 검색키가 ❌ 아이콘(mIconClose) 상태인지
+     */
+    public boolean isCloseIconVisible() {
+        // mSearchKey에 Drawable로 세팅된 게 mIconClose 인지 비교
+        Drawable current = mSearchKey.getDrawable();
+        return current != null && current.getConstantState() == mIconClose.getConstantState();
     }
 // =====================================================================
 
@@ -956,6 +977,29 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     public void setListener(final Listener listener, final View inputView) {
         mListener = listener;
         mMainKeyboardView = inputView.findViewById(R.id.keyboard_view);
+    }
+
+    /** 검색키 애니메이션과 JSON 활성화 상태만 해제합니다. */
+    public void clearSearchKeyHighlight() {
+        // Lottie 애니메이션 멈춤
+        if (mSearchKey.isAnimating()) {
+            mSearchKey.pauseAnimation();
+        }
+        // JSON 리셋
+        mSearchKey.clearAnimation();
+        mSearchKey.setAnimation("ic_search.json");
+        mSearchKey.setProgress(0f);
+        mSearchKey.setRepeatCount(0);
+        // 배경 원복
+        mSearchKey.setBackground(mOriginalSearchKeyBg);
+        mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
+        // glow pulse 취소
+        if (mBorderPulseAnimator != null) {
+            mBorderPulseAnimator.cancel();
+            mBorderPulseAnimator = null;
+        }
+        // 강조 플래그 해제
+        mKeyHighlighted = false;
     }
 
     public void updateVisibility(final boolean shouldBeVisible, final boolean isFullscreenMode) {
@@ -1376,9 +1420,11 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             } else {
                 // 세 번째 클릭(❌): 패널 닫고 키보드 복귀
                 mSearchPanel.dismissMoreKeysPanel();
+
                 mSearchKey.setAnimation("ic_search.json");  // 흑 정지된 JSON
                 mSearchKey.setRepeatCount(0);
                 mSearchKey.setProgress(0f);
+
                 mKeyHighlighted = false;
                 mAnswerShown = false;
                 mInSearchMode = false;
@@ -1485,8 +1531,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private void expandDragArea() {
         // 원래 높이 + 확장 크기
         int extra = dpToPx(417);
-        mDragExtra    = extra;
-        mIsDragging   = true;
+        mDragExtra = extra;
+        mIsDragging = true;
 
         ViewGroup.LayoutParams lp = getLayoutParams();
         lp.height += extra;
@@ -1504,7 +1550,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     }
 
     private void collapseDragArea() {
-        mDragExtra  = 0;
+        mDragExtra = 0;
         mIsDragging = false;
 
         // 1) 위쪽 패딩 원복
@@ -1608,7 +1654,6 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     }
 
 
-
     /**
      * 🎨 키보드 애니메이션 빈 여백 제거 - 빠른 수정
      * 기존 코드에서 이 부분만 교체하세요
@@ -1649,14 +1694,14 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         // ✨ 핵심 수정: 더 넓은 범위의 그라디언트로 여백까지 커버
         int[] gradientColors = new int[]{
                 Color.argb(baseAlpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),           // 100%
-                Color.argb(baseAlpha * 9/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 90%
-                Color.argb(baseAlpha * 8/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 80%
-                Color.argb(baseAlpha * 7/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 70%
-                Color.argb(baseAlpha * 6/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 60%
-                Color.argb(baseAlpha * 5/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 50%
-                Color.argb(baseAlpha * 4/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 40%
-                Color.argb(baseAlpha * 3/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 30%
-                Color.argb(baseAlpha * 2/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 20%
+                Color.argb(baseAlpha * 9 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 90%
+                Color.argb(baseAlpha * 8 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 80%
+                Color.argb(baseAlpha * 7 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 70%
+                Color.argb(baseAlpha * 6 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 60%
+                Color.argb(baseAlpha * 5 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 50%
+                Color.argb(baseAlpha * 4 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 40%
+                Color.argb(baseAlpha * 3 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 30%
+                Color.argb(baseAlpha * 2 / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 20%
                 Color.argb(baseAlpha / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))      // 10%
         };
 

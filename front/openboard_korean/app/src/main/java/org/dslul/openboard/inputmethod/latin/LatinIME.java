@@ -49,6 +49,9 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodSubtype;
 import android.widget.EditText;
 
@@ -1118,6 +1121,11 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     void onFinishInputInternal() {
         super.onFinishInput();
 
+        // ✨ 전송(완료) 후에도 검색키 애니메이션만 초기화
+        if (mSuggestionStripView != null) {
+            mSuggestionStripView.clearSearchKeyHighlight();
+        }
+
         mDictionaryFacilitator.onFinishInput(this);
         final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
         if (mainKeyboardView != null) {
@@ -1127,6 +1135,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     void onFinishInputViewInternal(final boolean finishingInput) {
         super.onFinishInputView(finishingInput);
+
         cleanupInternalStateForFinishInput();
     }
 
@@ -1256,7 +1265,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     private boolean mIsDragging = false;
     private final Insets mFrozenInsets = new Insets();
 
-    /** SuggestionStripView 쪽에서 호출 */
+    /**
+     * SuggestionStripView 쪽에서 호출
+     */
     public void setDragging(boolean dragging) {
         mIsDragging = dragging;
         // 드래그가 끝나면 바로 insets 재계산
@@ -1271,7 +1282,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             // 1) 직전에 저장해 둔 Insets 값 복사
             outInsets.contentTopInsets = mFrozenInsets.contentTopInsets;
             outInsets.visibleTopInsets = mFrozenInsets.visibleTopInsets;
-            outInsets.touchableInsets  = TOUCHABLE_INSETS_FRAME;
+            outInsets.touchableInsets = TOUCHABLE_INSETS_FRAME;
             // 2) 시스템에도 업데이트
             mInsetsUpdater.setInsets(outInsets);
             return;   // 👈 아래쪽 키보드-크기 계산 로직은 건너뜀
@@ -1718,6 +1729,18 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     @Override
     public void showSuggestionStrip(final SuggestedWords suggestedWords) {
+        // 현재 입력창에 텍스트가 하나도 없으면 검색키 애니메이션 초기화
+        InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            ExtractedText et = ic.getExtractedText(new ExtractedTextRequest(), 0);
+            String content = et != null && et.text != null
+                    ? et.text.toString().trim()
+                    : "";
+            if (content.isEmpty() && mSuggestionStripView != null && !mSuggestionStripView.isCloseIconVisible()) {
+                mSuggestionStripView.clearSearchKeyHighlight();
+            }
+        }
+
         if (suggestedWords.isEmpty()) {
             setNeutralSuggestionStrip();
         } else {
@@ -1897,6 +1920,19 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mInputLogic.mCurrentlyPressedHardwareKeys.remove(keyIdentifier)) {
             return true;
         }
+
+        if (keyCode == KeyEvent.KEYCODE_ENTER) {
+            int actionId = mCurrentEditorInfo != null
+                    ? mCurrentEditorInfo.imeOptions & EditorInfo.IME_MASK_ACTION
+                    : EditorInfo.IME_ACTION_NONE;
+            if (actionId == EditorInfo.IME_ACTION_SEND
+                    || actionId == EditorInfo.IME_ACTION_DONE) {
+                if (mSuggestionStripView != null) {
+                    mSuggestionStripView.clearSearchKeyHighlight();
+                }
+            }
+        }
+
         return super.onKeyUp(keyCode, keyEvent);
     }
 
