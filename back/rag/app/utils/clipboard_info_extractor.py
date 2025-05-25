@@ -10,14 +10,16 @@ def extract_clipboard_items(text: str) -> list[dict]:
 
     # 1. 와이파이 PW 추출
     wifi_pw_matches = re.findall(
-        r"(?:PW|Password)[^\w]*[:\-]?[^\d]*(\d{6,})", text, flags=re.IGNORECASE
+        r"(?:PW|Password|암호|비밀번호)[^\n:]*[:\-]?\s*([^\s]{6,})",
+        text,
+        flags=re.IGNORECASE,
     )
     for pw in wifi_pw_matches:
         results.append({"type": "와이파이PW", "value": pw.strip()})
 
     # 2. 계좌번호 추출
     account_matches = re.findall(
-        r"(?:[가-힣]{2,10}(?:은행|뱅크|저축은행)?)\s*[:\-]?\s*((?:\d{2,6}[-\s]?){2,4}\d{2,6})",
+        r"(?:[가-힣]{2,10}(?:은행|뱅크|저축은행|페이)?)\s*[:\-]?\s*((?:\d{2,6}[-\s]?){2,4}\d{2,6})",
         text,
     )
     for number in account_matches:

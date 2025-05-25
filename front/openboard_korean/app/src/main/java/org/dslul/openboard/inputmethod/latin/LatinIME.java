@@ -16,6 +16,8 @@
 
 package org.dslul.openboard.inputmethod.latin;
 
+import static android.inputmethodservice.InputMethodService.Insets.TOUCHABLE_INSETS_FRAME;
+
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -117,6 +119,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     static final String TAG = LatinIME.class.getSimpleName();
 
     private MainKeyboardView mKeyboardView;
+    private EditorInfo mCurrentEditorInfo;
 
     private static final boolean TRACE = false;
 
@@ -870,6 +873,10 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         }
         mHandler.onStartInputView(editorInfo, restarting);
         mStatsUtilsManager.onStartInputView();
+
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.setEditorInfo(editorInfo);
+        }
     }
 
     @Override
@@ -899,6 +906,14 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     void onStartInputInternal(final EditorInfo editorInfo, final boolean restarting) {
         super.onStartInput(editorInfo, restarting);
+
+        // ① EditorInfo 저장
+        mCurrentEditorInfo = editorInfo;
+
+        // ② SuggestionStripView 에 전달
+        if (mSuggestionStripView != null) {
+            mSuggestionStripView.setEditorInfo(editorInfo);
+        }
 
         // If the primary hint language does not match the current subtype language, then try
         // to switch to the primary hint language.
@@ -964,21 +979,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mainKeyboardView == null) {
             return;
         }
-
-        // 키보드가 정상 표시되는 경우에만 백업 실행
-//        new Thread(() -> {
-//            try {
-//                Context appContext = getApplicationContext();
-//                Log.d("Backup", "✅ startBackup: 앱 컨텍스트 전달됨");
-//
-//                org.dslul.openboard.inputmethod.backup.BackupManager.startBackup(appContext);
-//
-//                Log.d("Backup", "✅ startBackup: 백업 실행 완료");
-//            } catch (Exception e) {
-//                Log.e("Backup", "✅ startBackup: 예외 발생", e);
-//            }
-//        }).start();
-
 
         // Update to a gesture consumer with the current editor and IME state.
         mGestureConsumer = GestureConsumer.newInstance(editorInfo,
@@ -1253,9 +1253,30 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         setSuggestedWords(suggestedWords);
     }
 
+    private boolean mIsDragging = false;
+    private final Insets mFrozenInsets = new Insets();
+
+    /** SuggestionStripView 쪽에서 호출 */
+    public void setDragging(boolean dragging) {
+        mIsDragging = dragging;
+        // 드래그가 끝나면 바로 insets 재계산
+        if (!dragging) updateInputViewShown();
+    }
+
     @Override
     public void onComputeInsets(final InputMethodService.Insets outInsets) {
         super.onComputeInsets(outInsets);
+
+        if (mIsDragging) {
+            // 1) 직전에 저장해 둔 Insets 값 복사
+            outInsets.contentTopInsets = mFrozenInsets.contentTopInsets;
+            outInsets.visibleTopInsets = mFrozenInsets.visibleTopInsets;
+            outInsets.touchableInsets  = TOUCHABLE_INSETS_FRAME;
+            // 2) 시스템에도 업데이트
+            mInsetsUpdater.setInsets(outInsets);
+            return;   // 👈 아래쪽 키보드-크기 계산 로직은 건너뜀
+        }
+
         // This method may be called before {@link #setInputView(View)}.
         if (mInputView == null) {
             return;
@@ -1293,6 +1314,12 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         }
         outInsets.contentTopInsets = visibleTopY;
         outInsets.visibleTopInsets = visibleTopY;
+
+        if (!mIsDragging) {          // 평상시엔 항상 캐시
+            mFrozenInsets.contentTopInsets = outInsets.contentTopInsets;
+            mFrozenInsets.visibleTopInsets = outInsets.visibleTopInsets;
+        }
+
         mInsetsUpdater.setInsets(outInsets);
     }
 
@@ -2059,23 +2086,4 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                     visible ? Color.BLACK : Color.TRANSPARENT);
         }
     }
-
-    public HangulCombiner getSearchCombiner() {
-        return mSearchCombiner;
-    }
-
-    /**
-     * 검색 모드 조합기 초기화 용도로만 쓰입니다
-     */
-    public void resetSearchCombiner() {
-        mSearchCombiner.reset();
-    }
-
-    // LatinIME.java (public 메서드로 추가)
-    public void resetSearchBuffers() {
-        mSearchCommitted.setLength(0);
-        mSearchCombiner.reset();
-    }
-
-
 }

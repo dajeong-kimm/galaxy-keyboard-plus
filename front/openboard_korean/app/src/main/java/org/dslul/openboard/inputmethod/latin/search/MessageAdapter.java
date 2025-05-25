@@ -306,10 +306,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 Vibrator vib = (Vibrator)
                         v.getContext().getSystemService(Context.VIBRATOR_SERVICE);
                 if (vib != null) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vib.vibrate(VibrationEffect.createOneShot(50,
-                                VibrationEffect.DEFAULT_AMPLITUDE));
-                    } else vib.vibrate(50);
+                    vib.vibrate(VibrationEffect.createOneShot(50,
+                            VibrationEffect.DEFAULT_AMPLITUDE));
                 }
                 return true;
             });

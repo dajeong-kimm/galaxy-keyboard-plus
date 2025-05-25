@@ -16,35 +16,34 @@
 
 package org.dslul.openboard.inputmethod.latin.suggestions;
 
-import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.ContentUris;
 import android.content.Context;
-import android.content.res.ColorStateList;
+import android.content.ContextWrapper;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
-import android.graphics.BlurMaskFilter;
+import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.PorterDuff;
-import android.graphics.RadialGradient;
-import android.graphics.Shader;
-import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.ShapeDrawable;
-import android.graphics.drawable.shapes.OvalShape;
 import android.net.Uri;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
+import android.view.DragEvent;
 import android.view.GestureDetector;
+import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -53,8 +52,8 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
-import android.view.animation.AnimationUtils;
 import android.view.animation.OvershootInterpolator;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
@@ -98,15 +97,21 @@ import java.util.List;
 
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.inputmethod.EditorInfoCompat;
+import androidx.core.view.inputmethod.InputConnectionCompat;
+import androidx.core.view.inputmethod.InputContentInfoCompat;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.google.gson.Gson;
 
 import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -135,11 +140,19 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private TextView mSearchAnswer;
     private LottieAnimationView mSearchKey;
     private LottieAnimationView mKeywordKey;
+    private ImageView mLoadingSpinner;
     private String mLastKeywordWithImages = null;
     private ImageButton mVoiceKey;       // 마이크
     private Button mSearchStatus;
     private boolean mInSearchMode = false;
     private String mLastQuery;
+    private LatinIME mImeService = null;
+
+    private boolean mIsDragging = false;
+    private int     mDragExtra  = 0;
+    private boolean mDragHover = false;
+    private Paint mOverlayPaint;
+    private Paint mOverlayPaintHover;
 
     // 기존 필드 바로 아래
     private Drawable mIconClose;    // X 아이콘
@@ -183,6 +196,25 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private ValueAnimator mBorderPulseAnimator;
     private Drawable mOriginalSearchKeyBg;
 
+    private EditorInfo mEditorInfo;
+    private Drawable mDropIcon;
+    private int      mDropIconSize;
+
+    private final int mPhotoBarSizePx;
+    private final LinearLayout.LayoutParams mPhotoItemLp;
+
+    private Drawable mOriginalStripBackground;
+
+    /** IME 서비스로부터 EditorInfo 를 전달받습니다 */
+    public void setEditorInfo(EditorInfo info) {
+        mEditorInfo = info;
+
+        // 지원할 MIME 타입을 에디터에 등록
+        // AndroidX EditorInfoCompat 사용
+        String[] mimeTypes = new String[] { "image/*" };
+        EditorInfoCompat.setContentMimeTypes(info, mimeTypes);
+    }
+
     private static class StripVisibilityGroup {
         private final View mSuggestionStripView;
         private final View mSuggestionsStrip;
@@ -217,6 +249,26 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     public SuggestionStripView(final Context context, final AttributeSet attrs, final int defStyle) {
         super(context, attrs, defStyle);
 
+        // 1) dp → px 변환을 미리 해두기
+        mPhotoBarSizePx = dpToPx(96);
+        int photoItemMargin = dpToPx(4);
+
+        // 2) LayoutParams도 한 번만 생성
+        mPhotoItemLp = new LinearLayout.LayoutParams(mPhotoBarSizePx, mPhotoBarSizePx);
+        mPhotoItemLp.setMargins(photoItemMargin, 0, photoItemMargin, 0);
+
+        // ─── ContextThemeWrapper 언래핑 ───
+        Context base = context;
+        while (base instanceof ContextWrapper && !(base instanceof LatinIME)) {
+            base = ((ContextWrapper) base).getBaseContext();
+        }
+        if (base instanceof LatinIME) {
+            mImeService = (LatinIME) base;
+        } else {
+            Log.w(TAG_NET, "SuggestionStripView: LatinIME 인스턴스 찾기 실패");
+        }
+        // ─────────────────────────────────────
+
         // AuthManager에 들어있는 userId를 사용.
         DEFAULT_USER_ID = AuthManager.getInstance(context).getUserId();
 
@@ -233,6 +285,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         // blink 애니메이션 리소스 로드  ◀ 수정
         mKeyHighlighted = false;
         mAnswerShown = false;
+
+        mDropIcon = ContextCompat.getDrawable(context, R.drawable.ic_paste_here);
+        mDropIconSize = dpToPx(200); // 원하는 픽셀 크기
 
         for (int pos = 0; pos < SuggestedWords.MAX_SUGGESTIONS; pos++) {
             final TextView word = new TextView(context, null, R.attr.suggestionWordStyle);
@@ -288,7 +343,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             throw new IllegalStateException(
                     "suggestions_strip_keyword_key not found in current layout variant");
         }
-        mKeywordKey.setOnClickListener(new View.OnClickListener() {
+        mKeywordKey.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 Log.d("KeywordSearch", "사진(키워드) 버튼 클릭됨");
@@ -300,9 +355,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 Log.d("KeywordSearch", "키워드 \"" + mLastKeywordWithImages + "\"에 대해 이미지 API 호출");
                 KeywordApi api = ApiClient.getKeywordApi();
                 Call<KeywordImagesResponse> call = api.getImages(DEFAULT_USER_ID, mLastKeywordWithImages, 1, 20);
-                call.enqueue(new retrofit2.Callback<KeywordImagesResponse>() {
+                call.enqueue(new Callback<KeywordImagesResponse>() {
                     @Override
-                    public void onResponse(Call<KeywordImagesResponse> call, retrofit2.Response<KeywordImagesResponse> response) {
+                    public void onResponse(Call<KeywordImagesResponse> call, Response<KeywordImagesResponse> response) {
                         if (response.isSuccessful() && response.body() != null) {
                             List<String> imageIds = response.body().imageIds;
                             Log.d("KeywordSearch", "이미지 API 응답 성공, 이미지 개수: " + (imageIds != null ? imageIds.size() : 0));
@@ -345,6 +400,111 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 mDefaultHeight = getHeight();
             }
         });
+
+        // 로딩 스피너 준비
+        mLoadingSpinner = new ImageView(context);
+        mLoadingSpinner.setVisibility(GONE);
+        mLoadingSpinner.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+
+        // 2) Glide로 GIF 로드
+        Glide.with(context)
+                .asGif()
+                .load(R.drawable.galaxyai_loading_spinner)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)          // 메모리+디스크 캐시
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(mLoadingSpinner);
+
+        // 3) 레이아웃 파라미터 (CENTER_IN_PARENT)
+        LayoutParams lpSpinner =
+                new LayoutParams(
+                        LayoutParams.WRAP_CONTENT,
+                        LayoutParams.WRAP_CONTENT);
+        lpSpinner.addRule(RelativeLayout.CENTER_IN_PARENT);
+
+        // 4) 뷰 계층에 추가 (`this`는 RelativeLayout)
+        this.addView(mLoadingSpinner, lpSpinner);
+
+        // SuggestionStripView 생성자나 init() 내부
+        this.setOnDragListener((v, event) -> {
+            switch (event.getAction()) {
+                case DragEvent.ACTION_DRAG_STARTED:
+                    // 드래그 가능한 데이터인지 검사
+                    if (event.getClipDescription().hasMimeType(ClipDescription.MIMETYPE_TEXT_URILIST)) {
+                        // 1) IME Insets Freeze ON
+                        if (mImeService != null) mImeService.setDragging(true);
+
+                        expandDragArea();
+                        return true;
+                    }
+                    return false;
+
+                case DragEvent.ACTION_DRAG_LOCATION:
+                    // y 좌표가 strip 최상단(=0)에서 mDragExtra 안쪽이면 hover 로 간주
+                    float y = event.getY();
+                    boolean nowHover = (y < mDragExtra);
+                    if (nowHover != mDragHover) {
+                        mDragHover = nowHover;   // 상태 갱신
+                        invalidate();            // 색 다시 칠하게 draw() 호출
+                    }
+                    return true;
+
+                case DragEvent.ACTION_DROP:
+                    // 드롭 위치가 추가된 빈 공간 안인지 체크
+                    float area = event.getY();
+                    if (area < mDragExtra) {
+                        // ── 추가된 영역: 기존 로직 (commitContent or clipboard-paste) 실행
+                        Uri uri = Uri.parse(event.getClipData().getItemAt(0).getText().toString());
+                        InputConnection ic = mMainKeyboardView.getInputConnection();
+                        boolean handled = false;
+                        if (ic != null && mEditorInfo != null) {
+                            ClipDescription desc = new ClipDescription("pasted image", new String[]{"image/*"});
+                            InputContentInfoCompat content =
+                                    new InputContentInfoCompat(uri, desc, null);
+                            handled = InputConnectionCompat.commitContent(
+                                    ic, mEditorInfo, content,
+                                    InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
+                                    null);
+                        }
+                        if (!handled && ic != null) {
+                            // fallback: clipboard → paste
+                            ClipboardManager cm =
+                                    (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                            cm.setPrimaryClip(ClipData.newUri(
+                                    getContext().getContentResolver(), "Image", uri));
+                            ic.performContextMenuAction(android.R.id.paste);
+                        }
+                    } else {
+                        // ── 기존 썸네일 영역: 아무 작업 없이 드래그만 정리
+                    }
+                    // 공통으로 드래그 모드 해제 & 원복
+                    mDragHover = false;
+                    if (mImeService != null) mImeService.setDragging(false);
+                    collapseDragArea();
+                    return true;
+
+                case DragEvent.ACTION_DRAG_ENDED:
+                    mDragHover = false;
+                    // 1) IME Insets Freeze OFF
+                    if (mImeService != null) mImeService.setDragging(false);
+
+                    // 혹시 DROP 이외에 취소된 경우에도 알파 복원
+                    View original = (View) event.getLocalState();
+                    if (original != null) original.setAlpha(1f);
+
+                    // 크기 원복
+                    collapseDragArea();
+                    return true;
+
+                default:
+                    return true;
+            }
+        });
+
+        // 반투명 오버레이용 Paint
+        mOverlayPaint = new Paint();
+        mOverlayPaintHover  = new Paint();
+        mOverlayPaint.setColor(Color.parseColor("#15000000"));
+        mOverlayPaintHover.setColor(Color.parseColor("#40000000"));
     }
 
     /* ▼ EventBus로 HangulCommitEvent 이벤트 구독 --------------------------------------------------- */
@@ -377,15 +537,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             Call<KeywordExistsResponse> call = api.exists(userId, lastWord);
 
             // 5. 비동기 호출 및 결과 처리
-            call.enqueue(new retrofit2.Callback<KeywordExistsResponse>() {
+            call.enqueue(new Callback<KeywordExistsResponse>() {
                 @Override
-                public void onResponse(Call<KeywordExistsResponse> call, retrofit2.Response<KeywordExistsResponse> response) {
+                public void onResponse(Call<KeywordExistsResponse> call, Response<KeywordExistsResponse> response) {
                     if (response.isSuccessful() && response.body() != null) {
                         boolean exists = response.body().exists;
                         Log.d("KeywordSearch", "[API] 단어 \"" + lastWord + "\" 존재여부: " + exists);
 
                         if (exists && mSearchKey != null) {
-                            if (!mSearchKey.isAnimating()) {
+                            if (!mSearchKey.isAnimating() && !mKeyHighlighted) {
                                 int[] gradientColors = new int[]{
                                         Color.parseColor("#DDA0FF"), // 연한 네온 바이올렛
                                         Color.parseColor("#A0DFFF"), // 연한 네온 스카이블루
@@ -453,20 +613,34 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (mInSearchMode) return;
         mInSearchMode = true;
 
-        // 1) 기존 검색 키 숨기고
-        mSearchKey.setVisibility(View.GONE);
-        mSearchKey.setVisibility(View.VISIBLE);
-        mSearchKey.setAnimation("ic_search.json");    // 움직이는 JSON
-        mSearchKey.setRepeatCount(LottieDrawable.INFINITE);
-        mSearchKey.playAnimation();
-
-        // 2) 검색중에는 제안 줄(빈 공간)도, 보조 버튼(마이크/클립보드)도 없애서
-        mSuggestionsStrip.setVisibility(GONE);
-        // 음성·클립보드 버튼은 그대로 노출
-        mVoiceKey.setVisibility(VISIBLE);
+        // 1) 모든 키/버튼 숨기기
+        mSearchKey.setVisibility(GONE);
+        mVoiceKey.setVisibility(GONE);
         mClipboardKey.setVisibility(GONE);
-        // photoBar는 검색 중엔 안 쓰이니 숨겨두고,
-        mPhotoBar.setVisibility(GONE);
+        mFetchClipboardKey.setVisibility(GONE);
+        mSearchStatus.setVisibility(GONE);
+        mSuggestionsStrip.setVisibility(GONE);
+
+        // 2) 뷰 높이를 애니메이션으로 늘리기 (PHOTO_ONLY 때처럼)
+//        int photoBarHeight = dpToPx(96) + dpToPx(6);
+//        final View strip = this;
+//        int startH = strip.getHeight();
+//        int endH = photoBarHeight;
+//        ValueAnimator expandAnim = ValueAnimator.ofInt(startH, endH);
+//        expandAnim.setDuration(500);
+//        expandAnim.setInterpolator(new FastOutSlowInInterpolator());
+//        expandAnim.addUpdateListener(anim -> {
+//            ViewGroup.LayoutParams lp = strip.getLayoutParams();
+//            lp.height = (int) anim.getAnimatedValue();
+//            strip.setLayoutParams(lp);
+//        });
+//        expandAnim.start();
+
+        // 3) 로딩 스피너 보이기
+        mLoadingSpinner.setScaleX(0.8f);
+        mLoadingSpinner.setScaleY(0.8f);
+        mLoadingSpinner.setVisibility(VISIBLE);
+        mLoadingSpinner.bringToFront();
 
         // 3) 실제 API 호출
         dispatchSearchQuery();
@@ -511,9 +685,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         Log.d(TAG_NET, "▶ REQUEST\n" + "user_id = " + DEFAULT_USER_ID + "\n" + "query   = " + query);
 
         // ① Retrofit 호출
-        ApiClient.getChatApiService().search(DEFAULT_USER_ID, query).enqueue(new retrofit2.Callback<MessageResponse>() {
+        ApiClient.getChatApiService().search(DEFAULT_USER_ID, query).enqueue(new Callback<MessageResponse>() {
             @Override
-            public void onResponse(Call<MessageResponse> call, retrofit2.Response<MessageResponse> res) {
+            public void onResponse(Call<MessageResponse> call, Response<MessageResponse> res) {
                 if (!res.isSuccessful()) {
                     Log.e(TAG_NET, "❌ " + res.code() + " " + res.message());
                     return;
@@ -536,11 +710,19 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 );
 
                 post(() -> {
+                    // ① **스피너 숨기기**
+                    mLoadingSpinner.setVisibility(View.GONE);
+                    mSearchKey.setVisibility(VISIBLE);
+
                     if (body.getType().equals("info_search") || body.getType().equals("conversation"))
                         mResponseType = ResponseType.LONG_TEXT;
                     else mResponseType = ResponseType.PHOTO_ONLY;
 
                     mLastResponse = body;
+
+                    View strip;
+                    int startH;
+                    int endH;
 
                     // 2) 분기별 행동
                     switch (mResponseType) {
@@ -553,6 +735,20 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             mSearchKey.setRepeatCount(0);
                             mSearchKey.setAnimation("ic_search_blue.json"); // 파랑 정지된 JSON
                             mSearchKey.setProgress(0f);
+                            mKeyHighlighted = true;
+
+                            // ── SuggestionStripView 높이 애니메이션으로 원복 ──
+                            strip = SuggestionStripView.this;
+                            startH = strip.getHeight();
+                            endH = mDefaultHeight;  // 생성 시 저장해 둔 기본 높이
+                            ValueAnimator collapseAnim = ValueAnimator.ofInt(startH, endH);
+                            collapseAnim.setDuration(500);
+                            collapseAnim.setInterpolator(new FastOutSlowInInterpolator());
+                            collapseAnim.addUpdateListener(anim -> {
+                                strip.getLayoutParams().height = (int) anim.getAnimatedValue();
+                                strip.requestLayout();
+                            });
+                            collapseAnim.start();
 
                             if (mBorderPulseAnimator != null) {
                                 mBorderPulseAnimator.cancel();
@@ -563,9 +759,13 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             // ③ (선택) 레이어 타입도 원래대로 돌려놓기
                             mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
 
-                            mKeyHighlighted = true;
+                            mVoiceKey.setVisibility(VISIBLE);
+                            mFetchClipboardKey.setVisibility(VISIBLE);
+
                             break;
                         case PHOTO_ONLY:
+                            SuggestionStripView.this.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
                             Log.d("행동", "PHOTO_ONLY = \"" + body.getAnswer() + "\"");
                             Log.d(TAG_NET, "[PHOTO_ONLY] before dismiss: panelShowing=" + isShowingMoreSuggestionPanel() + ", stripVis=" + mSuggestionsStrip.getVisibility());
 
@@ -596,9 +796,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                     long id = Long.parseLong(idStr);
                                     Bitmap thumb = MediaStore.Images.Thumbnails.getThumbnail(getContext().getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
                                     ImageView iv = new ImageView(getContext());
-                                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(barSize, barSize);
-                                    lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
-                                    iv.setLayoutParams(lp);
+//                                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(barSize, barSize);
+//                                    lp.setMargins(dpToPx(4), 0, dpToPx(4), 0);
+//                                    iv.setLayoutParams(lp);
+                                    iv.setLayoutParams(mPhotoItemLp);
                                     iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                                     iv.setImageBitmap(thumb);
                                     // 클릭 시 클립보드 복사
@@ -624,6 +825,35 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                             }
                                         }
                                     });
+
+                                    // 길게 터치 시
+                                    iv.setOnLongClickListener(v -> {
+                                        // 1) 드래그 데이터에 URI 문자열 담기
+                                        ClipData.Item item = new ClipData.Item(uri.toString());
+                                        String[] mimeTypes = {ClipDescription.MIMETYPE_TEXT_URILIST};
+                                        ClipData dragData = new ClipData("image_uri", mimeTypes, item);
+
+                                        // 2) 그림자: 원본 뷰를 50% 투명으로 그리기
+                                        DragShadowBuilder shadow = new DragShadowBuilder(iv) {
+                                            @Override
+                                            public void onProvideShadowMetrics(Point shadowSize, Point shadowTouchPoint) {
+                                                int w = iv.getWidth(), h = iv.getHeight();
+                                                shadowSize.set(w, h);
+                                                shadowTouchPoint.set(w / 2, h / 2);
+                                                iv.setAlpha(0.5f);
+                                            }
+
+                                            @Override
+                                            public void onDrawShadow(Canvas canvas) {
+                                                iv.draw(canvas);
+                                            }
+                                        };
+
+                                        // 3) 드래그 시작 (API 24 이상은 startDragAndDrop())
+                                        iv.startDragAndDrop(dragData, shadow, iv, 0);
+                                        return true;
+                                    });
+
                                     // ① 추가: 뷰를 0배율에서 시작
                                     iv.setScaleX(0f);
                                     iv.setScaleY(0f);
@@ -647,9 +877,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                             barLp.height = barSize;
                             mPhotoBar.setLayoutParams(barLp);
 
-                            final View strip = SuggestionStripView.this; // SuggestionStripView 자신
-                            final int startH = strip.getHeight();
-                            final int endH = barSize + dpToPx(6);
+                            strip = SuggestionStripView.this; // SuggestionStripView 자신
+                            startH = strip.getHeight();
+                            endH = barSize + dpToPx(6);
                             ValueAnimator heightAnimator = ValueAnimator.ofInt(startH, endH);
                             heightAnimator.addUpdateListener(anim -> {
                                 strip.getLayoutParams().height = (int) anim.getAnimatedValue();
@@ -664,13 +894,26 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
                             mPhotoBar.setVisibility(VISIBLE);
 
+                            // ⬇️ “❌” 아이콘으로 바뀔 때 글로우 애니메이션 정리
+                            if (mBorderPulseAnimator != null) {
+                                mBorderPulseAnimator.cancel();
+                                mBorderPulseAnimator = null;
+                            }
+                            // 원래 배경으로 복원
+                            mSearchKey.setBackground(mOriginalSearchKeyBg);
+                            // 레이어 타입도 기본으로 되돌리기
+                            mSearchKey.setLayerType(View.LAYER_TYPE_NONE, null);
+
                             // 검색 아이콘 → ❌ 로 변경
                             mSearchKey.clearAnimation();
                             mSearchKey.setRepeatCount(0);
                             mSearchKey.setImageDrawable(mIconClose);
+                            mKeyHighlighted = true;  // X 버튼 상태이므로 glow 금지
 
                             mAnswerShown = true;
                             break;
+                        default:
+                            throw new IllegalStateException("Unexpected value: " + mResponseType);
                     }
                     Toast.makeText(getContext(), "검색 완료", Toast.LENGTH_SHORT).show();
                 });
@@ -680,6 +923,15 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             @Override
             public void onFailure(Call<MessageResponse> call, Throwable t) {
                 post(() -> {
+                    stopKeyboardAnimation();
+                    // ① **스피너 숨기기**
+                    mLoadingSpinner.setVisibility(View.GONE);
+
+                    // ② **높이 원복**
+                    ViewGroup.LayoutParams lp = getLayoutParams();
+                    lp.height = mDefaultHeight;
+                    setLayoutParams(lp);
+
                     mSearchPanel.clearLoadingBubble();
                     // 에러 시에도 버튼 복원
                     mSearchStatus.setVisibility(View.GONE);
@@ -810,10 +1062,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                     mListener.onTextInput(clipString.substring(clipString.length() - 1));
                 }
             }
-            AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(Constants.NOT_A_CODE, this);
+            AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(Constants.NOT_A_CODE, view);
             return true;
         }
-        AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(Constants.NOT_A_CODE, this);
+        AudioAndHapticFeedbackManager.getInstance().performHapticAndAudioFeedback(Constants.NOT_A_CODE, view);
         return showMoreSuggestions();
     }
 
@@ -861,6 +1113,12 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private boolean mNeedsToTransformTouchEventToHoverEvent;
     private boolean mIsDispatchingHoverEventToMoreSuggestions;
     private final GestureDetector mMoreSuggestionsSlidingDetector;
+
+    // 키보드 애니메이션 관련 변수
+    private Drawable mOriginalKeyboardBackground;
+    private ValueAnimator mKeyboardWaveAnimator;
+    private boolean mIsAnimatingKeyboard = false;
+
     private final GestureDetector.OnGestureListener mMoreSuggestionsSlidingListener = new GestureDetector.SimpleOnGestureListener() {
         @Override
         public boolean onScroll(MotionEvent down, MotionEvent me, float deltaX, float deltaY) {
@@ -980,9 +1238,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             } else {
                 // API 호출 부분
                 ClipboardService clipboardService = ApiClient.getClipboardService();
-                clipboardService.getLatestClipboard(userId).enqueue(new retrofit2.Callback<ClipBoardResponse>() {
+                clipboardService.getLatestClipboard(userId).enqueue(new Callback<ClipBoardResponse>() {
                     @Override
-                    public void onResponse(retrofit2.Call<ClipBoardResponse> call, retrofit2.Response<ClipBoardResponse> response) {
+                    public void onResponse(Call<ClipBoardResponse> call, Response<ClipBoardResponse> response) {
                         if (response.isSuccessful() && response.body() != null) {
                             ClipBoardResponse clipboardData = response.body();
                             String clipboardText = clipboardData.getValue();
@@ -992,8 +1250,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                                 mListener.onTextInput(clipboardText);
 
                                 // 2. 클립보드에 복사
-                                android.content.ClipboardManager clipboardManager = (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                                android.content.ClipData clipData = android.content.ClipData.newPlainText("clipboard text", clipboardText);
+                                ClipboardManager clipboardManager = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                ClipData clipData = ClipData.newPlainText("clipboard text", clipboardText);
                                 clipboardManager.setPrimaryClip(clipData);
 
                                 // 3. 토스트 메시지 표시
@@ -1007,7 +1265,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                     }
 
                     @Override
-                    public void onFailure(retrofit2.Call<ClipBoardResponse> call, Throwable t) {
+                    public void onFailure(Call<ClipBoardResponse> call, Throwable t) {
                         Toast.makeText(getContext(), "네트워크 오류: " + t.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -1019,46 +1277,88 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         if (view == mSearchStatus) return;
 
         if (view == mSearchKey) {
-            // conversation 또는 photo 모드에서는 ❌ 클릭 시 원상복귀
+            // ❌ 클릭 시 닫기 애니메이션 (사진 역순 스케일 → strip 닫기)
             if (mResponseType == ResponseType.SHORT_TEXT || mResponseType == ResponseType.PHOTO_ONLY) {
+                final View strip = SuggestionStripView.this;
 
-                // ── height 복원
-                if (mDefaultHeight > 0) {
-                    ViewGroup.LayoutParams rootLp2 = getLayoutParams();
-                    rootLp2.height = mDefaultHeight;
-                    setLayoutParams(rootLp2);
+                stopKeyboardAnimation();
+
+                // — PHOTO_ONLY 모드면 사진을 역순으로 축소 —
+                if (mResponseType == ResponseType.PHOTO_ONLY) {
+                    int count = mPhotoBarContainer.getChildCount();
+                    for (int i = count - 1; i >= 0; i--) {
+                        View iv = mPhotoBarContainer.getChildAt(i);
+                        iv.animate()
+                                .scaleX(0f).scaleY(0f)
+                                .setStartDelay(count - 1 - i)
+                                .setDuration(300)
+                                .setInterpolator(new FastOutSlowInInterpolator())
+                                .start();
+                    }
                 }
 
-                // 1) 숨겨뒀던 결과 영역 전부 감추기
-                mSearchAnswer.setVisibility(GONE);
-                mPhotoBar.setVisibility(GONE);
-//                mCopyKey.setVisibility(GONE);
+                // — 사진 애니메이션 끝난 뒤에 strip 닫기 —
+                long delay = (mResponseType == ResponseType.PHOTO_ONLY
+                        ? mPhotoBarContainer.getChildCount() + 300
+                        : 0);
+                strip.postDelayed(() -> {
+                    // 1) 높이 축소
+                    if (mDefaultHeight > 0) {
+                        int startH = strip.getHeight();
+                        int endH = mDefaultHeight;
+                        ValueAnimator collapse = ValueAnimator.ofInt(startH, endH);
+                        collapse.setDuration(300);
+                        collapse.setInterpolator(new FastOutSlowInInterpolator());
+                        collapse.addUpdateListener(anim -> {
+                            strip.getLayoutParams().height = (int) anim.getAnimatedValue();
+                            strip.requestLayout();
+                        });
+                        collapse.start();
+                    }
 
-                // 2) 제안 줄 & 버튼들 복원
-                mSuggestionsStrip.setVisibility(GONE);
-                mVoiceKey.setVisibility(VISIBLE);
-                mClipboardKey.setVisibility(GONE);
-                mFetchClipboardKey.setVisibility(VISIBLE);
+                    // 2) 페이드아웃
+                    strip.animate()
+                            .alpha(1f)
+                            .setDuration(200)
+                            .withEndAction(() -> {
+                                //— 완전히 닫힌 뒤 원상복구 —
+                                strip.getLayoutParams().height = mDefaultHeight;
+                                strip.requestLayout();
 
-                // 3) 검색키 애니메이션/아이콘 원복
-                mSearchKey.clearAnimation();
-                mSearchKey.setAnimation("ic_search.json");
-                mSearchKey.setProgress(0f);
-                mSearchKey.setRepeatCount(0);
+                                mSearchAnswer.setVisibility(GONE);
+                                mPhotoBar.setVisibility(GONE);
+                                mSuggestionsStrip.setVisibility(GONE);
+                                mVoiceKey.setVisibility(VISIBLE);
+                                mClipboardKey.setVisibility(GONE);
+                                mFetchClipboardKey.setVisibility(VISIBLE);
 
-                // 4) 상태 초기화
-                mInSearchMode = false;
-                mAnswerShown = false;
-                mResponseType = null;
-                mLastResponse = null;
+                                mSearchKey.clearAnimation();
+                                mSearchKey.setAnimation("ic_search.json");
+                                mSearchKey.setProgress(0f);
+                                mSearchKey.setRepeatCount(0);
+
+                                mInSearchMode = false;
+                                mAnswerShown = false;
+                                mResponseType = null;
+                                mLastResponse = null;
+                            });
+                    mKeyHighlighted = false;
+                }, delay);
+
+                SuggestionStripView.this.setLayerType(View.LAYER_TYPE_NONE, null);
                 return;
             }
+
             // 1) 검색 모드가 아니면 진입
             if (!mInSearchMode) {
                 if (isSearchInputEmpty()) {
                     showEmptyToast();
                     return;
                 }
+
+                // 🎨 클릭 시 단발성 키보드 애니메이션 효과
+                showKeyboardClickAnimation();
+
                 enterSearchMode();
                 return;
             }
@@ -1180,5 +1480,224 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                 applyStripTypefaceRecursively(vg.getChildAt(i));
             }
         }
+    }
+
+    private void expandDragArea() {
+        // 원래 높이 + 확장 크기
+        int extra = dpToPx(417);
+        mDragExtra    = extra;
+        mIsDragging   = true;
+
+        ViewGroup.LayoutParams lp = getLayoutParams();
+        lp.height += extra;
+        setLayoutParams(lp);
+
+        // 2) 위쪽 패딩 추가 — 늘어난 빈 공간이 위에 생김
+        setPadding(
+                getPaddingLeft(),
+                extra,
+                getPaddingRight(),
+                getPaddingBottom()
+        );
+
+        invalidate();
+    }
+
+    private void collapseDragArea() {
+        mDragExtra  = 0;
+        mIsDragging = false;
+
+        // 1) 위쪽 패딩 원복
+        setPadding(
+                getPaddingLeft(),
+                0,
+                getPaddingRight(),
+                getPaddingBottom()
+        );
+
+        // PHOTO_ONLY 모드 때의 높이 (96dp 썸네일 + 6dp 여유)
+        int barSize = dpToPx(96);
+        int targetHeight = barSize + dpToPx(6);
+        ViewGroup.LayoutParams lp = getLayoutParams();
+        lp.height = targetHeight;
+        setLayoutParams(lp);
+
+        invalidate();
+    }
+
+    @Override
+    public void draw(Canvas canvas) {
+        if (mIsDragging && mDragExtra > 0) {
+            // 1) 뷰의 “원래” 부분만 정상 렌더링
+            int save = canvas.save();
+            // y = mDragExtra 아래만 그리도록 클립
+            canvas.clipRect(0, mDragExtra, getWidth(), getHeight());
+            super.draw(canvas);
+            canvas.restoreToCount(save);
+
+            // hover 중이면 더 진한 페인트 사용
+            Paint p = mDragHover ? mOverlayPaintHover : mOverlayPaint;
+            canvas.drawRect(0, 0, getWidth(), mDragExtra, p);
+
+            // ── 여기서 드롭 아이콘 그리기 ──
+            if (mDropIcon != null) {
+                int cx = getWidth() / 2;
+                int cy = mDragExtra / 2;
+                int half = mDropIconSize / 2;
+                mDropIcon.setBounds(cx - half, cy - half, cx + half, cy + half);
+                mDropIcon.draw(canvas);
+            }
+
+        } else {
+            super.draw(canvas);
+        }
+    }
+
+    /**
+     * 🎨 자연스럽고 적당히 보이는 그라디언트 웨이브 애니메이션
+     */
+    /**
+     * 🎨 검색 모드 동안 지속되는 키보드 웨이브 애니메이션
+     */
+    private void showKeyboardClickAnimation() {
+        if (mMainKeyboardView == null || mIsAnimatingKeyboard) return;
+
+        // 원본 배경 저장
+        if (mOriginalKeyboardBackground == null) {
+            mOriginalKeyboardBackground = mMainKeyboardView.getBackground();
+        }
+
+        mIsAnimatingKeyboard = true;
+
+        // 무한 반복되는 부드러운 웨이브 애니메이션
+        mKeyboardWaveAnimator = ValueAnimator.ofFloat(0f, 1f);
+        mKeyboardWaveAnimator.setDuration(3000); // 주기
+        mKeyboardWaveAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        mKeyboardWaveAnimator.setRepeatMode(ValueAnimator.RESTART);
+        mKeyboardWaveAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
+
+        mKeyboardWaveAnimator.addUpdateListener(animation -> {
+            if (mIsAnimatingKeyboard) {
+                float progress = (float) animation.getAnimatedValue();
+                applyVisibleWaveEffect(progress);
+            }
+        });
+
+        mKeyboardWaveAnimator.start();
+        Log.d("KeyboardAnimation", "지속적인 웨이브 애니메이션 시작");
+    }
+
+    /**
+     * 🎨 키보드 애니메이션 중지 및 원상복구
+     */
+    private void stopKeyboardAnimation() {
+        if (mKeyboardWaveAnimator != null) {
+            mKeyboardWaveAnimator.cancel();
+            mKeyboardWaveAnimator = null;
+        }
+
+        mIsAnimatingKeyboard = false;
+
+        // 키보드 원복
+        if (mMainKeyboardView != null && mOriginalKeyboardBackground != null) {
+            mMainKeyboardView.setBackground(mOriginalKeyboardBackground);
+            mMainKeyboardView.setAlpha(1f);
+        }
+
+        Log.d("KeyboardAnimation", "키보드 애니메이션 중지 및 원상복구");
+    }
+
+
+
+    /**
+     * 🎨 키보드 애니메이션 빈 여백 제거 - 빠른 수정
+     * 기존 코드에서 이 부분만 교체하세요
+     */
+    private void applyVisibleWaveEffect(float progress) {
+        if (mMainKeyboardView == null) return;
+
+        // 자연스러운 물결 패턴
+        double mainWave = Math.sin(progress * Math.PI);
+        float wave1 = (float) Math.sin(progress * Math.PI * 3) * 0.2f;
+        float wave2 = (float) Math.sin(progress * Math.PI * 1.5f) * 0.15f;
+
+        float intensity = (float) (mainWave + wave1 + wave2);
+        intensity = Math.max(0f, Math.min(1f, intensity));
+
+        // 하늘색-보라색 계열
+        int[] skyPurpleColors = {
+                Color.parseColor("#87CEEB"), // 하늘색
+                Color.parseColor("#6495ED"), // 콘플라워 블루
+                Color.parseColor("#7B68EE"), // 미디엄 슬레이트 블루
+                Color.parseColor("#9370DB"), // 보라색
+                Color.parseColor("#BA68C8"), // 미디엄 오키드
+                Color.parseColor("#8A2BE2")  // 블루 바이올렛
+        };
+
+        int colorIndex = (int) (progress * 2) % skyPurpleColors.length;
+        int nextColorIndex = (colorIndex + 1) % skyPurpleColors.length;
+        float colorProgress = (progress * 2) % 1f;
+
+        int baseColor = interpolateColor(skyPurpleColors[colorIndex], skyPurpleColors[nextColorIndex], colorProgress);
+
+        GradientDrawable waveDrawable = new GradientDrawable();
+        waveDrawable.setShape(GradientDrawable.RECTANGLE);
+        waveDrawable.setOrientation(GradientDrawable.Orientation.BOTTOM_TOP);
+
+        int baseAlpha = (int) (intensity * 140);
+
+        // ✨ 핵심 수정: 더 넓은 범위의 그라디언트로 여백까지 커버
+        int[] gradientColors = new int[]{
+                Color.argb(baseAlpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),           // 100%
+                Color.argb(baseAlpha * 9/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 90%
+                Color.argb(baseAlpha * 8/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 80%
+                Color.argb(baseAlpha * 7/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 70%
+                Color.argb(baseAlpha * 6/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 60%
+                Color.argb(baseAlpha * 5/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 50%
+                Color.argb(baseAlpha * 4/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 40%
+                Color.argb(baseAlpha * 3/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 30%
+                Color.argb(baseAlpha * 2/10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)),   // 20%
+                Color.argb(baseAlpha / 10, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))      // 10%
+        };
+
+        waveDrawable.setColors(gradientColors);
+
+        // ✨ 핵심 수정: 코너를 완전히 제거하여 전체 영역 채우기
+        waveDrawable.setCornerRadius(0);
+
+        // ✨ 핵심 수정: 스트로크 제거 (테두리로 인한 여백 방지)
+        // 기존 스트로크 코드 주석 처리:
+        // if (baseAlpha > 30) {
+        //     int strokeColor = Color.argb(baseAlpha / 2, 255, 255, 255);
+        //     waveDrawable.setStroke(dpToPx(1), strokeColor);
+        // }
+
+        mMainKeyboardView.setBackground(waveDrawable);
+
+        // 미세한 투명도 변화
+        float breathingAlpha = 0.95f + (intensity * 0.05f);
+        mMainKeyboardView.setAlpha(breathingAlpha);
+    }
+
+    /**
+     * 🎨 두 색상 사이의 부드러운 보간
+     */
+    private int interpolateColor(int colorA, int colorB, float progress) {
+        int aA = Color.alpha(colorA);
+        int rA = Color.red(colorA);
+        int gA = Color.green(colorA);
+        int bA = Color.blue(colorA);
+
+        int aB = Color.alpha(colorB);
+        int rB = Color.red(colorB);
+        int gB = Color.green(colorB);
+        int bB = Color.blue(colorB);
+
+        return Color.argb(
+                (int) (aA + (aB - aA) * progress),
+                (int) (rA + (rB - rA) * progress),
+                (int) (gA + (gB - gA) * progress),
+                (int) (bA + (bB - bA) * progress)
+        );
     }
 }
